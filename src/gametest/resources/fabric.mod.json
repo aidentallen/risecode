@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "riserecode-test",
+  "version": "1.0.0",
+  "name": "RiseRecode integration checks",
+  "environment": "client",
+  "mixins": ["riserecode-test.mixins.json"],
+  "entrypoints": {
+    "fabric-client-gametest": ["dev.riserecode.ClientIntegrationTest"]
+  },
+  "depends": {
+    "riserecode": "*",
+    "fabric-client-gametest-api-v1": "*"
+  }
+}

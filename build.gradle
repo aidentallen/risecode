@@ -1,0 +1,173 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+base { archivesName = project.archives_base_name }
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    compileOnly files('dependencies/baritone-api-fabric-1.19.0.jar')
+    // Optional renderer adapters target the installed versions; these are not bundled.
+    compileOnly files('dependencies/sodium-fabric-0.9.2+mc26.2.jar', 'dependencies/iris-fabric-1.11.4+mc26.2.jar', 'dependencies/glsl-transformer-3.0.0-pre3.jar')
+    compileOnly 'com.google.errorprone:error_prone_annotations:2.48.0'
+    testCompileOnly 'com.google.errorprone:error_prone_annotations:2.48.0'
+}
+
+processResources {
+    from('LICENSE') { into 'licenses'; rename { 'risecode-MIT.txt' } }
+    from('THIRD_PARTY_NOTICES.md') { into 'licenses' }
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all', '-Werror']
+}
+
+tasks.register('foundationCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.FoundationChecks'
+}
+
+tasks.register('runtimeCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.RuntimeChecks'
+}
+
+tasks.register('uiCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.UiChecks'
+}
+
+tasks.register('engineCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.EngineChecks'
+}
+
+tasks.register('combatCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.CombatChecks'
+}
+
+tasks.register('themeCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.ThemeChecks'
+}
+
+tasks.register('phase8Check', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.Phase8Checks'
+}
+
+tasks.register('colorPaintCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.ColorPaintChecks'
+}
+
+tasks.register('keybindCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.KeybindChecks'
+}
+
+tasks.register('polishCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.PolishChecks'
+}
+
+tasks.register('upgradeCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.UpgradeChecks'
+}
+
+tasks.register('noRenderCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.NoRenderChecks'
+}
+
+tasks.register('chunkAnimationCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.ChunkAnimationChecks'
+}
+tasks.named('check') { dependsOn 'chunkAnimationCheck', 'noRenderCheck', 'upgradeCheck', 'polishCheck', 'foundationCheck', 'runtimeCheck', 'uiCheck', 'engineCheck', 'combatCheck', 'themeCheck', 'phase8Check', 'colorPaintCheck', 'keybindCheck' }
+
+// The dependency-free checks above use JavaExec rather than a JUnit runner.
+tasks.named('test') { enabled = false }
+
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'riserecode-test'
+        enableGameTests = false
+        enableClientGameTests = true
+    }
+}
+
+loom.runs.clientGameTest {
+    runDir = 'build/run/clientGameTest'
+    vmArg '-Xmx1536m'
+    vmArg '-XX:ActiveProcessorCount=4'
+    programArgs '--graphicsBackend', providers.gradleProperty('graphicsBackend').getOrElse('OPENGL')
+    if (providers.gradleProperty('benchmarkOnly').isPresent()) { vmArg '-Driserecode.benchmarkOnly=true'; vmArg '-Driserecode.benchmarkLabel=' + providers.gradleProperty('benchmarkLabel').getOrElse('baseline') }
+    if (providers.gradleProperty('upgradeOnly').isPresent()) { vmArg '-Driserecode.upgradeOnly=true' }
+    if (providers.gradleProperty('noRenderOnly').isPresent()) { vmArg '-Driserecode.noRenderOnly=true' }
+    if (providers.gradleProperty('chunkAnimationsOnly').isPresent()) { vmArg '-Driserecode.chunkAnimationsOnly=true' }
+    if (providers.gradleProperty('withShaderPack').isPresent()) { vmArg '-Driserecode.withShaderPack=true' }
+    if (providers.gradleProperty('polishOnly').isPresent()) { vmArg '-Driserecode.polishOnly=true' }
+    if (providers.gradleProperty('phase8Only').isPresent()) { vmArg '-Driserecode.phase8Only=true' }
+    if (providers.gradleProperty('colorOutlineOnly').isPresent()) { vmArg '-Driserecode.colorOutlineOnly=true' }
+    if (providers.gradleProperty('keybindOnly').isPresent()) { vmArg '-Driserecode.keybindOnly=true' }
+}
+
+// The test instance is disposable. Copy only optional, user-installed font assets after cleanup;
+// they remain local to development and never enter either distributable JAR.
+tasks.named('runClientGameTest') {
+    doFirst {
+        if (providers.gradleProperty('withBaritone').isPresent()) { copy { from 'dependencies/baritone-api-fabric-1.19.0.jar'; into 'build/run/clientGameTest/mods' } }
+        if (providers.gradleProperty('withShaderPack').isPresent()) { copy { from '/home/toast/.local/share/ModrinthApp/profiles/Fabric 26.2/shaderpacks/ComplementaryUnbound_r5.9.3.zip'; into 'build/run/clientGameTest/shaderpacks' } }
+        if (providers.gradleProperty('installedStack').isPresent()) {
+            copy {
+                from '/home/toast/.local/share/ModrinthApp/profiles/Fabric 26.2/mods'
+                exclude 'fabric-api-*', 'riserecode-*', 'baritone-*'
+                if (providers.gradleProperty('withoutIris').isPresent()) { exclude 'iris-*' }
+                into 'build/run/clientGameTest/mods'
+            }
+        }
+        copy {
+            from 'run/resourcepacks/qraftys-capitalized-font.zip'
+            into 'build/run/clientGameTest/resourcepacks'
+        }
+        copy {
+            from 'run/config/riserecode/fonts'
+            include '*.ttf', 'qraftys.zip'
+            into 'build/run/clientGameTest/config/riserecode/fonts'
+        }
+    }
+}

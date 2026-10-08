@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "dev.riserecode.testmixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "ChatStateAccessor",
+    "GameRendererFogAccessor",
+    "BenchmarkFrameMixin",
+    "ChunkClockMixin",
+    "LateKeyDefaultsMixin",
+    "KeyboardInputInvoker",
+    "FrameLimitAccessor",
+    "ChatInputAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

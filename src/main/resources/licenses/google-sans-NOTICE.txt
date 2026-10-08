@@ -1,0 +1,11 @@
+Google Sans static Regular and Medium, official release v14.000.
+https://github.com/googlefonts/googlesans/releases/tag/v14.000
+
+Copyright notice embedded in these unmodified font files:
+Copyright 2025 The Google Sans Project Authors (github.com/googlefonts/googlesans)
+
+Embedded license notice:
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is available with a FAQ at: https://openfontlicense.org
+
+The upstream repository's OFL.txt is included as google-sans-OFL.txt.

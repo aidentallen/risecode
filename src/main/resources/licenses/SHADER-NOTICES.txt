@@ -1,0 +1,21 @@
+risecode Ambience adapters
+
+water_sodium.vsh, water_sodium.fsh and chunk_sodium.vsh adapt the installed Sodium
+0.9.2+mc26.2 terrain shaders. Original authors: CaffeineMC contributors.
+Source: https://github.com/CaffeineMC/sodium
+License: PolyForm Shield 1.0.0. See sodium-shaders-LICENSE.md in this directory.
+Changes: camera-relative position varying and original Ambience water shading
+before Sodium's native fog, preserving vertex compression, texture sampling,
+lighting and backend push constants. Optional risecode chunk offsets and a
+separate native section-fade override are applied before projection.
+
+water_vanilla.vsh and water_vanilla.fsh adapt the Minecraft 26.2 terrain shader
+interface, retaining native transforms, light map sampling, cutout and fog.
+Minecraft is copyright Mojang AB. These adapters require a licensed Minecraft
+installation; no game executable or game content is included.
+
+ambience.glsl and ambience_sky shaders are original risecode procedural effects.
+Baritone is a separate, unmodified official API distribution and is not bundled.
+
+The Sodium adapter also preserves globals.glsl, fog.glsl, chunk_vertex.glsl,
+and chunk_material.glsl under shaders/include/sodium, under the same license.
