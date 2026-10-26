@@ -163,8 +163,8 @@ configuration directory, and JAR basename remain `riserecode`.
 
 1. Use **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and
    **Fabric API 0.161.0+26.2 or newer**.
-2. Use the built `riserecode-0.16.1.jar`, or its matching asset from
-   [Releases](https://github.com/aidentallen/risecode/releases) when available, and place it in your instance's `mods` directory.
+2. Download the latest `riserecode` JAR from
+   [GitHub Releases](https://github.com/aidentallen/risecode/releases/latest) and place it in your instance's `mods` directory.
 3. Restart Minecraft. **Right Shift** opens the interface; the title screen
    also has an interface button.
 
