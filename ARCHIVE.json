@@ -1,7 +1,7 @@
 {
-  "version": "0.1.0",
-  "binary_sha256": "df486d6f7ce132616919fd61e154c3457069627ec609d5d191a920372289a16d",
-  "source_sha256": "da0e8be93fc53247ab40d5203cef2371471a3c5eaa1863fe138fd595f52a7f40",
+  "version": "0.2.0",
+  "binary_sha256": "87eb2433069ccfb85e4e7374544495631530e42241f335ea5fb96c1d8c4e78fa",
+  "source_sha256": "9ceb9450b7003c8fa0317fed5b82f141c722291ae9ba4c9fa2d8ac718714e9ea",
   "binary_selection": "Previously verified historical release archive",
   "source_recovery": "Retained production sources JAR",
   "original_development_history_available": false

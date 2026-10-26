@@ -77,7 +77,7 @@ public final class ClickGui extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         long now = System.nanoTime();
-        double seconds = previousFrame == 0 ? 0 : Math.min(0.1, (now - previousFrame) / 1_000_000_000.0);
+        double seconds = previousFrame == 0 ? 0 : Math.max(0, (now - previousFrame) / 1_000_000_000.0);
         previousFrame = now;
         RenderUtil.drawGradientRect(graphics, 0, 0, width, height, 0xB80F1115, 0xDE0F1115);
         double pointerX = mouseX / canvasScale; double pointerY = mouseY / canvasScale;

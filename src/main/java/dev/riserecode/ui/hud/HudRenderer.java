@@ -62,7 +62,7 @@ public final class HudRenderer implements AutoCloseable {
     }
 
     private void render(Render2DEvent event) {
-        double seconds = Math.min(0.1, event.getDeltaSeconds());
+        double seconds = event.getDeltaSeconds();
         visibility.animateTo(enabled ? 1 : 0);
         double opacity = MathUtil.clamp01(visibility.update(seconds));
         for (Module module : modules.getModules()) {
