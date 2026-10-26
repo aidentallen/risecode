@@ -217,7 +217,7 @@ public final class FoundationChecks {
         EventBus bus = strictBus();
         TestModule module = new TestModule(bus);
         check(!module.isEnabled() && module.getKeybind() == Module.UNBOUND, "module defaults");
-        check(module.getSettings().size() == 1, "module owns typed setting list");
+        check(module.getSettings().size() == 5, "module owns typed setting list");
         expect(UnsupportedOperationException.class, () -> module.getSettings().clear());
         expect(IllegalArgumentException.class,
                 () -> module.addSetting(new BooleanSetting("visible", "Duplicate", false)));

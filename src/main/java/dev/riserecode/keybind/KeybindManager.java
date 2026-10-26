@@ -26,6 +26,7 @@ public final class KeybindManager implements AutoCloseable {
     private final EventBus.Subscription tickSubscription;
     private final KeybindController controller;
     private Module capturing;
+    private boolean capturingMenu;
     private String captureNotice = "";
 
     public KeybindManager(EventBus eventBus, Minecraft minecraft, ModuleManager modules, Supplier<ClickGui> clickGuiSupplier) {
@@ -40,7 +41,7 @@ public final class KeybindManager implements AutoCloseable {
         subscription = eventBus.subscribe(KeyPressEvent.class, 100, true, this::onKey);
         tickSubscription = eventBus.subscribe(UpdateEvent.class, 1000, false, ignored -> {
             controller.update(inputAllowed(), key -> InputConstants.isKeyDown(minecraft.getWindow(), key));
-            if (capturing != null && !(minecraft.gui.screen() instanceof ClickGui)) { cancelCapture(); }
+            if ((capturing != null || capturingMenu) && !(minecraft.gui.screen() instanceof ClickGui)) { cancelCapture(); }
         });
     }
 
@@ -58,10 +59,17 @@ public final class KeybindManager implements AutoCloseable {
     }
     public void setMode(Module module, Module.BindMode mode) { modules.setBindMode(module, mode); }
     public void reset(Module module) { cancelCapture(); bind(module, Module.UNBOUND); }
-    public void beginCapture(Module module) { capturing = module; captureNotice = ""; }
-    public void cancelCapture() { capturing = null; captureNotice = ""; }
+    public void beginCapture(Module module) { capturingMenu=false;capturing = module; captureNotice = ""; }
+    public void beginMenuCapture(){cancelCapture();capturingMenu=true;}
+    public boolean isMenuCapturing(){return capturingMenu;}
+    public void setMenuKey(int key){
+        if(key<32||key>348||key==InputConstants.KEY_ESCAPE){throw new IllegalArgumentException("Choose a keyboard key other than Escape");}
+        if(modules.getModules().stream().anyMatch(m->m.getKeybind()==key)){throw new IllegalArgumentException("That key is bound to a module");}
+        clickGuiKey.setKey(InputConstants.Type.KEYSYM.getOrCreate(key));KeyMapping.resetMapping();minecraft.options.save();
+    }
+    public void cancelCapture() { capturingMenu=false;capturing = null; captureNotice = ""; }
     public boolean isCapturing(Module module) { return capturing == module; }
-    public boolean isCapturing() { return capturing != null; }
+    public boolean isCapturing() { return capturing != null || capturingMenu; }
     public String getCaptureNotice() { return captureNotice; }
     public boolean persistentEnabled(Module module) { return controller.persistentEnabled(module); }
 
@@ -96,6 +104,10 @@ public final class KeybindManager implements AutoCloseable {
 
     private void onKey(KeyPressEvent event) {
         if (event.isRelease()) { controller.releaseKey(event.getKey()); }
+        if(capturingMenu && minecraft.gui.screen() instanceof ClickGui){
+            event.cancel();if(!event.isPress()){return;}if(event.getInput().isEscape()){cancelCapture();return;}
+            try{setMenuKey(event.getKey());cancelCapture();}catch(IllegalArgumentException invalid){captureNotice=invalid.getMessage();}return;
+        }
         if (capturing != null && minecraft.gui.screen() instanceof ClickGui) {
             event.cancel();
             if (!event.isPress()) { return; }

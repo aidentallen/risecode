@@ -42,7 +42,7 @@ public final class ColorPaintChecks {
         check(copy.paint().equals(color.paint()), "complete color policy round trip");
         JsonObject malformed = saved.deepCopy(); malformed.addProperty("speed", Double.NaN); invalid(() -> copy.decode(malformed));
         check(copy.paint().equals(color.paint()), "invalid color cannot partially change policy");
-        invalid(() -> color.setSpeed(4)); invalid(() -> color.setSpacing(0));
+        invalid(() -> color.setSpeed(13)); invalid(() -> color.setSpacing(0));
         check(color.decode(new JsonPrimitive("803B82F6")).primary() == 0x803B82F6 && color.decode(new JsonPrimitive(0x803B82F6)).primary() == 0x803B82F6, "legacy string and numeric colors");
         color.reset(); check(color.paint().equals(color.defaultPaint()), "reset restores endpoints and policy too");
         var layout = new HudLayout(0.2, 0.3); layout.backgroundColor.apply(copy.paint()); var layoutSave = layout.snapshot();

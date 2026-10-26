@@ -35,8 +35,8 @@ public final class Theme {
     private static ThemeManager manager;
     public static void bind(ThemeManager value) { manager = value; }
     public static ThemeManager manager() { return manager; }
-    public static double number(String name, double fallback) { return manager == null ? fallback : manager.number(name); }
-    public static boolean bool(String name, boolean fallback) { return manager == null ? fallback : manager.bool(name); }
+    public static double number(String name, double fallback) { if(PageAppearance.plain()){return switch(name){case "Font Scale","Panel Opacity","Interface Scale"->1;case "Corner Radius","GUI Blur Radius","World Blur Radius","Glow Radius"->0;default->manager==null?fallback:manager.number(name);};}return manager == null ? fallback : manager.number(name); }
+    public static boolean bool(String name, boolean fallback) { return dev.riserecode.ui.theme.PageAppearance.plain()?(name.equals("Reduced Motion")||name.equals("Text Shadow")):manager == null ? fallback : manager.bool(name); }
     public static double radius(double original) { return original * number("Corner Radius", 10) / 10; }
     public static int secondaryAccent() { return manager == null ? BLUE : manager.color("Secondary Accent"); }
     public static boolean hasGradient() { return manager != null && (manager.choice("Gradient Mode", dev.riserecode.util.ColorUtil.GradientMode.class) != dev.riserecode.util.ColorUtil.GradientMode.STATIC || manager.colorSetting("Primary Accent").getMode() != dev.riserecode.setting.ColorSetting.Mode.SOLID); }
@@ -52,6 +52,7 @@ public final class Theme {
         return manager.getGradientColor(offset, gradientSeconds);
     }
     public static dev.riserecode.setting.ColorSetting.Paint paint(String name) {
+        if(PageAppearance.plain()){int color=name.contains("Text")?0xFFFFFFFF:name.contains("Accent")?0xFFAAAAAA:0xFF282828;return new dev.riserecode.setting.ColorSetting.Paint(color,color,dev.riserecode.setting.ColorSetting.Mode.SOLID,dev.riserecode.util.ColorUtil.GradientDirection.HORIZONTAL,0,100);}
         return manager.colorSetting(name).paint();
     }
     /** Maps reference palette tokens without confusing user-selected ARGB settings. */
@@ -68,7 +69,7 @@ public final class Theme {
             case 0x34434F -> "HUD Bar Track Color";
             default -> null;
         };
-        return name == null ? null : manager.colorSetting(name).paint().opacity((color >>> 24) / 255.0);
+        return name == null ? null : paint(name).opacity((color >>> 24) / 255.0);
     }
     public static double gradientTime() { return gradientSeconds; }
     /** Resolve theme tokens before hover interpolation; never substitute user color endpoints. */
@@ -92,6 +93,8 @@ public final class Theme {
 
     private Theme() { }
     public static int accent() {
+        if(PageAppearance.plain()){return 0xFFDDDDDD;}
+        if(manager!=null&&!ModuleAppearance.context().isEmpty()){var local=manager.existingModule(ModuleAppearance.context());if(local!=null&&!local.global.getValue()){return manager.getGradientColor(0,gradientSeconds);}}
         return hasGradient()
                 ? manager.getGradientColor(0, gradientSeconds) : lerp(previousAccent, accent, accentBlend.getValue());
     }
@@ -138,9 +141,24 @@ public final class Theme {
         }
         return spaced;
     }
-    public static Component text(String text, boolean title) {
-        return Component.literal(text).withStyle(title ? TITLE : BODY);
+    public static Style nativeStyle(boolean title) {
+        if(PageAppearance.plain()){return Style.EMPTY;}
+        if(manager==null){return title?TITLE:BODY;}
+        String family=switch(manager.choice("Font Selection",ThemeManager.Typeface.class)){
+            case GOOGLE_SANS->"google_sans";case MONTSERRAT->"montserrat";case INTER->"inter";
+            case MINECRAFTIA->dev.riserecode.ui.sound.UiSounds.nativeMinecraftia()?"minecraftia":"roboto";case QRAFTYS->dev.riserecode.ui.sound.UiSounds.nativeQraftys()?"qraftys":"inter";
+        };
+        return Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath("riserecode",(family.equals("minecraftia")||family.equals("qraftys"))?family:family+(title?"_medium":"_regular"))));
     }
+    public static net.minecraft.util.FormattedCharSequence nativeSequence(net.minecraft.util.FormattedCharSequence text){
+        var font=nativeStyle(false).getFont();
+        return sink->text.accept((index,style,codepoint)->sink.accept(index,style.getFont().equals(FontDescription.DEFAULT)?style.withFont(font):style,codepoint));
+    }
+    public static Component nativeText(Component text) {
+        var out=Component.empty();var font=nativeStyle(false).getFont();
+        text.visit((style,value)->{out.append(Component.literal(value).setStyle(style.getFont().equals(FontDescription.DEFAULT)?style.withFont(font):style));return java.util.Optional.empty();},Style.EMPTY);return out;
+    }
+    public static Component text(String text, boolean title) { return Component.literal(text).withStyle(nativeStyle(title)); }
     public static int lerp(int from, int to, double progress) {
         double t = MathUtil.clamp01(progress);
         int result = 0;

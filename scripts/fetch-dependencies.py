@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch verified, pinned optional API dependencies without bundling them."""
+"""Fetch checksum-pinned optional APIs and bundled cosmetics parser dependencies."""
 from pathlib import Path
 import hashlib
 import json

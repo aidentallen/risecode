@@ -43,6 +43,6 @@ public final class ToggleSwitch extends UIComponent {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || !contains(mouseX, mouseY)) { return false; }
-        setter.accept(!value.getAsBoolean()); return true;
+        dev.riserecode.ui.sound.UiSounds.play(); setter.accept(!value.getAsBoolean()); return true;
     }
 }

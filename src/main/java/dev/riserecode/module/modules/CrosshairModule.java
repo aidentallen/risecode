@@ -8,7 +8,7 @@ import dev.riserecode.setting.DoubleSetting;
 
 /** Native centered reticle; deliberately not an editor-draggable text HUD element. */
 public final class CrosshairModule extends Module {
-    private final DoubleSetting scale = register(new DoubleSetting("Scale", "Native crosshair and attack indicator size", 1, 0.25, 4));
+    private final DoubleSetting scale = register(DoubleSetting.extended("Scale", "Native crosshair and attack indicator size", 1, 0.25, 4));
     public CrosshairModule(EventBus bus) {
         super("Crosshair", "Scale the original Minecraft crosshair around screen center.", Category.HUD, bus);
     }

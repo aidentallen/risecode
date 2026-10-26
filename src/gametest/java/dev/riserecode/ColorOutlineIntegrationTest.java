@@ -47,7 +47,7 @@ public final class ColorOutlineIntegrationTest {
             flag(enchant, "Overlay", false); flag(enchant, "WorldItems", false); number(enchant, "OutlineWidth", 6); number(enchant, "OutlineGlow", 0); number(enchant, "OutlineIntensity", 1);
             var color = color(enchant, "OutlineColor"); color.setValue(0xFFFF11FF); color.setMode(ColorSetting.Mode.SOLID);
         });
-        for (String item : new String[] {"diamond_axe", "diamond_sword"}) {
+        for (String item : new String[] {"diamond_axe", "diamond_sword", "trident"}) {
             context.runOnClient(mc -> enchant.setEnabled(false));
             world.getServer().runCommand("item replace entity @a weapon.mainhand with minecraft:" + item + "[minecraft:enchantment_glint_override=true]");
             context.waitTicks(35);
@@ -71,7 +71,23 @@ public final class ColorOutlineIntegrationTest {
             }));
             context.waitFor(mc -> horizontalReady.get(), 200);
             compare(item);
+            if(item.equals("diamond_axe")){
+                world.getServer().runCommand("enchant @a minecraft:unbreaking 1");context.waitTicks(6);
+                context.runOnClient(mc->mc.player.getMainHandItem().set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE,false));context.waitTicks(4);
+                long actual=ItemOutlineRenderer.getCompositeCount();context.waitTicks(8);check(ItemOutlineRenderer.getCompositeCount()>actual+2,"Regular enchanted geometry remains outlined with native glint disabled");
+            }
         }
+        check(ItemOutlineRenderer.specialSubmissions()>0,"Special model geometry enters the silhouette mask");
+        world.getServer().runCommand("enchant @a minecraft:loyalty 1");context.waitTicks(6);
+        context.runOnClient(mc->{
+            var state=new net.minecraft.client.renderer.item.ItemStackRenderState();mc.getItemModelResolver().updateForLiving(state,mc.player.getMainHandItem(),net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND,mc.player);
+            var metadata=((dev.riserecode.render.ItemVisualContext.State)(Object)state).risecode$itemContext();
+            check(metadata.enchanted()&&metadata.foil()&&metadata.display().firstPerson(),"Actual trident enchantment and display context retained");
+        });
+        long specialBefore=ItemOutlineRenderer.specialSubmissions();context.getInput().holdMouse(1);context.waitTicks(12);context.takeScreenshot("outline-charging-trident");
+        check(ItemOutlineRenderer.specialSubmissions()>specialBefore,"Charging trident submits its special-model mask");context.getInput().releaseMouse(1);context.waitTicks(6);
+        context.runOnClient(mc->mc.player.getMainHandItem().set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE,false));context.waitTicks(4);
+        long actualSpecial=ItemOutlineRenderer.specialSubmissions();context.waitTicks(8);check(ItemOutlineRenderer.specialSubmissions()>actualSpecial+2,"Special enchanted models remain outlined with native glint disabled");
         int allocations = ItemOutlineRenderer.getAllocationCount(); context.waitTicks(10);
         check(ItemOutlineRenderer.getAllocationCount() == allocations, "outline targets are reused between frames");
         context.runOnClient(mc -> {
@@ -112,7 +128,7 @@ public final class ColorOutlineIntegrationTest {
         context.runOnClient(mc -> { var paint = client.getThemeManager().colorSetting("Surface Color"); paint.setMode(ColorSetting.Mode.GRADIENT); paint.setValue(0xFF18212D); paint.setSecondary(0xFF283348); paint.setSpeed(0); });
         context.waitTicks(8); context.takeScreenshot("interface-custom-color-picker");
         context.runOnClient(mc -> { mc.gui.setScreen(null); client.getModuleManager().disableAll(); client.getThemeManager().reset(); client.getHudRenderer().setEnabled(true); mc.options.glintStrength().set(0.75); });
-        client.getLogger().info("Color picker / whole-item outline OpenGL checks passed ({} assertions)", checks);
+        client.getLogger().info("Color picker / whole-item outline native checks passed ({} assertions)", checks);
     }
     private static boolean settledHeight(net.minecraft.client.renderer.ItemInHandRenderer renderer) {
         try {

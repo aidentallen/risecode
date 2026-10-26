@@ -4,9 +4,16 @@
   "version": "1.0.0",
   "name": "RiseRecode integration checks",
   "environment": "client",
-  "mixins": ["riserecode-test.mixins.json"],
+  "mixins": [
+    "riserecode-test.mixins.json"
+  ],
   "entrypoints": {
-    "fabric-client-gametest": ["dev.riserecode.ClientIntegrationTest"]
+    "fabric-client-gametest": [
+      "dev.riserecode.ClientIntegrationTest"
+    ],
+    "client": [
+      "dev.riserecode.ResourcesTestBootstrap"
+    ]
   },
   "depends": {
     "riserecode": "*",

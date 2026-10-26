@@ -23,7 +23,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.render.TextureSetup;
 import org.lwjgl.system.MemoryUtil;
 
-/** Reads the user's Qraftys resource pack without bundling its copyrighted artwork in the mod.
+/** Loads the original bundled Qraftys bitmap with optional explicit local overrides.
  * Original bitmap advances and small-cap lowercase glyphs are preserved. A linear-time Euclidean
  * distance transform creates a separate GPU atlas for live shadows/glow; text uses nearest sampling.
  */
@@ -54,12 +54,43 @@ final class BitmapPackFont implements AutoCloseable {
         } catch (IOException ignored) { return null; }
     }
 
+    static boolean prepareNative(Path config,Path root) throws IOException {
+        Path pack=find(config);if(pack==null){return true;}
+        try(ZipFile zip=new ZipFile(pack.toFile())){
+            var entry=zip.getEntry("assets/minecraft/textures/font/ascii.png");
+            if(entry==null||entry.getSize()>1024*1024){return false;}
+            byte[] bytes;try(var stream=zip.getInputStream(entry)){bytes=stream.readNBytes(1024*1024+1);}
+            if(bytes.length>1024*1024){return false;}
+            try(NativeImage image=NativeImage.read(bytes)){if(image.getWidth()!=128||image.getHeight()!=128){return false;}}
+            Path textures=root.resolve("assets/riserecode/textures/font");Files.createDirectories(textures);Files.write(textures.resolve("qraftys.png"),bytes);
+            var provider=new com.google.gson.JsonObject();provider.addProperty("type","bitmap");provider.addProperty("file","riserecode:font/qraftys.png");provider.addProperty("ascent",7);provider.addProperty("height",8);
+            var chars=new com.google.gson.JsonArray();for(String row:ROWS){chars.add(row+"\0".repeat(16-row.codePointCount(0,row.length())));}provider.add("chars",chars);
+            var providers=new com.google.gson.JsonArray();providers.add(provider);var fallback=new com.google.gson.JsonObject();fallback.addProperty("type","reference");fallback.addProperty("id","minecraft:default");providers.add(fallback);
+            var json=new com.google.gson.JsonObject();json.add("providers",providers);Path fonts=root.resolve("assets/riserecode/font");Files.createDirectories(fonts);Files.writeString(fonts.resolve("qraftys.json"),json.toString());return true;
+        }
+    }
+
+    private static java.io.InputStream open(Path pack) throws IOException {
+        if (pack == null) {
+            var stream = BitmapPackFont.class.getResourceAsStream("/assets/riserecode/textures/font/qraftys.png");
+            if (stream == null) throw new IOException("Bundled Qraftys bitmap missing");
+            return stream;
+        }
+        try (var zip = new ZipFile(pack.toFile())) {
+            var entry = zip.getEntry("assets/minecraft/textures/font/ascii.png");
+            if (entry == null || entry.getSize() > 1024 * 1024) throw new IOException("Missing/oversized Qraftys bitmap");
+            try (var stream = zip.getInputStream(entry)) {
+                var bytes = stream.readNBytes(1024 * 1024 + 1);
+                if (bytes.length > 1024 * 1024) throw new IOException("Oversized Qraftys bitmap");
+                return new java.io.ByteArrayInputStream(bytes);
+            }
+        }
+    }
+
     BitmapPackFont(Path pack) throws IOException {
         ByteBuffer atlas = MemoryUtil.memCalloc(SIDE * SIDE);
-        try (ZipFile zip = new ZipFile(pack.toFile())) {
-            var entry = zip.getEntry("assets/minecraft/textures/font/ascii.png");
-            if (entry == null || entry.getSize() > 1024 * 1024) { throw new IOException("Missing/oversized Qraftys ascii.png"); }
-            try (var stream = zip.getInputStream(entry); NativeImage image = NativeImage.read(stream)) {
+        try (var stream = open(pack); NativeImage image = NativeImage.read(stream)) {
+            {
                 if (image.getWidth() != 128 || image.getHeight() != 128) { throw new IOException("Expected the Qraftys 16×16 bitmap grid"); }
                 for (int row = 0; row < ROWS.length; row++) {
                     int[] codes = ROWS[row].codePoints().toArray();
@@ -133,26 +164,47 @@ final class BitmapPackFont implements AutoCloseable {
     }
     double advance(Font fallback, int code) {
         Glyph glyph = glyphs.get(code);
-        return glyph == null ? fallback.width(Theme.text(new String(Character.toChars(code)), false)) : glyph.advance;
+        return glyph == null ? fallback.width(new String(Character.toChars(code))) : glyph.advance;
     }
     double width(Font fallback, String value) { return CustomTextRenderer.bitmapLayout(this, fallback, value).width(); }
+    /** Cached with the existing bounded, reload-invalidated text layout. Negative width is fallback. */
+    void geometry(int code,double cursor,float[] data,int i){
+        Glyph glyph=glyphs.get(code);
+        if(glyph==null){data[i+2]=-1;return;}
+        if(code==' ')return;
+        data[i]=(float)(cursor-PAD/(double)DENSITY);data[i+1]=-PAD/(float)DENSITY;
+        data[i+2]=data[i+3]=CELL/(float)DENSITY;data[i+4]=glyph.cell%16/16f;data[i+5]=glyph.cell/16/16f;
+        data[i+6]=data[i+4]+1/16f;data[i+7]=data[i+5]+1/16f;
+    }
     void draw(GuiGraphicsExtractor graphics, Font fallback, String value, double x, double y, int color, double blur, int mode, boolean gradient, ColorSetting.Paint paint) {
         var run = CustomTextRenderer.bitmapLayout(this, fallback, value); double total = run.width();
-        TextureSetup setup = TextureSetup.singleTexture(view, RenderSystem.getSamplerCache().getClampToEdge(mode == 2 ? FilterMode.NEAREST : FilterMode.LINEAR));
+        // Body and effects retain their original samplers, bound together so their
+        // overlapping painter sequence can share one material and draw call.
+        TextureSetup setup = TextureSetup.doubleTexture(view, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST),
+                view,RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+        float[] geometry=run.bitmapCoordinates();
+        int blurCode=(int)Math.round(blur*256);
+        // The shader's Gaussian tail rounds to exactly zero beyond six sigma.
+        // Retain an extra logical pixel for atlas quantization and bilinear support.
+        int inset=mode==2?PAD/DENSITY-1:mode==1&&blurCode>0?Math.max(0,PAD/DENSITY-(int)Math.ceil(blurCode/256.0*6+1)):0;
+        // Ink is 8×8 at offset 24 in a 64×64 cell: right/bottom padding is
+        // eight logical pixels larger. Tighten ordering bounds only, never the quad or UVs.
+        inset=Math.max(0,inset-(int)Math.ceil(CustomTextRenderer.stroke()));
+        int trailingInset=inset==0?0:inset+(CELL-2*PAD-8*DENSITY)/DENSITY;
+        int[] tints=new int[run.codes().length];int first=0;
         for (int i = 0; i < run.codes().length; i++) {
             int code = run.codes()[i]; double cursor = run.offsets()[i];
             int tint = paint != null ? paint.sample(graphics.pose().m20() + (x + cursor) * graphics.pose().m00(), graphics.pose().m21() + y * graphics.pose().m11(), Theme.gradientTime()) : gradient ? Theme.opacity(Theme.gradientAt(graphics.pose().m20() + (x + cursor) * graphics.pose().m00(),
                     graphics.pose().m21() + y * graphics.pose().m11(), cursor / Math.max(1, total)), (color >>> 24) / 255.0) : color;
-            Glyph glyph = glyphs.get(code);
-            if (glyph == null) {
+            tints[i]=dev.riserecode.ui.menu.MenuTransition.color(tint);
+            if (geometry[i*8+2]<0) {
+                UiMesh.bitmapRun(graphics,CustomTextRenderer.fontPipeline(),setup,geometry,tints,first,i,x,y,blurCode,mode,inset,trailingInset);
+                dev.riserecode.ui.render.UiBatch.flush();
                 CustomTextRenderer.drawFallbackGlyph(graphics, fallback, new String(Character.toChars(code)), x + cursor, y, tint, blur);
-            } else if (code != ' ') {
-                float u = glyph.cell % 16 / 16f, v = glyph.cell / 16 / 16f;
-                UiMesh.quad(graphics, CustomTextRenderer.fontPipeline(), setup, x + cursor - PAD / (double) DENSITY, y - PAD / (double) DENSITY,
-                        CELL / (double) DENSITY, CELL / (double) DENSITY, u, v, u + 1 / 16f, v + 1 / 16f,
-                        tint, tint, (int) Math.round(blur * 256), mode, 0, 0);
+                first=i+1;
             }
         }
+        UiMesh.bitmapRun(graphics,CustomTextRenderer.fontPipeline(),setup,geometry,tints,first,run.codes().length,x,y,blurCode,mode,inset,trailingInset);
     }
     @Override public void close() { view.close(); texture.close(); }
 }

@@ -27,8 +27,8 @@ public final class ColorPicker extends UIComponent {
     private final Runnable changed;
     private final Animation opening;
     private final TextField hex = new TextField(() -> "AARRGGBB");
-    private final DoubleSetting speed = new DoubleSetting("Speed", "Color animation speed", 0.18, 0, 3);
-    private final DoubleSetting spacing = new DoubleSetting("Spacing", "Gradient band width", 100, 1, 1000);
+    private final DoubleSetting speed = DoubleSetting.extended("Speed", "Color animation speed", 0.18, 0, 3);
+    private final DoubleSetting spacing = DoubleSetting.extended("Spacing", "Gradient band width", 100, 1, 1000);
     private final Slider speedSlider;
     private final Slider spacingSlider;
     private final DoubleSetting[] channels = new DoubleSetting[4];
@@ -47,7 +47,7 @@ public final class ColorPicker extends UIComponent {
         spacingSlider = new Slider(spacing, () -> { setting.setSpacing(spacing.getValue()); changed.run(); });
         for (int i=0;i<4;i++) {
             final int index=i, shift=(3-i)*8;
-            channels[i]=new DoubleSetting(new String[]{"Alpha","Red","Green","Blue"}[i],"Color channel",(current()>>>shift)&255,0,255);
+            channels[i]=DoubleSetting.extended(new String[]{"Alpha","Red","Green","Blue"}[i],"Color channel",(current()>>>shift)&255,0,255);
             channelSliders[i]=new Slider(channels[i],()->{write((current()&~(255<<shift))|((int)Math.round(channels[index].getValue())<<shift));readColor();},1);
         }
         hex.onChange(ignored -> commitHex()); hex.onCancel(() -> { write(original); readColor(); });

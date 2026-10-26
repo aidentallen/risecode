@@ -25,7 +25,11 @@ public final class Panel extends UIComponent {
     private long registryRevision = -1;
     private List<ModuleButton> filtered = List.of();
     private boolean filterDirty = true;
+    private boolean filterGerman;
     private String query = "";
+    private java.util.function.Predicate<Module> group = ignored -> true;
+    public void setGroup(java.util.function.Predicate<Module> value) { group=value;filterDirty=true; }
+
     private double maxScroll;
     private ModuleButton captured;
 
@@ -35,11 +39,11 @@ public final class Panel extends UIComponent {
     }
     public Category getCategory() { return category; }
     public List<ModuleButton> getModuleButtons() { syncModules(); return List.copyOf(buttons); }
-    public List<ModuleButton> getVisibleButtons() { if (filterDirty) { filtered = buttons.stream().filter(this::matches).toList(); filterDirty = false; } return filtered; }
+    public List<ModuleButton> getVisibleButtons() { if(filterGerman!=Theme.isGerman()){filterGerman=Theme.isGerman();filterDirty=true;}if (filterDirty) { filtered = buttons.stream().filter(this::matches).toList(); filterDirty = false; } return filtered; }
     public double getScrollOffset() { return scroll.getValue(); }
     public double getMaxScroll() { return maxScroll; }
     public boolean isOpen() { return !opening.isRunning() && opening.getValue() == 1; }
-    public void open() { mouseReleased(0, 0, 0); opening.reset(0); opening.animateTo(1); }
+    public void open() { buttons.forEach(ModuleButton::enter); mouseReleased(0, 0, 0); opening.reset(0); opening.animateTo(1); }
     public void refresh() { mouseReleased(0, 0, 0); syncModules(); }
     public void setQuery(String value) {
         String next = value.strip().toLowerCase(Locale.ROOT);
@@ -47,8 +51,9 @@ public final class Panel extends UIComponent {
         query = next; filterDirty = true; mouseReleased(0, 0, 0); scroll.reset(0); open();
     }
     private boolean matches(ModuleButton button) {
+        if (!group.test(button.getModule())) { return false; }
         String haystack = (button.getModule().getName() + " " + Theme.displayName(button.getModule().getName()) + " "
-                + button.getModule().getDescription() + " " + button.getModule().getCategory().getDisplayName()).toLowerCase(Locale.ROOT);
+                + (button.getModule() instanceof dev.riserecode.module.modules.NoFallModule ? "NoFall " : "") + button.getModule().getDescription() + " " + button.getModule().getCategory().getDisplayName()).toLowerCase(Locale.ROOT);
         for (String word : query.split("\\s+")) { if (!haystack.contains(word)) { return false; } }
         return true;
     }
@@ -69,9 +74,10 @@ public final class Panel extends UIComponent {
         syncModules();
         double amount = opening.update(seconds);
         List<ModuleButton> visible = getVisibleButtons();
+        double padding=Theme.number("Content Padding",8);
         double content = 0;
-        for (ModuleButton button : visible) { button.update(seconds); content += button.getPreferredHeight() + Theme.number("Content Padding", 8); }
-        maxScroll = Math.max(0, content - Theme.number("Content Padding", 8) - height);
+        for (ModuleButton button : visible) { button.update(seconds); content += button.getPreferredHeight() + padding; }
+        maxScroll = Math.max(0, content - padding - height);
         if (scroll.getValue() > maxScroll) { scroll.reset(maxScroll); }
         scroll.animateTo(Math.max(0, Math.min(maxScroll, scroll.getTarget()))); scroll.update(seconds);
         RenderUtil.scissorPush(graphics, x, y, width, height);
@@ -80,8 +86,8 @@ public final class Panel extends UIComponent {
             for (ModuleButton button : visible) {
                 button.setBounds(x, next, width, button.getPreferredHeight());
                 if (next + button.getPreferredHeight() >= y && next < y + height) { button.render(graphics, font, contains(mouseX, mouseY) ? mouseX : -1e6,
-                        contains(mouseX, mouseY) ? mouseY : -1e6, seconds, opacity * amount); }
-                next += button.getPreferredHeight() + Theme.number("Content Padding", 8);
+                        contains(mouseX, mouseY) ? mouseY : -1e6, seconds, opacity); }
+                next += button.getPreferredHeight() + padding;
             }
             if (visible.isEmpty()) {
                 RenderUtil.text(graphics, font, Theme.label(query.isEmpty() ? "No modules in this category" : "No matching modules"),

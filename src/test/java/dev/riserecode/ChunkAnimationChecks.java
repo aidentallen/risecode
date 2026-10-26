@@ -54,7 +54,17 @@ public final class ChunkAnimationChecks {
         var fog = new net.minecraft.client.renderer.fog.FogData(); fog.environmentalEnd = 48;
         bus.post(new FogEvent(FogEvent.Type.WATER, fog)); near(fog.environmentalEnd, 48, "Fade-only preserves water fog");
         noRender.chunkFade.setValue(false); check(!bus.post(new ChunkRenderPolicyEvent()).fadeSuppressed(), "Fade toggle restores native policy");
-        chunks.setEnabled(true); var policy = bus.post(new ChunkRenderPolicyEvent());
+        chunks.setEnabled(true);
+        for (double travel : new double[] {chunks.distance.getMin(), chunks.distance.getMax()}) {
+            for (double seconds : new double[] {chunks.duration.getMin(), chunks.duration.getMax()}) {
+                chunks.distance.setValue(travel); chunks.duration.setValue(seconds);
+                var boundary = bus.post(new ChunkRenderPolicyEvent());
+                check(boundary.motion() == chunks.motion() && boundary.settings().distance() == travel && boundary.settings().duration() == seconds,
+                        "Every exposed boundary constructs the runtime policy");
+            }
+        }
+        chunks.distance.reset(); chunks.duration.reset();
+        var policy = bus.post(new ChunkRenderPolicyEvent());
         check(policy.fadeSuppressed() && policy.motion() == chunks.motion(), "Movement automatically removes fade");
         bus.post(new ChunkLifecycleEvent(ChunkLifecycleEvent.Kind.LOAD, ChunkMotionTracker.key(2, 3)));
         chunks.motion().frame(time, policy.settings()); near(chunks.motion().drawable(2, 3), -8, "Bus lifecycle starts motion");

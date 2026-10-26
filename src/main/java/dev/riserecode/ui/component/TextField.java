@@ -10,61 +10,63 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 
 /** Borderless centered input with Unicode editing, selection and standard clipboard shortcuts. */
-public final class TextField extends UIComponent {
+public final class TextField extends UIComponent implements FocusedInput.Owner {
     private final Supplier<String> placeholder;
-    private String value = "";
-    private int caret;
-    private int anchor;
+    private final TextEditModel edit = new TextEditModel(512,false);
     private boolean focused;
+    private boolean masked;
+    public void masked(boolean value) { masked=value; }
+    private String displayed() { return masked ? "•".repeat(edit.value().codePointCount(0,edit.value().length())) : edit.value(); }
+    private String prefix(int position) { return masked ? "•".repeat(edit.value().codePointCount(0,position)) : edit.value().substring(0,position); }
     private double time;
     private Font renderedFont;
     private java.util.function.Predicate<KeyEvent> keyHandler = ignored -> false;
     public void onKey(java.util.function.Predicate<KeyEvent> handler) { keyHandler = handler; }
-    private int maximum = 512;
+
     private String validation = "";
-    private Consumer<String> changed = ignored -> { };
     private Runnable committed = () -> { }, cancelled = () -> { };
-    public void setMaximum(int value) { maximum = value; }
-    public void onChange(Consumer<String> value) { changed = value; }
+    public void setMaximum(int value) { edit.maximum(value); }
+    public void onChange(Consumer<String> value) { edit.onChange(value); }
     public void onCommit(Runnable value) { committed = value; }
     public void onCancel(Runnable value) { cancelled = value; }
     public void validation(String value) { validation = value; }
     public String validation() { return validation; }
-    public void selectAll() { anchor = 0; caret = value.length(); }
+    public void selectAll() { edit.selectAll(); }
     public void commit() { committed.run(); setFocused(false); }
     public void cancel() { cancelled.run(); setFocused(false); }
 
     public TextField(Supplier<String> placeholder) { this.placeholder = placeholder; }
-    public String getValue() { return value; }
-    public void setValue(String next) { value = next; caret = anchor = value.length(); time = 0; }
+    public String getValue() { return edit.value(); }
+    public void setValue(String next) { edit.value(next); time = 0; }
     public void setFocused(boolean next) { if (next) { FocusedInput.focus(this); } else { FocusedInput.release(this); } focused = next; time = 0; }
     public boolean isFocused() { return focused; }
     private double left(Font font) {
-        double span = RenderUtil.textWidth(font, value, false);
+        double span = RenderUtil.textWidth(font, displayed(), false);
         if (span <= width - 16) { return x + (width - span) / 2; }
-        double prefix = RenderUtil.textWidth(font, value.substring(0, caret), false);
+        double prefix = RenderUtil.textWidth(font, prefix(edit.caret()), false);
         return x + 8 - Math.max(0, prefix - width + 16);
     }
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY, double seconds, double opacity) {
         renderedFont = font; time += seconds;
         double hovered = updateHover(mouseX, mouseY, seconds);
-        String text = value.isEmpty() ? placeholder.get() : value;
-        double left = value.isEmpty() ? x + (width - RenderUtil.textWidth(font, text, false)) / 2 : left(font);
-        double top = y + (height - 11) / 2;
+        String text = edit.value().isEmpty() ? placeholder.get() : displayed();
+        double left = edit.value().isEmpty() ? x + (width - RenderUtil.textWidth(font, text, false)) / 2 : left(font);
+        double textHeight = 9 * Theme.number("Font Scale", 1);
+        double top = y + (height - textHeight) / 2;
         RenderUtil.scissorPush(graphics, x + 4, y, width - 8, height);
         try {
-            if (focused && caret != anchor) {
-                double start = left(font) + RenderUtil.textWidth(font, value.substring(0, Math.min(caret, anchor)), false);
-                double end = left(font) + RenderUtil.textWidth(font, value.substring(0, Math.max(caret, anchor)), false);
-                RenderUtil.drawRoundedRect(graphics, start, top - 1, end - start, 12, 1, Theme.opacity(Theme.accent(), opacity * 0.25));
+            if (focused && edit.caret() != edit.anchor()) {
+                double start = left(font) + RenderUtil.textWidth(font, prefix(Math.min(edit.caret(), edit.anchor())), false);
+                double end = left(font) + RenderUtil.textWidth(font, prefix(Math.max(edit.caret(), edit.anchor())), false);
+                RenderUtil.drawRoundedRect(graphics, start, top - 1, end - start, textHeight + 2, 1, Theme.opacity(Theme.accent(), opacity * 0.25));
             }
             RenderUtil.text(graphics, font, text, left, top, 1,
-                    Theme.opacity(value.isEmpty() ? Theme.blendPalette(Theme.MUTED, Theme.SECONDARY, hovered) : Theme.TEXT, opacity));
-            if (focused && (!value.isEmpty() || time % 1.1 < 0.6)) {
-                double cursor = value.isEmpty() ? left - 2 : left(font) + RenderUtil.textWidth(font, value.substring(0, caret), false);
+                    Theme.opacity(edit.value().isEmpty() ? Theme.blendPalette(Theme.MUTED, Theme.SECONDARY, hovered) : Theme.TEXT, opacity));
+            if (focused && (!edit.value().isEmpty() || time % 1.1 < 0.6)) {
+                double cursor = edit.value().isEmpty() ? left - 2 : left(font) + RenderUtil.textWidth(font, prefix(edit.caret()), false);
                 double alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.cos(time * Math.PI * 2 / 1.1));
-                RenderUtil.drawRoundedRect(graphics, cursor, top, 0.6, 10, 0.3, Theme.opacity(Theme.TEXT, opacity * alpha));
+                RenderUtil.drawRoundedRect(graphics, cursor, top, 0.6, textHeight, 0.3, Theme.opacity(Theme.TEXT, opacity * alpha));
             }
         } finally { RenderUtil.scissorPop(graphics); }
         if (!validation.isEmpty() && focused) {
@@ -78,52 +80,22 @@ public final class TextField extends UIComponent {
         setFocused(true); time = 0;
         if (renderedFont != null) {
             int best = 0; double distance = Double.POSITIVE_INFINITY;
-            for (int index = 0; index <= value.length();) {
-                double next = Math.abs(mouseX - left(renderedFont) - RenderUtil.textWidth(renderedFont, value.substring(0, index), false));
+            for (int index = 0; index <= edit.value().length();) {
+                double next = Math.abs(mouseX - left(renderedFont) - RenderUtil.textWidth(renderedFont, prefix(index), false));
                 if (next < distance) { best = index; distance = next; }
-                if (index == value.length()) { break; }
-                index = value.offsetByCodePoints(index, 1);
+                if (index == edit.value().length()) { break; }
+                index = edit.value().offsetByCodePoints(index, 1);
             }
-            caret = anchor = best;
+            edit.move(best,false);
         }
         return true;
     }
     public boolean charTyped(CharacterEvent event) {
         if (!focused || !event.isAllowedChatCharacter()) { return false; }
-        insert(event.codepointAsString()); return true;
+        edit.insert(event.codepointAsString()); time=0; return true;
     }
-    private void insert(String text) {
-        int start = Math.min(caret, anchor); int end = Math.max(caret, anchor);
-        String clean = text.codePoints().filter(cp -> !Character.isISOControl(cp) && cp != 0xA7)
-                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append).toString();
-        if (value.length() - (end - start) + clean.length() > maximum) { return; }
-        value = value.substring(0, start) + clean + value.substring(end);
-        caret = anchor = start + clean.length(); time = 0; changed.accept(value);
-    }
-    public boolean keyPressed(KeyEvent event, Supplier<String> clipboard, Consumer<String> setClipboard) {
-        if (!focused) { return false; }
-        if (keyHandler.test(event)) { return true; }
-        if (event.isSelectAll()) { anchor = 0; caret = value.length(); return true; }
-        if (event.isCopy() || event.isCut()) {
-            setClipboard.accept(value.substring(Math.min(caret, anchor), Math.max(caret, anchor)));
-            if (event.isCut()) { insert(""); } return true;
-        }
-        if (event.isPaste()) { insert(clipboard.get()); return true; }
-        if (event.key() == 259 || event.key() == 261) {
-            if (caret == anchor) {
-                if (event.key() == 259 && caret > 0) { anchor = value.offsetByCodePoints(caret, -1); }
-                if (event.key() == 261 && caret < value.length()) { anchor = value.offsetByCodePoints(caret, 1); }
-            }
-            insert(""); return true;
-        }
-        int next = switch (event.key()) {
-            case 263 -> caret == 0 ? 0 : value.offsetByCodePoints(caret, -1);
-            case 262 -> caret == value.length() ? caret : value.offsetByCodePoints(caret, 1);
-            case 268 -> 0;
-            case 269 -> value.length();
-            default -> -1;
-        };
-        if (next >= 0) { caret = next; if (!event.hasShiftDown()) { anchor = caret; } time = 0; return true; }
-        return false;
+    public boolean keyPressed(KeyEvent event, Supplier<String> clipboard, Consumer<String> copy) {
+        if (!focused) { return false; } if (keyHandler.test(event)) { return true; }
+        time=0; return edit.key(event,clipboard,copy);
     }
 }

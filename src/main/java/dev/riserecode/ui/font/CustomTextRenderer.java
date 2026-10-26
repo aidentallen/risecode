@@ -43,7 +43,7 @@ public final class CustomTextRenderer {
     private static BitmapPackFont bitmap;
     private static ThemeManager manager;
     private record LayoutKey(Object face, Font fallback, String text, boolean title) { }
-    static record GlyphRun(int[] codes, double[] offsets, double width) { }
+    static record GlyphRun(int[] codes, double[] offsets, double width, float[] bitmapCoordinates) { }
     private static final Map<LayoutKey, GlyphRun> LAYOUTS = new LinkedHashMap<>(256, 0.75f, true);
     private static long generation, layoutBuilds, layoutHits;
     public static long generation() { return generation; }
@@ -59,7 +59,12 @@ public final class CustomTextRenderer {
             else { offsets[i] = width; width += ((BitmapPackFont) atlas).advance(fallback, codes[i]); }
             previous = codes[i];
         }
-        GlyphRun result = new GlyphRun(codes, offsets, width); LAYOUTS.put(key, result); layoutBuilds++;
+        float[] bitmapCoordinates=null;
+        if(atlas instanceof BitmapPackFont pack){
+            bitmapCoordinates=new float[codes.length*8];
+            for(int i=0;i<codes.length;i++){pack.geometry(codes[i],offsets[i],bitmapCoordinates,i*8);}
+        }
+        GlyphRun result = new GlyphRun(codes, offsets, width, bitmapCoordinates); LAYOUTS.put(key, result); layoutBuilds++;
         if (LAYOUTS.size() > 2048) { LAYOUTS.remove(LAYOUTS.keySet().iterator().next()); }
         return result;
     }
@@ -67,8 +72,13 @@ public final class CustomTextRenderer {
     private static final Map<String, String> FAILURES = new HashMap<>();
     private static final class Pipelines {
         private static final RenderPipeline FONT = UiMesh.pipeline("font", "font");
+        private static final RenderPipeline BITMAP = net.minecraft.client.renderer.RenderPipelines.register(RenderPipeline.builder(net.minecraft.client.renderer.RenderPipelines.GUI_SNIPPET)
+                .withLocation(UiMesh.id("pipeline/bitmap_font")).withVertexShader(UiMesh.id("core/bitmap_font"))
+                .withFragmentShader(UiMesh.id("core/bitmap_font")).withVertexBinding(0,UiMesh.BITMAP_FORMAT)
+                .withBindGroupLayout(net.minecraft.client.renderer.BindGroupLayouts.SAMPLER0_SAMPLER1)
+                .withPrimitiveTopology(com.mojang.blaze3d.PrimitiveTopology.QUADS).build());
     }
-    static RenderPipeline fontPipeline() { return Pipelines.FONT; }
+    static RenderPipeline fontPipeline() { return Pipelines.BITMAP; }
     private record Glyph(int cell, int width, int height, int xOffset, int yOffset, double advance) { }
     private static final class Face implements AutoCloseable {
         private final ByteBuffer data;
@@ -88,8 +98,15 @@ public final class CustomTextRenderer {
             this.pixel = pixel;
             data = MemoryUtil.memAlloc(bytes.length); data.put(bytes).flip();
             if (!STBTruetype.stbtt_InitFont(info, data)) { info.free(); MemoryUtil.memFree(data); throw new IllegalArgumentException("Invalid TrueType font"); }
-            scale = pixel ? STBTruetype.stbtt_ScaleForMappingEmToPixels(info, 12 * DENSITY)
-                    : STBTruetype.stbtt_ScaleForPixelHeight(info, 11 * DENSITY);
+            // Minecraftia's em includes unusually large ascender space. Normalize the visible
+            // capital height to the shared seven-unit menu/HUD cap, not its em box.
+            if (pixel) {
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    var x0 = stack.mallocInt(1); var y0 = stack.mallocInt(1); var x1 = stack.mallocInt(1); var y1 = stack.mallocInt(1);
+                    STBTruetype.stbtt_GetCodepointBox(info, 'H', x0, y0, x1, y1);
+                    scale = (float) (7.0 * DENSITY / Math.max(1, y1.get(0) - y0.get(0)));
+                }
+            } else { scale = STBTruetype.stbtt_ScaleForPixelHeight(info, 11 * DENSITY); }
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 var x0 = stack.mallocInt(1); var y0 = stack.mallocInt(1); var x1 = stack.mallocInt(1); var y1 = stack.mallocInt(1);
                 STBTruetype.stbtt_GetCodepointBitmapBox(info, 'H', scale, scale, x0, y0, x1, y1);
@@ -193,14 +210,46 @@ public final class CustomTextRenderer {
             info.free(); MemoryUtil.memFree(data);
         }
     }
+    private static boolean branding;
+    private record BrandKey(Face face,String text,int density){}
+    private record BrandRaster(GpuTexture texture,GpuTextureView view,int width,int height,int density) implements AutoCloseable {
+        public void close(){view.close();texture.close();}
+    }
+    private static final Map<BrandKey,BrandRaster> BRANDS=new LinkedHashMap<>();
+    public static void drawBrand(GuiGraphicsExtractor g,Font font,String text,int color){
+        branding=true;try{draw(g,font,text,color,false,true,true);}finally{branding=false;}
+    }
+    private static BrandRaster raster(Face face,Font font,String text,int density){
+        BrandKey key=new BrandKey(face,text,density);BrandRaster cached=BRANDS.get(key);if(cached!=null){return cached;}
+        GlyphRun run=layout(face,font,text,false);int pad=4,w=(int)Math.ceil(run.width()*density)+pad*2,h=16*density+pad*2;
+        ByteBuffer pixels=MemoryUtil.memCalloc(w*h);
+        try(MemoryStack stack=MemoryStack.stackPush()){
+            var gw=stack.mallocInt(1);var gh=stack.mallocInt(1);var gx=stack.mallocInt(1);var gy=stack.mallocInt(1);
+            for(int i=0;i<run.codes().length;i++){
+                ByteBuffer bitmap=STBTruetype.stbtt_GetCodepointBitmap(face.info,face.scale*density/DENSITY,face.scale*density/DENSITY,run.codes()[i],gw,gh,gx,gy);
+                if(bitmap==null){continue;}
+                try{
+                    int left=(int)Math.round(run.offsets()[i]*density)+gx.get(0)+pad,top=(int)Math.round(face.baseline*density)+gy.get(0)+pad;
+                    for(int y=0;y<gh.get(0);y++){for(int x=0;x<gw.get(0);x++){int px=left+x,py=top+y;if(px>=0&&px<w&&py>=0&&py<h){int index=py*w+px;pixels.put(index,(byte)Math.max(pixels.get(index)&255,bitmap.get(y*gw.get(0)+x)&255));}}}
+                }finally{STBTruetype.stbtt_FreeBitmap(bitmap);}
+            }
+            GpuTexture texture=RenderSystem.getDevice().createTexture(()->"risecode title coverage",GpuTexture.USAGE_TEXTURE_BINDING|GpuTexture.USAGE_COPY_DST,GpuFormat.R8_UNORM,w,h,1,1);
+            try(GpuBuffer upload=RenderSystem.getDevice().createBuffer(()->"risecode title upload",GpuBuffer.USAGE_COPY_SRC,pixels)){
+                RenderSystem.getDevice().createCommandEncoder().copyBufferToTexture(upload.slice(),0,0,w,h,texture,0,0,w,h,0,0);
+            }catch(RuntimeException error){texture.close();throw error;}
+            BrandRaster result=new BrandRaster(texture,RenderSystem.getDevice().createTextureView(texture),w,h,density);
+            if(BRANDS.size()>=8){BrandKey first=BRANDS.keySet().iterator().next();BRANDS.remove(first).close();}BRANDS.put(key,result);return result;
+        }finally{MemoryUtil.memFree(pixels);}
+    }
     private CustomTextRenderer() { }
     public static void configure(ThemeManager value) { manager = value; }
+    public static boolean prepareNativeBitmap(Path config,Path root) throws IOException {return BitmapPackFont.prepareNative(config,root);}
     private static String base(ThemeManager.Typeface font) { return font.name().toLowerCase(Locale.ROOT); }
     public static boolean available(ThemeManager.Typeface font) {
         return AVAILABLE.computeIfAbsent(font, CustomTextRenderer::findAvailable);
     }
     private static boolean findAvailable(ThemeManager.Typeface font) {
-        if (font == ThemeManager.Typeface.QRAFTYS) { return manager != null && BitmapPackFont.find(manager.getDirectory()) != null; }
+        if (font == ThemeManager.Typeface.QRAFTYS) { return CustomTextRenderer.class.getResource("/assets/riserecode/textures/font/qraftys.png") != null; }
         String file = base(font) + "_regular.ttf";
         return CustomTextRenderer.class.getResource("/assets/riserecode/font/" + file) != null
                 || manager != null && (Files.isRegularFile(manager.getFontDirectory().resolve(file))
@@ -210,7 +259,7 @@ public final class CustomTextRenderer {
         ThemeManager.Typeface chosen = selected();
         if (chosen == ThemeManager.Typeface.QRAFTYS) {
             if (FAILURES.containsKey("qraftys_pack")) { return "Invalid Qraftys pack · using Inter"; }
-            return available(chosen) ? "Qraftys resource-pack glyphs · nearest sampling"
+            return available(chosen) ? "Qraftys original bitmap · bundled offline"
                     : "Add Qraftys ZIP to resourcepacks · using Inter";
         }
         if (FAILURES.containsKey(base(chosen) + "_regular")) { return "Invalid " + base(chosen) + " font · using Inter"; }
@@ -224,7 +273,7 @@ public final class CustomTextRenderer {
         if (selected() == ThemeManager.Typeface.QRAFTYS && bitmap != null) { return bitmap; }
         if (selected() != ThemeManager.Typeface.QRAFTYS || !available(selected()) || FAILURES.containsKey("qraftys_pack")) { return null; }
         if (bitmap == null) {
-            try { bitmap = new BitmapPackFont(BitmapPackFont.find(manager.getDirectory())); }
+            try { bitmap = new BitmapPackFont(manager == null ? null : BitmapPackFont.find(manager.getDirectory())); }
             catch (IOException | RuntimeException failure) {
                 FAILURES.put("qraftys_pack", failure.getMessage());
                 org.slf4j.LoggerFactory.getLogger(CustomTextRenderer.class).warn("Could not load Qraftys pack; using Inter", failure);
@@ -276,12 +325,33 @@ public final class CustomTextRenderer {
                 && (code == ' ' || STBTruetype.stbtt_FindGlyphIndex(face.info, code) != 0);
     }
     private static double advance(Face face, Font fallback, int code, boolean title) {
-        return supports(face, code) ? face.advance(code) : fallback.width(Theme.text(new String(Character.toChars(code)), title));
+        return supports(face, code) ? face.advance(code) : fallback.width(new String(Character.toChars(code)));
     }
     private static double kern(Face face, int previous, int next) { return supports(face, previous) && supports(face, next) ? face.kern(previous, next) : 0; }
     public static int width(Font fallback, String original, boolean title) {
+        if(dev.riserecode.ui.theme.PageAppearance.plain()){return fallback.width(original);}
+        if (original.indexOf('§') >= 0) { return (int)Math.ceil(StyledText.of(original).width(fallback, title)); }
         BitmapPackFont pack = bitmap();
         return (int) Math.ceil(layout(pack == null ? face(title) : pack, fallback, original, title).width() * Theme.number("Font Scale", 1));
+    }
+    /** Per-line measurement uses the same advances, kerning and rounding as width(), without caching every prefix. */
+    public static final class TextMeasure {
+        private final Object atlas;
+        private final Font fallback;
+        private final boolean title;
+        private final double scale;
+        private double rawWidth;
+        private int previous=-1;
+        private TextMeasure(Object atlas,Font fallback,boolean title,double scale){this.atlas=atlas;this.fallback=fallback;this.title=title;this.scale=scale;}
+        public double append(int codepoint){
+            if(atlas instanceof Face face){rawWidth+=kern(face,previous,codepoint);rawWidth+=advance(face,fallback,codepoint,title);}
+            else{rawWidth+=((BitmapPackFont)atlas).advance(fallback,codepoint);}
+            previous=codepoint;return Math.ceil(rawWidth*scale);
+        }
+        public void reset(){rawWidth=0;previous=-1;}
+    }
+    public static TextMeasure measure(Font fallback,boolean title){
+        BitmapPackFont pack=bitmap();return new TextMeasure(pack==null?face(title):pack,fallback,title,Theme.number("Font Scale",1));
     }
     /** Describes the loaded font, including fallbacks, rather than the requested menu choice. */
     public static boolean isPixelFont() { return bitmap() != null || face(false).pixel; }
@@ -299,7 +369,16 @@ public final class CustomTextRenderer {
     }
     private static void drawInternal(GuiGraphicsExtractor graphics, Font fallback, String original, int color,
             boolean title, boolean shadow, boolean accent, boolean glow, ColorSetting.Paint paint) {
-        if (((color >>> 24) == 0 && paint == null) || original.isEmpty()) { return; }
+        if (dev.riserecode.ui.theme.PageAppearance.plain()){graphics.text(fallback,net.minecraft.network.chat.Component.literal(original),0,0,color,shadow);return;}
+        if (original.indexOf('§') >= 0) { StyledText.of(original).draw(graphics, fallback, 0, 0, 1, color); return; }
+        if (((color >>> 24) == 0 && (paint == null || (paint.primary()>>>24)==0&&(paint.secondary()>>>24)==0)) || original.isEmpty()) { return; }
+        double visibility=1;var clip=graphics.scissorStack.peek();
+        if(clip!=null){
+            var source=new net.minecraft.client.gui.navigation.ScreenRectangle(0,0,Math.max(1,width(fallback,original,title)),(int)Math.ceil(10*Theme.number("Font Scale",1))).transformMaxBounds(graphics.pose());
+            var visible=source.intersection(clip);if(visible==null){return;}
+            visibility=Math.min(1,visible.height()/(double)Math.max(1,source.height()));
+        }
+        final double glowVisibility=visibility;
         BitmapPackFont pack = bitmap();
         Layer layer;
         int normalMode;
@@ -323,9 +402,9 @@ public final class CustomTextRenderer {
                         Theme.manager() == null ? null : Theme.paint("Text Shadow Color").opacity(Theme.number("Shadow Opacity", 0.6) * (color >>> 24) / 255.0));
             }
             if (glow && Theme.bool("Global Glow", true) && Theme.number("Glow Radius", 5) > 0) {
-                layer.draw(0, 0, Theme.opacity(color, Theme.number("Glow Intensity", 0.2)),
+                UiMesh.effect(() -> layer.draw(0, 0, Theme.opacity(color, Theme.number("Glow Intensity", 0.2)*glowVisibility),
                         Theme.number("Glow Radius", 5) / 3 / fontScale, 1, accent || paint != null,
-                        paint == null ? null : paint.opacity(Theme.number("Glow Intensity", 0.2)));
+                        paint == null ? null : paint.opacity(Theme.number("Glow Intensity", 0.2)*glowVisibility)));
             }
             layer.draw(0, 0, color, 0, normalMode, accent || paint != null, null);
         } finally { graphics.pose().popMatrix(); }
@@ -333,50 +412,105 @@ public final class CustomTextRenderer {
     private static void drawFace(GuiGraphicsExtractor graphics, Font fallback, Face face, String value, double x, double y,
             int color, double blur, int mode, boolean gradient, boolean title, ColorSetting.Paint paint) {
         GlyphRun run = layout(face, fallback, value, title); double total = run.width();
-        boolean filled = mode == 3 || mode == 4, pixel = mode == 4;
+        if (stroke() > 0 && (mode == 3 || mode == 4)) { mode = 0; }
+        boolean filled = mode == 3 || mode == 4;
+        double framebufferScale = net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale();
+        double physical = Math.hypot(graphics.pose().m00(), graphics.pose().m01()) * framebufferScale;
+        if(branding&&filled&&!face.pixel&&value.codePoints().allMatch(code->supports(face,code))){
+            int density=Math.clamp(Integer.highestOneBit(Math.max(8,(int)Math.ceil(physical))*2-1),8,64);
+            double logicalWidth=Math.max(1,layout(face,fallback,value,false).width());density=Math.max(1,Math.min(density,(int)(4090/logicalWidth)));
+            BrandRaster image=raster(face,fallback,value,density);
+            int first=paint!=null?paint.sample(graphics.pose().m20(),graphics.pose().m21(),Theme.gradientTime()):gradient?Theme.opacity(Theme.gradientAt(graphics.pose().m20(),graphics.pose().m21(),0),(color>>>24)/255.0):color;
+            int last=paint!=null?paint.sample(graphics.pose().m20()+logicalWidth*graphics.pose().m00(),graphics.pose().m21(),Theme.gradientTime()):gradient?Theme.opacity(Theme.gradientAt(graphics.pose().m20()+logicalWidth*graphics.pose().m00(),graphics.pose().m21(),1),(color>>>24)/255.0):color;
+            UiMesh.quad(graphics,Pipelines.FONT,TextureSetup.singleTexture(image.view(),RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),x-4.0/density,y-4.0/density,image.width()/(double)density,image.height()/(double)density,0,0,1,1,first,last,0,3,0,0,true);return;
+        }
+        boolean pixel = mode == 4 && Math.abs(physical - Math.rint(physical)) < 0.015 && physical >= 0.99;
+        if (mode == 4 && !pixel) { mode = 3; }
         int density = filled ? COVERAGE_DENSITY : DENSITY;
         Map<Integer, Glyph> atlasGlyphs = filled ? face.coverageGlyphs : face.glyphs;
         var sampler = RenderSystem.getSamplerCache().getClampToEdge(pixel ? FilterMode.NEAREST : FilterMode.LINEAR);
         TextureSetup setup = TextureSetup.singleTexture(filled ? face.coverageView : face.view, sampler);
+        var glyphRun=new UiMesh.GlyphRun(graphics,Pipelines.FONT,setup,run.codes().length,(int)Math.round(blur*256),mode);
         dev.riserecode.ui.render.UiBatch.begin(graphics);
         try { for (int i = 0; i < run.codes().length; i++) {
             int code = run.codes()[i]; double advance = run.offsets()[i]; Glyph glyph = atlasGlyphs.get(code);
             if (!supports(face, code)) {
+                glyphRun.flush();
                 dev.riserecode.ui.render.UiBatch.flush();
                 drawFallbackGlyph(graphics, fallback, new String(Character.toChars(code)), x + advance, y, paint == null ? color : paint.sample(graphics.pose().m20() + advance * graphics.pose().m00(), graphics.pose().m21(), Theme.gradientTime()), blur);
             }
             if (glyph != null && glyph.width > 0 && code != ' ') {
                 double gx = x + advance + glyph.xOffset / (double) density;
                 double gy = y + face.baseline + glyph.yOffset / (double) density;
-                if (pixel) { gx = Math.rint(gx); gy = Math.rint(gy); }
+                if (pixel) {
+                    double sx = graphics.pose().m00() * framebufferScale, sy = graphics.pose().m11() * framebufferScale;
+                    if (Math.abs(sx) > 0.001 && Math.abs(sy) > 0.001) {
+                        gx += (Math.rint(gx * sx + graphics.pose().m20() * framebufferScale) - (gx * sx + graphics.pose().m20() * framebufferScale)) / sx;
+                        gy += (Math.rint(gy * sy + graphics.pose().m21() * framebufferScale) - (gy * sy + graphics.pose().m21() * framebufferScale)) / sy;
+                    }
+                }
                 int tint = paint != null ? paint.sample(graphics.pose().m20() + (x + advance) * graphics.pose().m00(), graphics.pose().m21() + y * graphics.pose().m11(), Theme.gradientTime()) : gradient ? Theme.opacity(Theme.gradientAt(graphics.pose().m20() + advance * graphics.pose().m00(), graphics.pose().m21(), advance / Math.max(1, total)), (color >>> 24) / 255.0) : color;
                 float u = glyph.cell % 16 * CELL / (float) SIDE, v = glyph.cell / 16 * CELL / (float) SIDE;
-                UiMesh.quad(graphics, Pipelines.FONT, setup, gx, gy, glyph.width / (double) density,
-                        glyph.height / (double) density, u, v, u + glyph.width / (float) SIDE, v + glyph.height / (float) SIDE,
-                        tint, tint, (int) Math.round(blur * 256), mode, 0, 0);
+                glyphRun.add(gx, gy, glyph.width / (double) density,
+                        glyph.height / (double) density, u, v, u + glyph.width / (float) SIDE, v + glyph.height / (float) SIDE, tint);
             }
         }
-        } finally { dev.riserecode.ui.render.UiBatch.end(); }
+        } finally { glyphRun.flush(); dev.riserecode.ui.render.UiBatch.end(); }
     }
     /** Unicode outside the cached Latin atlas retains the selected font for its neighbouring glyphs.
      * Native fallback shadows use the same offsets and a normalized Gaussian stencil.
      */
-    static void drawFallbackGlyph(GuiGraphicsExtractor graphics, Font font, String glyph, double x, double y, int color, double blur) {
-        int radius = blur > 0.05 ? 3 : 0; double sum = 0;
-        for (int dy = -radius; dy <= radius; dy++) {
-            for (int dx = -radius; dx <= radius; dx++) { sum += Math.exp(-(dx * dx + dy * dy) / 2.0); }
+    private record FallbackKey(Font font,String glyph,float a,float b,float c,float d,float x,float y,
+            net.minecraft.client.gui.navigation.ScreenRectangle clip,int color,double opacity){ }
+    private static final Map<FallbackKey,java.util.List<CachedFallback>> FALLBACKS=new LinkedHashMap<>(128,.75f,true);
+    private record CachedFallback(RenderPipeline pipeline,TextureSetup textureSetup,org.joml.Matrix4f pose,
+            net.minecraft.client.gui.font.TextRenderable renderable,net.minecraft.client.gui.navigation.ScreenRectangle scissorArea,
+            net.minecraft.client.gui.navigation.ScreenRectangle bounds) implements dev.riserecode.ui.menu.MenuTransition.Captured {
+        public void buildVertices(com.mojang.blaze3d.vertex.VertexConsumer vertices){renderable.render(pose,vertices,15728880,true);}
+    }
+    private static final double[] FALLBACK_WEIGHTS=fallbackWeights();
+    private static double[] fallbackWeights(){double[] weights=new double[49];double sum=0;for(int y=-3;y<=3;y++)for(int x=-3;x<=3;x++){double weight=Math.exp(-(x*x+y*y)/2.0);weights[(y+3)*7+x+3]=weight;sum+=weight;}for(int i=0;i<weights.length;i++)weights[i]/=sum;return weights;}
+    private static void fallbackText(GuiGraphicsExtractor g,Font font,String glyph,int color){
+        // Container label adapters retain their existing interception/re-entry semantics.
+        if(dev.riserecode.ui.menu.ContainerTheme.active()){g.text(font,net.minecraft.network.chat.Component.literal(glyph),0,0,color,false);return;}
+        var p=g.pose();var clip=g.scissorStack.peek();
+        var key=new FallbackKey(font,glyph,p.m00(),p.m01(),p.m10(),p.m11(),p.m20(),p.m21(),clip,color,dev.riserecode.ui.menu.MenuTransition.opacity());
+        var states=FALLBACKS.get(key);
+        if(states==null){
+            var state=new net.minecraft.client.renderer.state.gui.GuiTextRenderState(font,net.minecraft.network.chat.Component.literal(glyph).getVisualOrderText(),new org.joml.Matrix3x2f(p),0,0,color,0,false,false,clip);
+            var prepared=state.ensurePrepared();var bounds=state.bounds();var result=new java.util.ArrayList<CachedFallback>();
+            if(bounds!=null){var matrix=new org.joml.Matrix4f().mul(p);prepared.visit(new Font.GlyphVisitor(){
+                @Override public void acceptRenderable(net.minecraft.client.gui.font.TextRenderable renderable){result.add(new CachedFallback(renderable.guiPipeline(),TextureSetup.singleTextureWithLightmap(renderable.textureView(),RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST)),matrix,renderable,clip,bounds));}
+            });}
+            states=java.util.List.copyOf(result);FALLBACKS.put(key,states);if(FALLBACKS.size()>1024){FALLBACKS.remove(FALLBACKS.keySet().iterator().next());}
         }
-        for (int dy = -radius; dy <= radius; dy++) {
+        for(var state:states){dev.riserecode.ui.render.UiBatch.submit(g,state);}
+    }
+    public static double stroke() { return Theme.number("Font Boldness", 0) * .0075; }
+    static void drawFallbackGlyph(GuiGraphicsExtractor graphics, Font font, String glyph, double x, double y, int color, double blur) {
+        int radius = blur > 0.05 ? 3 : 0;
+        dev.riserecode.ui.render.UiBatch.begin(graphics);
+        try{for (int dy = -radius; dy <= radius; dy++) {
             for (int dx = -radius; dx <= radius; dx++) {
-                int tint = Theme.opacity(color, Math.exp(-(dx * dx + dy * dy) / 2.0) / sum);
+                int tint = Theme.opacity(color, radius==0?1:FALLBACK_WEIGHTS[(dy+3)*7+dx+3]);
                 if ((tint >>> 24) == 0) { continue; }
                 graphics.pose().pushMatrix(); graphics.pose().translate((float) (x + dx * blur), (float) (y + dy * blur));
-                graphics.text(font, Theme.text(glyph, false), 0, 0, tint, false); graphics.pose().popMatrix();
+                fallbackText(graphics,font,glyph,tint);
+                double stroke = stroke();
+                if (stroke > 0) for (int tap = 0; tap < 8; tap++) {
+                    double angle = tap * Math.PI / 4;
+                    graphics.pose().pushMatrix();
+                    graphics.pose().translate((float)(Math.cos(angle)*stroke),(float)(Math.sin(angle)*stroke));
+                    fallbackText(graphics,font,glyph,tint); graphics.pose().popMatrix();
+                }
+                graphics.pose().popMatrix();
             }
-        }
+        }}finally{dev.riserecode.ui.render.UiBatch.end();}
     }
     public static void close() {
-        LAYOUTS.clear(); generation++;
+        dev.riserecode.ui.render.UiBatch.clearPlans();
+        BRANDS.values().forEach(BrandRaster::close);BRANDS.clear();
+        LAYOUTS.clear();FALLBACKS.clear(); generation++;
         FACES.values().forEach(Face::close); FACES.clear(); FAILURES.clear(); AVAILABLE.clear();
         if (bitmap != null) { bitmap.close(); bitmap = null; }
     }

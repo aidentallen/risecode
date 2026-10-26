@@ -38,7 +38,7 @@ public final class UpgradeBenchmark {
             context.setScreen(FidelityScreen::new);context.waitTicks(12);context.takeScreenshot("benchmark-fidelity");
         }
     }
-    private static void measure(ClientGameTestContext context, String state) {
+    public static double[] measure(ClientGameTestContext context, String state) {
         context.runOnClient(mc -> { FRAMES.clear(); previous = 0; recording = true; });
         context.waitFor(mc -> FRAMES.size() >= 600, 1200);
         var values = context.computeOnClient(mc -> { recording = false; return FRAMES.stream().sorted().toList(); });
@@ -49,5 +49,6 @@ public final class UpgradeBenchmark {
             Files.writeString(directory.resolve("benchmark-" + System.getProperty("riserecode.benchmarkLabel", "baseline") + ".jsonl"), row, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
         } catch (java.io.IOException failure) { throw new AssertionError(failure); }
         Client.INSTANCE.getLogger().info("Benchmark {}", row.trim());
+        return new double[]{median,p95};
     }
 }

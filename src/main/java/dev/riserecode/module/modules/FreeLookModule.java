@@ -17,13 +17,14 @@ import net.minecraft.world.phys.Vec3;
 /** Hold-to-look changes camera angles only; body rotation stays under vanilla control. */
 public final class FreeLookModule extends Module {
     private final Minecraft minecraft;
-    private final DoubleSetting sensitivity = register(new DoubleSetting("Sensitivity", "Mouse multiplier", 1, 0.1, 3));
+    private final DoubleSetting sensitivity = register(DoubleSetting.extended("Sensitivity", "Mouse multiplier", 1, 0.1, 3));
     private final BooleanSetting perspective = register(new BooleanSetting("Perspective", "Use third-person while held", true));
     private CameraType originalView;
     private boolean held;
     private float yaw, pitch;
     public FreeLookModule(EventBus bus, Minecraft mc) {
-        super("FreeLook", "Look around without rotating your body.", Category.PLAYER, bus); minecraft = mc;
+        super("FreeLook", "Look around without rotating your body.", Category.RENDER, bus);
+        minecraft = mc;
         defaultBinding(InputConstants.KEY_LALT, BindMode.HOLD);
     }
     @Override protected void onEnable() {

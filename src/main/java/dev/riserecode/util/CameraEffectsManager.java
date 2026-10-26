@@ -26,7 +26,7 @@ public final class CameraEffectsManager implements AutoCloseable {
                 clear(); return;
             }
             amount.animateTo(owner != null && gameplay() ? strength.getAsDouble() : 1);
-            event.set((float) (event.value() / magnification()));
+            event.applyMagnification(magnification());
         });
         input = bus.subscribe(MouseRotationEvent.class, 200, false, event -> {
             if (sensitivity.getAsBoolean()) { event.scaleInput(1 / magnification()); }

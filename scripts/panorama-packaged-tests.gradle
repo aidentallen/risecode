@@ -1,0 +1,11 @@
+gradle.projectsEvaluated {
+    def project=gradle.rootProject
+    project.tasks.named('runClientGameTest').configure {
+        dependsOn project.tasks.named('jar')
+        def mainOutputs=project.sourceSets.main.output.files.collect { it.canonicalFile } as Set
+        def libraries=['jgltf-model-2.0.4.jar','jgltf-impl-v1-2.0.4.jar','jgltf-impl-v2-2.0.4.jar','jackson-core-2.22.4.jar','jackson-databind-2.22.4.jar','jackson-annotations-2.22.jar'] as Set
+        def production=project.providers.gradleProperty('productionJar').getOrElse(project.tasks.named('jar').get().archiveFile.get().asFile.absolutePath)
+        classpath=classpath.filter { !mainOutputs.contains(it.canonicalFile)&&!libraries.contains(it.name) } + project.files(production)
+        systemProperty 'fabric.classPathGroups',project.sourceSets.gametest.output.files.collect { it.absolutePath }.join(File.pathSeparator)
+    }
+}

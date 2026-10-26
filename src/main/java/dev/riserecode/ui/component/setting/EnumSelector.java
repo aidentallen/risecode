@@ -16,7 +16,7 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
     private final Animation change = Animation.ui(1, 0.16, MathUtil.Easing.OUT_QUART);
     private E displayed;
     public EnumSelector(EnumSetting<E> setting, Runnable changed) {
-        this.setting = setting; this.changed = changed; displayed = setting.getValue();
+        this.setting = setting; this.changed = changed; displayed = setting.getValue();change.timing(()->dev.riserecode.ui.animation.PopIn.windowDuration("Dropdowns"));
     }
     private String option() {
         if (displayed instanceof dev.riserecode.render.ChunkMotionTracker.Curve curve) {
@@ -27,7 +27,7 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
                 case LINEAR -> "Linear";
                 case OUT_QUART -> "Ease-Out-Quart";
                 case IN_OUT_CUBIC -> "Ease-In-Out-Cubic";
-                case OUT_ELASTIC -> "Elastic";
+                case OUT_ELASTIC -> "Elastic-Out";
                 case OUT_BOUNCE -> "Bounce";
             };
         }
@@ -43,9 +43,9 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
         String option = option();
         double scale = Math.min(0.88, (width - 3) / Math.max(1, RenderUtil.textWidth(font, label + option, false)));
         double top = y + (height - 9 * Theme.number("Font Scale", 1) * scale) / 2;
-        RenderUtil.text(graphics, font, label, x + hovered * 0.7, top, scale, Theme.opacity(Theme.TEXT, opacity));
-        double valueX = x + RenderUtil.textWidth(font, label, false) * scale + hovered * 0.7;
-        RenderUtil.text(graphics, font, option, valueX + (1 - progress) * 3, top,
+        RenderUtil.text(graphics, font, label, x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), top, scale, Theme.opacity(Theme.TEXT, opacity));
+        double valueX = x + RenderUtil.textWidth(font, label, false) * scale + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER);
+        RenderUtil.text(graphics, font, option, valueX + (1 - progress) * 3 * (Theme.bool("Reduced Motion",false)?0:1), top,
                 scale, Theme.opacity(Theme.blendPalette(Theme.TEXT, Theme.accent(), hovered * 0.6), opacity * progress));
     }
     @Override
@@ -53,6 +53,6 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
         if (!contains(mouseX, mouseY) || (button != 0 && button != 1)) { return false; }
         var options = setting.getOptions();
         setting.setValue(options.get(Math.floorMod(options.indexOf(setting.getValue()) + (button == 0 ? 1 : -1), options.size())));
-        changed.run(); return true;
+        dev.riserecode.ui.sound.UiSounds.play(); changed.run(); return true;
     }
 }

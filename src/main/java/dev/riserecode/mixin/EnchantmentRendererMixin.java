@@ -23,7 +23,8 @@ public abstract class EnchantmentRendererMixin extends RenderTypeFeatureRenderer
     @Unique private ItemDisplayContext riserecode$context = ItemDisplayContext.NONE;
     @Inject(method = "prepareMainSubmit", at = @At("TAIL"))
     private void riserecode$outline(ItemFeatureRenderer.Submit submit, CallbackInfo callback) {
-        if (submit.foilType() == ItemStackRenderState.FoilType.NONE || !Client.INSTANCE.isInitialized()) { return; }
+        var context=((dev.riserecode.render.ItemVisualContext.State)(Object)submit).risecode$itemContext();
+        if (!Client.INSTANCE.isInitialized()||(submit.foilType()==ItemStackRenderState.FoilType.NONE&&(context==null||!context.enchanted()))) { return; }
         EnchantmentRenderEvent event = new EnchantmentRenderEvent(submit.displayContext()); Client.INSTANCE.getEventBus().post(event);
         if (event.style() != null) { EnchantmentRenderer.outline(submit, event.style(), this::getVertexBuilder); }
     }

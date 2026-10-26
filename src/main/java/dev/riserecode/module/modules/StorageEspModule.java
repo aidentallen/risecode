@@ -22,14 +22,15 @@ import net.minecraft.world.entity.vehicle.minecart.AbstractMinecartContainer;
 public final class StorageEspModule extends Module {
     private final EnumSetting<PlayerEspModule.Mode> mode = register(new EnumSetting<>("Mode", "Bounds or exterior model silhouette", PlayerEspModule.Mode.BOX));
     private final ColorSetting color = register(new ColorSetting("Color", "Container color", 0xFFFFC857));
-    private final DoubleSetting width = register(new DoubleSetting("Width", "Outline pixels", 2, 0.5, 5));
-    private final DoubleSetting range = register(new DoubleSetting("Range", "Maximum distance", 96, 8, 256));
+    private final DoubleSetting width = register(DoubleSetting.extended("Width", "Outline pixels", 2, 0.5, 5));
+    private final DoubleSetting range = register(DoubleSetting.extended("Range", "Maximum distance", 96, 8, 256));
     private final BooleanSetting visible = register(new BooleanSetting("VisibleOnly", "Depth-test against terrain", false));
     private final BooleanSetting minecarts = register(new BooleanSetting("Minecarts", "Chest and hopper minecarts", true));
     private final Minecraft mc;
     private final LoadedBlockIndex index;
     public StorageEspModule(EventBus bus, Minecraft mc, LoadedBlockIndex index) {
-        super("StorageESP", "All loaded containers and storage minecarts.", Category.RENDER, bus); this.mc = mc; this.index = index;
+        super("StorageESP", "All loaded containers and storage minecarts.", Category.RENDER, bus);
+        this.mc = mc; this.index = index;
     }
     @Override protected void onEnable() { index.containersRequested(true); listen(Render3DEvent.class, this::extract); }
     @Override protected void onDisable() { index.containersRequested(false); }
@@ -39,6 +40,7 @@ public final class StorageEspModule extends Module {
         var dispatcher = mc.getBlockEntityRenderDispatcher(); dispatcher.prepare(event.getContext().camera().position());
         for (var container : index.containers()) {
             var pos = container.getBlockPos();
+            if(container.isRemoved()||container.getLevel()!=mc.level||!mc.level.hasChunk(pos.getX()>>4,pos.getZ()>>4)){continue;}
             if (pos.distToCenterSqr(mc.player.position()) > range.getValue() * range.getValue()) { continue; }
             var block = mc.level.getBlockState(pos); var shape = block.getShape(mc.level, pos);
             if (shape.isEmpty()) { continue; }

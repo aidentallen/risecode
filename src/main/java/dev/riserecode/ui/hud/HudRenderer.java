@@ -42,16 +42,36 @@ public final class HudRenderer implements AutoCloseable {
         private Entry(Module module) { this.module = module; }
 
     }
+    private static final class Metrics {
+        List<HudContent.Line> content;String watermark,context;Object face;
+        long appearance=-1,font=-1,module=-1;double fontScale=-1,width,height;int watermarkWidth;
+        double[] lineWidths,lineHeights;double[][] spanWidths;
+    }
+    private final Map<HudElement,Metrics> metricCache=new java.util.IdentityHashMap<>();
+    private Metrics metrics(HudElement element,List<HudContent.Line> content,String watermark){
+        var m=metricCache.computeIfAbsent(element,ignored->new Metrics());
+        long revision=themes==null?0:themes.getRevision(),generation=CustomTextRenderer.generation(),module=element.module()==null?0:element.module().stateRevision();
+        Object face=themes==null?minecraft.font:themes.effective("Font Selection").getValue();double scale=Theme.number("Font Scale",1);String context=dev.riserecode.ui.theme.ModuleAppearance.context();
+        if(m.content!=content||!java.util.Objects.equals(m.watermark,watermark)||m.appearance!=revision||m.font!=generation||m.module!=module||m.face!=face||m.fontScale!=scale||!java.util.Objects.equals(m.context,context)){
+            m.content=content;m.watermark=watermark;m.appearance=revision;m.font=generation;m.module=module;m.face=face;m.fontScale=scale;m.context=context;
+            m.watermarkWidth=element.id().equals("watermark")?RenderUtil.textWidth(minecraft.font,watermark,false):0;
+            m.lineWidths=new double[content.size()];m.lineHeights=new double[content.size()];m.spanWidths=new double[content.size()][];
+            m.width=content.isEmpty()?50:0;m.height=0;
+            for(int i=0;i<content.size();i++){var line=content.get(i);double width=line.icon()==null?0:22;m.spanWidths[i]=new double[line.spans().size()];for(int j=0;j<line.spans().size();j++){double w=RenderUtil.textWidth(minecraft.font,line.spans().get(j).text(),false);m.spanWidths[i][j]=w;width+=w;measurements++;}m.lineWidths[i]=width;m.lineHeights[i]=lineHeight(line);m.width=Math.max(m.width,width);m.height+=m.lineHeights[i];}
+        }
+        return m;
+    }
     private final ThemeManager themes;
     private final Minecraft minecraft;
     private final ModuleManager modules;
+    private final dev.riserecode.module.modules.hud.ArrayListModule array;
     private String watermark;
     private final EventBus.Subscription subscription;
     private final Map<Module, Entry> entries = new LinkedHashMap<>();
     private final Map<String, HudElement> elements = new LinkedHashMap<>();
     private final Animation visibility = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.HUD_ENTRANCE, 1, 0.2, MathUtil.Easing.IN_OUT_CUBIC);
     private final BooleanSetting snap = new BooleanSetting("SnapToGrid", "Snap while dragging", true);
-    private final DoubleSetting gridSize = new DoubleSetting("GridSize", "Grid pixels in reference canvas", 6, 2, 32);
+    private final DoubleSetting gridSize = DoubleSetting.extended("GridSize", "Grid pixels in reference canvas", 6, 2, 32);
     private List<Entry> sorted = List.of();
     private List<Box> boxes = List.of();
     private boolean enabled = true;
@@ -65,10 +85,12 @@ public final class HudRenderer implements AutoCloseable {
     public HudRenderer(EventBus bus, Minecraft mc, ModuleManager modules, String watermark) { this(bus, mc, modules, watermark, null); }
     public HudRenderer(EventBus bus, Minecraft mc, ModuleManager modules, String watermark, ThemeManager themes) {
         this.themes = themes; minecraft = mc; this.modules = modules; this.watermark = watermark;
+        array = modules.getByClass(dev.riserecode.module.modules.hud.ArrayListModule.class).orElse(null);
         register(new HudElement("watermark", "Watermark", modules.getByClass(dev.riserecode.module.modules.hud.WatermarkModule.class).orElse(null), 0.004, 0.006));
         HudElement array = new HudElement("arraylist", "ArrayList", modules.getByClass(dev.riserecode.module.modules.hud.ArrayListModule.class).orElse(null), 1, 0); array.layout().alignment.setValue(HudLayout.Alignment.RIGHT); register(array);
         double top = 0.055;
         for (Module module : modules.getModules()) {
+            if (module instanceof dev.riserecode.module.modules.hud.MinimapModule mini) { register(new HudElement("Minimap", "Minimap", mini, 0.76, 0.62)); continue; }
             if (module instanceof HudModule hud && !container(module)) { register(new HudElement(module.getName(), Theme.displayName(module.getName()), hud, 0.008, top)); top += 0.048; }
         }
         subscription = bus.subscribe(Render2DEvent.class, this::render);
@@ -94,7 +116,7 @@ public final class HudRenderer implements AutoCloseable {
         if (data.has("snap") && (!data.get("snap").isJsonPrimitive() || !data.getAsJsonPrimitive("snap").isBoolean())) { throw new IllegalArgumentException("Invalid HUD snap"); }
         if (data.has("gridSize")) {
             if (!data.get("gridSize").isJsonPrimitive() || !data.getAsJsonPrimitive("gridSize").isNumber()) { throw new IllegalArgumentException("Invalid HUD grid"); }
-            double size = data.get("gridSize").getAsDouble(); if (!Double.isFinite(size) || size < 2 || size > 32) { throw new IllegalArgumentException("Invalid HUD grid"); }
+            double size = data.get("gridSize").getAsDouble(); if (!Double.isFinite(size) || size < 2 || size > gridSize.getMax()) { throw new IllegalArgumentException("Invalid HUD grid"); }
         }
     }
     public void applyLayouts(JsonObject data) {
@@ -103,12 +125,14 @@ public final class HudRenderer implements AutoCloseable {
     }
     private static boolean container(Module module) { return module instanceof dev.riserecode.module.modules.hud.WatermarkModule || module instanceof dev.riserecode.module.modules.hud.ArrayListModule; }
     private boolean listed(Module module) {
-        var array = modules.getByClass(dev.riserecode.module.modules.hud.ArrayListModule.class).orElse(null);
         return container(module) ? array != null && array.containers.getValue() : !(module instanceof HudModule) || array != null && array.hud.getValue();
     }
     private void update() {
+        dev.riserecode.ui.theme.ModuleAppearance.with(dev.riserecode.ui.theme.ModuleAppearance.id(array),this::updateScoped);
+    }
+    private void updateScoped() {
         updates++;
-        Object face = themes == null ? minecraft.font : themes.getSetting("Font Selection").getValue();
+        Object face = themes == null ? minecraft.font : themes.effective("Font Selection").getValue();
         double scale = Theme.number("Font Scale", 1);
         String text = themes == null ? watermark : themes.text("Watermark Text"); boolean brandingChanged = !watermark.equals(text); watermark = text;
         boolean metricsChanged = brandingChanged || fontGeneration != CustomTextRenderer.generation() || fontFace != face || fontScale != scale || german != Theme.isGerman();
@@ -138,7 +162,7 @@ public final class HudRenderer implements AutoCloseable {
         }
         double row = rowHeight();
         for (int i = 0; i < sorted.size(); i++) { sorted.get(i).y.animateTo(i * (row + Theme.number("ArrayList Spacing", 0))); }
-        visibility.channel(isEnabled() ? ThemeManager.Channel.HUD_ENTRANCE : ThemeManager.Channel.HUD_EXIT).animateTo(isEnabled() ? 1 : 0);
+        dev.riserecode.ui.theme.ModuleAppearance.with("",()->visibility.channel(isEnabled() ? ThemeManager.Channel.HUD_ENTRANCE : ThemeManager.Channel.HUD_EXIT).animateTo(isEnabled() ? 1 : 0));
     }
     private double rowHeight() { return 7.5 * Theme.number("Font Scale", 1) + Theme.number("ArrayList Padding", 2) * 2; }
     private void render(Render2DEvent event) {
@@ -150,52 +174,61 @@ public final class HudRenderer implements AutoCloseable {
         long start = System.nanoTime(); update(); List<Box> currentBoxes = new ArrayList<>(elements.size());
         double reference = graphics.guiHeight() / 576.0, canvasWidth = graphics.guiWidth() / reference;
         double global = edit ? 1 : MathUtil.clamp01(visibility.getValue());
-        for (HudElement element : elements.values()) {
+        for(HudElement element:elements.values()){
+            dev.riserecode.ui.theme.ModuleAppearance.with(dev.riserecode.ui.theme.ModuleAppearance.id(element.module()),()->extractElement(graphics,edit,element,global,reference,canvasWidth,currentBoxes));
+        }
+        boxes = List.copyOf(currentBoxes); lastExtractionNanos = System.nanoTime() - start;
+    }
+    private void extractElement(GuiGraphicsExtractor graphics,boolean edit,HudElement element,double global,double reference,double canvasWidth,List<Box> currentBoxes){
+            if(!edit&&!Theme.bool("HUD Visible",true)){return;}
+            String ownWatermark=themes==null?watermark:themes.text("Watermark Text");
+
             double opacity = edit ? 1 : element.opacity() * global;
-            if (opacity <= 0 && !edit) { continue; }
+            if (opacity <= 0 && !edit) { return; }
             List<HudContent.Line> content = element.module() == null ? List.of() : element.module().content();
+            var metrics=metrics(element,content,ownWatermark);int ownWatermarkWidth=metrics.watermarkWidth;
             boolean logo = element.module() instanceof dev.riserecode.module.modules.hud.WatermarkModule wm && wm.logo.getValue() && dev.riserecode.ui.theme.BrandingLogo.present();
             double logoSize = logo ? Theme.number("Logo Size",16) : 0;
             var placement = themes == null ? ThemeManager.LogoPlacement.LEFT : themes.choice("Logo Placement",ThemeManager.LogoPlacement.class);
             double padding = Theme.number("ArrayList Padding", 2), w, h;
-            if (element.id().equals("watermark")) { w = Math.max(watermarkWidth,placement==ThemeManager.LogoPlacement.ABOVE?logoSize:0) + padding * 2 + 1 + (logo && placement!=ThemeManager.LogoPlacement.ABOVE?logoSize+4:0); h = logo && placement==ThemeManager.LogoPlacement.ABOVE ? rowHeight()+logoSize+5 : Math.max(rowHeight()+1,logoSize+padding*2); }
+            if (element.id().equals("watermark")) { w = Math.max(ownWatermarkWidth,placement==ThemeManager.LogoPlacement.ABOVE?logoSize:0) + padding * 2 + 1 + (logo && placement!=ThemeManager.LogoPlacement.ABOVE?logoSize+4:0); h = logo && placement==ThemeManager.LogoPlacement.ABOVE ? rowHeight()+logoSize+5 : Math.max(rowHeight()+1,logoSize+padding*2); }
             else if (element.id().equals("arraylist")) { w = (sorted.isEmpty() ? 70 : sorted.getFirst().width) + padding * 2 + 1; h = Math.max(rowHeight(), sorted.size() * (rowHeight() + Theme.number("ArrayList Spacing", 0))); }
-            else { w = content.stream().mapToDouble(this::lineWidth).max().orElse(50) + 8; h = content.stream().mapToDouble(this::lineHeight).sum() + 6; }
+            else if (element.module() != null && element.module().graphicWidth() > 0) { w = element.module().graphicWidth(); h = element.module().graphicHeight(); }
+            else { w = metrics.width + 8; h = metrics.height + 6; }
             double scale = Math.min(element.layout().scale.getValue(), Math.min(canvasWidth / w, 576 / h)), physicalScale = reference * scale;
             double tx = Math.clamp(element.layout().x() * canvasWidth, 0, Math.max(0, canvasWidth - w * scale));
             double ty = Math.clamp(element.layout().y() * 576, 0, Math.max(0, 576 - h * scale));
             double[] xy = element.position(tx, ty); double x = Math.clamp(xy[0], 0, Math.max(0, canvasWidth - w * scale)), y = Math.clamp(xy[1], 0, Math.max(0, 576 - h * scale));
-            if (opacity <= 0 && !edit) { continue; }
+            if (opacity <= 0 && !edit) { return; }
             currentBoxes.add(new Box(element, x * reference, y * reference, w * physicalScale, h * physicalScale));
             graphics.pose().pushMatrix(); graphics.pose().translate((float) (x * reference), (float) (y * reference)); graphics.pose().scale((float) physicalScale, (float) physicalScale);
             try {
                 if (element.id().equals("arraylist")) { drawArray(graphics, element, w, padding, opacity, edit); }
                 else {
-                    background(graphics, element, 0, 0, w, h, opacity);
+                    if (!(element.module() instanceof dev.riserecode.module.modules.hud.MinimapModule)) { background(graphics, element, 0, 0, w, h, opacity); }
                     if (element.id().equals("watermark")) {
                         double textX=padding+(logo && placement==ThemeManager.LogoPlacement.LEFT?logoSize+4:0), textY=padding+(logo && placement==ThemeManager.LogoPlacement.ABOVE?logoSize+4:0);
-                        if (logo) { dev.riserecode.ui.theme.BrandingLogo.drawBeside(graphics,textX,textY,watermarkWidth,opacity); }
-                        RenderUtil.paintText(graphics, minecraft.font, watermark, textX, textY, 1, Theme.paint("Watermark Color"), opacity, true);
+                        if (logo) { dev.riserecode.ui.theme.BrandingLogo.drawBeside(graphics,textX,textY,ownWatermarkWidth,opacity); }
+                        RenderUtil.paintText(graphics, minecraft.font, ownWatermark, textX, textY, 1, Theme.paint("Watermark Color"), opacity, true);
                         RenderUtil.drawPaintRect(graphics, padding, h - 1, w - padding * 2, 0.7, 0.35, Theme.paint("Watermark Color"), opacity * 0.7);
-                    } else {
+                    } else if (element.module() != null && element.module().graphicWidth() > 0) { element.module().drawGraphic(graphics, opacity, edit); } else {
                         double top = 3;
-                        for (HudContent.Line line : content) { drawLine(graphics, element, line, w, top, opacity); top += lineHeight(line); }
+                        for(int i=0;i<content.size();i++){drawLine(graphics,element,content.get(i),w,top,opacity,metrics,i);top+=metrics.lineHeights[i];}
                     }
                 }
             } finally { graphics.pose().popMatrix(); }
-        }
-        boxes = List.copyOf(currentBoxes); lastExtractionNanos = System.nanoTime() - start;
     }
     private double lineWidth(HudContent.Line line) { return (line.icon() == null ? 0 : 22) + line.spans().stream().mapToDouble(span -> RenderUtil.textWidth(minecraft.font, span.text(), false)).sum(); }
     private double lineHeight(HudContent.Line line) { return Math.max(line.icon() == null ? 0 : 20, 10 * Theme.number("Font Scale", 1)) + (line.bar() >= 0 ? 6 : 0); }
-    private void drawLine(GuiGraphicsExtractor graphics, HudElement element, HudContent.Line line, double width, double y, double opacity) {
-        double contentWidth = lineWidth(line), x = aligned(element, width, contentWidth, 4);
+    private void drawLine(GuiGraphicsExtractor graphics, HudElement element, HudContent.Line line, double width, double y, double opacity,Metrics metrics,int index) {
+        double contentWidth = metrics.lineWidths[index], x = aligned(element, width, contentWidth, 4);
         if (line.icon() != null) { graphics.blitSprite(RenderPipelines.GUI_TEXTURED, line.icon(), (int) x, (int) y, 18, 18, Theme.opacity(0xFFFFFFFF, opacity)); x += 22; }
+        int spanIndex=0;
         for (HudContent.Span span : line.spans()) {
             if (span.paint() != null) { RenderUtil.paintText(graphics, minecraft.font, span.text(), x, y + (line.icon() == null ? 0 : 5), 1, span.paint(), opacity, true); }
             else if (span.gradient()) { RenderUtil.accentText(graphics, minecraft.font, span.text(), x, y + (line.icon() == null ? 0 : 5), 1, opacity); }
             else { RenderUtil.hudText(graphics, minecraft.font, span.text(), x, y + (line.icon() == null ? 0 : 5), Theme.opacity(span.color(), opacity)); }
-            x += RenderUtil.textWidth(minecraft.font, span.text(), false);
+            x += metrics.spanWidths[index][spanIndex++];
         }
         if (line.bar() >= 0) { double top = y + lineHeight(line) - 5;
             RenderUtil.drawRoundedRect(graphics, 4, top, width - 8, 2, 1, Theme.opacity(0xFF34434F, opacity));
@@ -222,6 +255,8 @@ public final class HudRenderer implements AutoCloseable {
             case NONE -> HudLayout.Background.NONE; case SOLID_BOX -> HudLayout.Background.SOLID; case BLUR_BOX -> HudLayout.Background.BLUR; }; }
         if (kind == HudLayout.Background.NONE) { return; }
         if (kind == HudLayout.Background.BLUR) { BlurUtil.drawBox(g, x, y, w, h, 3, opacity * 0.8); }
+        var local=themes==null?null:themes.existingModule(dev.riserecode.ui.theme.ModuleAppearance.context());
+        if(local!=null&&!local.global.getValue()){dev.riserecode.ui.theme.ModuleBackground.draw(g,x,y,w,h,opacity);}
         ColorSetting.Paint paint = element.layout().backgroundColor.getMode() == ColorSetting.Mode.THEME ? Theme.paint("HUD Background Color") : element.layout().backgroundColor.paint();
         RenderUtil.drawPaintRect(g, x, y, w, h, 3, paint, opacity * (kind == HudLayout.Background.BLUR ? 0.3 : 0.8));
         if (element.layout().border.getValue() == HudLayout.Border.ON
@@ -229,5 +264,5 @@ public final class HudRenderer implements AutoCloseable {
             RenderUtil.drawRoundedBorder(g, x, y, w, h, 3, Theme.opacity(0xFFFFFFFF, opacity * Theme.number("Border Opacity", 0.08)));
         }
     }
-    @Override public void close() { subscription.close(); entries.clear(); elements.clear(); }
+    @Override public void close() { subscription.close(); entries.clear(); elements.clear();metricCache.clear(); }
 }

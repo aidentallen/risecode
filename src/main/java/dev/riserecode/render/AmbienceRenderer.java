@@ -58,7 +58,7 @@ public final class AmbienceRenderer {
         }
     }
     public static boolean skyActive() { return module != null && module.isEnabled() && module.sky.getValue() && !irisActive && Minecraft.getInstance().level != null; }
-    public static boolean waterActive() { return module != null && module.isEnabled() && module.water.getValue() && !irisActive && Minecraft.getInstance().level != null; }
+    public static boolean waterActive() { return RendererCapabilities.chunkAdapters && module != null && module.isEnabled() && module.water.getValue() && !irisActive && Minecraft.getInstance().level != null; }
     private static void color(Std140Builder builder, int color) { builder.putVec4((color >> 16 & 255) / 255f, (color >> 8 & 255) / 255f, (color & 255) / 255f, (color >>> 24) / 255f); }
     private static void prepare() {
         if (parameters == null) { parameters = RenderSystem.getDevice().createBuffer(() -> "risecode atmosphere parameters", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 192); }

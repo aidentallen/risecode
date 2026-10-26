@@ -26,10 +26,10 @@ public final class ColorSwatch extends UIComponent {
         if (previous != setting.getValue()) { previous = setting.getValue(); pulse.reset(0); pulse.animateTo(1); }
         double progress = pulse.update(deltaSeconds);
         String label = Theme.displayName(setting.getName());
-        RenderUtil.text(graphics, font, label, x + hovered * 0.7, y + (height - 9) / 2, 0.88,
+        RenderUtil.text(graphics, font, label, x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), y + (height - 9) / 2, 0.88,
                 Theme.opacity(Theme.TEXT, opacity));
         double left = x + RenderUtil.textWidth(font, label, false) * 0.88 + 6;
-        double size = 6 - (1 - progress) * 1.5;
+        double size = 6 - (1 - progress) * 1.5 * (Theme.bool("Reduced Motion",false)?0:1);
         RenderUtil.drawRoundedRect(graphics, left, y + (height - size) / 2, size, size, 2,
                 Theme.opacity(setting.getValue() | 0xFF000000, opacity));
     }

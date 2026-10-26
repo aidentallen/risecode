@@ -15,11 +15,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 /** Shared JSON I/O; a failed write never truncates the previous destination. */
-final class JsonStorage {
+public final class JsonStorage {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private JsonStorage() { }
 
-    static JsonObject read(Path file) throws IOException {
+    public static JsonObject read(Path file) throws IOException {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             JsonElement root = JsonParser.parseReader(reader);
             if (!root.isJsonObject()) { throw new IllegalArgumentException("JSON root must be an object"); }
@@ -27,7 +27,7 @@ final class JsonStorage {
         }
     }
 
-    static void write(Path file, JsonObject document) throws IOException {
+    public static void write(Path file, JsonObject document) throws IOException {
         Files.createDirectories(file.getParent());
         Path temporary = Files.createTempFile(file.getParent(), "riserecode-", ".tmp");
         try {

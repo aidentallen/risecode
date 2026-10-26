@@ -17,14 +17,15 @@ import net.minecraft.world.phys.Vec3;
 /** Camera-only flight: no dummy entity, player teleport, packet replacement or server camera change. */
 public final class FreeCamModule extends Module {
     private final Minecraft minecraft;
-    private final DoubleSetting speed = register(new DoubleSetting("Speed", "Camera blocks per tick", 0.5, 0.05, 5));
+    private final DoubleSetting speed = register(DoubleSetting.extended("Speed", "Camera blocks per tick", 0.5, 0.05, 5));
     private final BooleanSetting vertical = register(new BooleanSetting("VerticalMovement", "Jump/sneak moves vertically", true));
     private final BooleanSetting rotate = register(new BooleanSetting("Rotate", "Mouse rotates the detached camera", true));
     private LocalPlayer player;
     private ClientLevel level;
     private Vec3 position, previous;
     private float yaw, pitch;
-    public FreeCamModule(EventBus bus, Minecraft mc) { super("FreeCam", "Client-side detached fly camera.", Category.RENDER, bus); minecraft = mc; }
+    public FreeCamModule(EventBus bus, Minecraft mc) { super("FreeCam", "Client-side detached fly camera.", Category.RENDER, bus);
+        minecraft = mc; }
     @Override protected void onEnable() {
         capture();
         listen(UpdateEvent.class, ignored -> { if (minecraft.player == null || minecraft.player != player || minecraft.level != level) { capture(); } });

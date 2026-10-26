@@ -13,9 +13,9 @@ import net.minecraft.client.Minecraft;
 public final class BaritoneModule extends Module {
     public enum Task { DESTINATION, MINE, FOLLOW, COMMAND }
     public final EnumSetting<Task> task = register(new EnumSetting<>("Task", "Task started only with Start", Task.DESTINATION));
-    public final DoubleSetting x = register(new DoubleSetting("Destination X", "Block X", 0, -30_000_000, 30_000_000));
-    public final DoubleSetting y = register(new DoubleSetting("Destination Y", "Block Y", 64, -2048, 2048));
-    public final DoubleSetting z = register(new DoubleSetting("Destination Z", "Block Z", 0, -30_000_000, 30_000_000));
+    public final DoubleSetting x = register(DoubleSetting.extended("Destination X", "Block X", 0, -30_000_000, 30_000_000));
+    public final DoubleSetting y = register(DoubleSetting.extended("Destination Y", "Block Y", 64, -2048, 2048));
+    public final DoubleSetting z = register(DoubleSetting.extended("Destination Z", "Block Z", 0, -30_000_000, 30_000_000));
     public final StringSetting targets = register(new StringSetting("Mining Targets", "Block names separated by spaces", "minecraft:diamond_ore"));
     public final StringSetting player = register(new StringSetting("Follow Player", "Player name", "", 64));
     public final StringSetting input = register(new StringSetting("Command", "Baritone command", "help"));
@@ -47,7 +47,8 @@ public final class BaritoneModule extends Module {
         } catch (IllegalArgumentException | IllegalStateException failure) { feedback = failure.getMessage(); }
     }
     public void forward(String command) {
-        if (!isEnabled()) { dev.riserecode.Client.INSTANCE.getModuleManager().setEnabled(this, true); }
+        String verb = command.strip().toLowerCase(java.util.Locale.ROOT).split("\\s+", 2)[0];
+        if (!java.util.Set.of("help", "status", "version", "commands").contains(verb) && !isEnabled()) { dev.riserecode.Client.INSTANCE.getModuleManager().setEnabled(this, true); }
         if (!access().available()) { throw new IllegalArgumentException(access().status()); }
         if (!access().command(command)) { throw new IllegalArgumentException("Unknown Baritone command"); }
     }

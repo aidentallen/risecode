@@ -98,13 +98,15 @@ public final class PolishIntegrationTest {
             client.getEventBus().post(new HeldItemTransformEvent(pose, ItemDisplayContext.FIRST_PERSON_RIGHT_HAND)); check(!before.equals(pose.last().pose()), "view model changes first-person item pose");
         }); context.waitTicks(12); context.takeScreenshot("polish-viewmodel-both-hands");
         check(zoom.getKeybind() == InputConstants.KEY_C && zoom.getBindMode() == Module.BindMode.HOLD, "Zoom defaults Hold C");
+        context.runOnClient(mc->zoom.setEnabled(true)); context.waitTicks(12);
+        check(client.getCameraEffects().magnification()==1,"Enabling Zoom only arms its binding");
         context.getInput().holdKey(InputConstants.KEY_C); context.waitTicks(12);
         check(zoom.isEnabled() && client.getCameraEffects().magnification() > 2.9, "Hold key drives smooth Zoom");
         double previous = zoom.getMagnification().getValue(); int slot = context.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
         context.getInput().scroll(1); context.waitTicks(6);
-        check(zoom.getMagnification().getValue() > previous && context.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot()) == slot, "zoom scroll adjusts magnification without hotbar changes");
+        check(zoom.getMagnification().getValue() == previous && zoom.activeMagnification() > previous && context.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot()) == slot, "zoom scroll adjusts magnification without hotbar changes");
         context.takeScreenshot("polish-zoom"); context.getInput().releaseKey(InputConstants.KEY_C); context.waitTicks(12);
-        check(!zoom.isEnabled() && client.getCameraEffects().magnification() == 1, "Zoom releases and finishes zoom-out animation");
+        check(zoom.isEnabled() && !zoom.isZoomActive() && client.getCameraEffects().magnification() == 1, "Zoom releases and finishes zoom-out animation");
         context.runOnClient(mc -> {
             var layout = client.getHudRenderer().getElements().getFirst().layout(); layout.background.setValue(HudLayout.Background.SOLID); layout.border.setValue(HudLayout.Border.ON);
             client.getThemeManager().colorSetting("Border Color").setValue(0xFFFF11FF); ((DoubleSetting) client.getThemeManager().getSetting("Border Opacity")).setValue(1.0);

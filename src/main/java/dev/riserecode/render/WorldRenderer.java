@@ -9,69 +9,77 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.phys.Vec3;
 
-/** Immutable extraction snapshots submitted through vanilla's depth-tested line pipeline. */
+/** Immutable extraction snapshots submitted through dedicated world-overlay pipelines. */
 public final class WorldRenderer implements AutoCloseable {
-    private record RelativeLine(Vec3 from, Vec3 to, Vec3 normal, int color, float width, int endColor) { }
+    private record Frame(PackedGeometry geometry,List<java.util.function.Consumer<LevelRenderContext>> submissions) {}
+    private volatile Frame frame=new Frame(PackedGeometry.EMPTY,List.of());
     private final EventBus.Subscription subscription;
-    private volatile List<java.util.function.Consumer<LevelRenderContext>> submissions = List.of();
-    private volatile List<Render3DEvent.Quad> quads = List.of();
-    private volatile List<Render3DEvent.Line> lines = List.of();
 
     public WorldRenderer(EventBus bus) {
-        subscription = bus.subscribe(Render3DEvent.class, Integer.MIN_VALUE, false, event -> { lines = event.getLines(); quads = event.getQuads(); submissions = event.getSubmissions(); });
+        subscription = bus.subscribe(Render3DEvent.class, Integer.MIN_VALUE, false, event -> { frame=new Frame(event.geometry(),event.getSubmissions()); });
     }
-    public List<Render3DEvent.Line> getLines() { return lines; }
-    public List<Render3DEvent.Quad> getQuads() { return quads; }
+    public List<Render3DEvent.Line> getLines() { return frame.geometry.lines(); }
+    public List<Render3DEvent.Quad> getQuads() { return frame.geometry.quads(); }
 
     public void submit(LevelRenderContext context) {
-        submissions.forEach(submit -> submit.accept(context));
-        for (boolean visible : new boolean[] {true, false}) { submitLines(context, visible); }
+        if (ShaderWorldOverlay.shadowPass()) { return; }
+        var current=frame;
+        current.submissions.forEach(submit -> submit.accept(context));
+        PackedGeometry snapshot=current.geometry;
+        submitGeometry(context,snapshot,true);submitGeometry(context,snapshot,false);
     }
-    private void submitLines(LevelRenderContext context, boolean visible) {
-        List<Render3DEvent.Line> snapshot = lines.stream().filter(line -> line.visibleOnly() == visible).toList();
-        List<Render3DEvent.Quad> faces = visible ? quads : List.of();
-        if (!faces.isEmpty()) {
-            Vec3 eye = context.levelState().cameraRenderState.pos;
-            context.submitNodeCollector().submitCustomGeometry(context.poseStack(), RenderTypes.debugQuads(), (pose, vertices) -> {
-                for (Render3DEvent.Quad face : faces) {
-                    Vec3[] points = {face.a(), face.b(), face.c(), face.d()}; int[] colors = {face.color(), face.colorB(), face.colorC(), face.colorD()};
-                    for (int i = 0; i < points.length; i++) {
-                        Vec3 relative = points[i].subtract(eye); vertices.addVertex(pose, (float) relative.x, (float) relative.y, (float) relative.z).setColor(colors[i]);
-                    }
-                }
+    private void submitGeometry(LevelRenderContext context,PackedGeometry p,boolean visible){
+        Vec3 camera=context.levelState().cameraRenderState.pos;
+        if(p.quadCount(visible)>0){
+            context.submitNodeCollector().submitCustomGeometry(context.poseStack(),visible?(ShaderWorldOverlay.active()?Overlay.QUADS:RenderTypes.debugQuads()):throughQuads(),(pose,vertices)->{
+                var scratch=new org.joml.Vector3f();
+                for(int n=0;n<p.quadCount(visible);n++){int i=p.quadIndex(visible,n);for(int v=0;v<4;v++){pose.pose().transformPosition((float)(p.quad(i,v*3)-camera.x),(float)(p.quad(i,v*3+1)-camera.y),(float)(p.quad(i,v*3+2)-camera.z),scratch);vertices.addVertex(scratch.x,scratch.y,scratch.z).setColor(p.quadColor(i,v));}}
             });
         }
-        if (snapshot.isEmpty()) { return; }
-        Vec3 camera = context.levelState().cameraRenderState.pos;
-        List<RelativeLine> geometry = new ArrayList<>(snapshot.size());
-        for (Render3DEvent.Line line : snapshot) {
-            Vec3 direction = line.to().subtract(line.from());
-            if (direction.lengthSqr() < 1.0e-12) { continue; }
-            geometry.add(new RelativeLine(line.from().subtract(camera), line.to().subtract(camera),
-                    direction.normalize(), line.color(), line.width(), line.endColor()));
-        }
-        List<RelativeLine> immutable = List.copyOf(geometry);
-        PoseStack poses = context.poseStack();
-        context.submitNodeCollector().submitCustomGeometry(poses, visible ? RenderTypes.lines() : throughLines(), (pose, vertices) -> {
-            for (RelativeLine line : immutable) {
-                Vec3 normal = line.normal();
-                vertices.addVertex(pose, (float) line.from().x, (float) line.from().y, (float) line.from().z)
-                        .setColor(line.color()).setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z)
-                        .setLineWidth(line.width());
-                vertices.addVertex(pose, (float) line.to().x, (float) line.to().y, (float) line.to().z)
-                        .setColor(line.endColor()).setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z)
-                        .setLineWidth(line.width());
+        if(p.lineCount(visible)==0){return;}
+        context.submitNodeCollector().submitCustomGeometry(context.poseStack(),visible?(ShaderWorldOverlay.active()?Overlay.LINES:RenderTypes.lines()):throughLines(),(pose,vertices)->{
+            var scratch=new org.joml.Vector3f();var normal=new org.joml.Vector3f();
+            for(int n=0;n<p.lineCount(visible);n++){
+                int i=p.lineIndex(visible,n);double dx=p.line(i,3)-p.line(i,0),dy=p.line(i,4)-p.line(i,1),dz=p.line(i,5)-p.line(i,2),length=dx*dx+dy*dy+dz*dz;
+                if(length<1e-12){continue;}double inverse=1/Math.sqrt(length);float nx=(float)(dx*inverse),ny=(float)(dy*inverse),nz=(float)(dz*inverse);
+                pose.transformNormal(nx,ny,nz,normal);
+                for(int v=0;v<2;v++){pose.pose().transformPosition((float)(p.line(i,v*3)-camera.x),(float)(p.line(i,v*3+1)-camera.y),(float)(p.line(i,v*3+2)-camera.z),scratch);vertices.addVertex(scratch.x,scratch.y,scratch.z).setColor(p.lineColor(i,v)).setNormal(normal.x,normal.y,normal.z).setLineWidth((float)(p.width(i)*WorldResolution.pixelScale()));}
             }
         });
     }
+    private static final class Overlay {
+        // Iris replaces the vanilla LINES pipeline with the pack's gbuffers_line program.
+        // Packs can hide/recolor that program or hard-code its width. Keep our native
+        // line shader and composite the transparent overlay after the pack's final pass.
+        private static final net.minecraft.client.renderer.rendertype.RenderType LINES = net.minecraft.client.renderer.rendertype.RenderType.create("risecode world overlay lines",
+                net.minecraft.client.renderer.rendertype.RenderSetup.builder(net.minecraft.client.renderer.RenderPipelines.register(
+                    com.mojang.blaze3d.pipeline.RenderPipeline.builder(net.minecraft.client.renderer.RenderPipelines.LINES_SNIPPET)
+                        .withLocation(dev.riserecode.ui.render.UiMesh.id("pipeline/world_overlay_lines"))
+                        .build())).setOutputTarget(ShaderWorldOverlay.OUTPUT).createRenderSetup());
+        private static final net.minecraft.client.renderer.rendertype.RenderType QUADS = net.minecraft.client.renderer.rendertype.RenderType.create("risecode shader overlay fill",
+                net.minecraft.client.renderer.rendertype.RenderSetup.builder(net.minecraft.client.renderer.RenderPipelines.DEBUG_QUADS)
+                        .setOutputTarget(ShaderWorldOverlay.OUTPUT).sortOnUpload().createRenderSetup());
+    }
+    private static net.minecraft.client.renderer.rendertype.RenderType createPopQuads(){
+        var original=net.minecraft.client.renderer.RenderPipelines.DEBUG_QUADS;
+        var builder=com.mojang.blaze3d.pipeline.RenderPipeline.builder()
+                .withLocation(dev.riserecode.ui.render.UiMesh.id("pipeline/block_pop_fill"))
+                .withVertexShader(original.getVertexShader()).withFragmentShader(original.getFragmentShader())
+                .withVertexBinding(0,original.getVertexFormatBinding(0)).withPrimitiveTopology(original.getPrimitiveTopology())
+                .withColorTargetState(original.getColorTargetState()).withCull(true).withDepthStencilState(java.util.Optional.empty());
+        for(var layout:original.getBindGroupLayouts()){builder.withBindGroupLayout(layout);}
+        return net.minecraft.client.renderer.rendertype.RenderType.create("risecode block pop fill",net.minecraft.client.renderer.rendertype.RenderSetup.builder(net.minecraft.client.renderer.RenderPipelines.register(builder.build())).setOutputTarget(ShaderWorldOverlay.OUTPUT).sortOnUpload().createRenderSetup());
+    }
     private static final class Through {
+        private static final net.minecraft.client.renderer.rendertype.RenderType QUADS=createPopQuads();
         private static final net.minecraft.client.renderer.rendertype.RenderType LINES = net.minecraft.client.renderer.rendertype.RenderType.create("risecode through-wall boxes",
                 net.minecraft.client.renderer.rendertype.RenderSetup.builder(net.minecraft.client.renderer.RenderPipelines.register(
                     com.mojang.blaze3d.pipeline.RenderPipeline.builder(net.minecraft.client.renderer.RenderPipelines.LINES_SNIPPET)
                         .withLocation(dev.riserecode.ui.render.UiMesh.id("pipeline/esp_lines"))
-                        .withDepthStencilState(java.util.Optional.empty()).build())).createRenderSetup());
+                        .withDepthStencilState(java.util.Optional.empty()).build())).setOutputTarget(ShaderWorldOverlay.OUTPUT).createRenderSetup());
     }
+    private static net.minecraft.client.renderer.rendertype.RenderType throughQuads(){return Through.QUADS;}
     private static net.minecraft.client.renderer.rendertype.RenderType throughLines() { return Through.LINES; }
     @Override
-    public void close() { subscription.close(); lines = List.of(); quads = List.of(); submissions = List.of(); }
+    public void close() { subscription.close(); frame=new Frame(PackedGeometry.EMPTY,List.of()); }
 }

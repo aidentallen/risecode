@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class AmbienceSkyMixin {
     @Shadow @Final private com.mojang.blaze3d.pipeline.RenderTarget renderTarget;
     @Inject(method = "renderSkyDisc", at = @At("HEAD"), cancellable = true)
-    private void riserecode$sky(CallbackInfo ci) { if (AmbienceRenderer.renderSky(renderTarget)) { ci.cancel(); } }
+    private void riserecode$sky(int skyColor, CallbackInfo ci) { if (AmbienceRenderer.renderSky(renderTarget)) { ci.cancel(); } }
     @Inject(method = {"renderSunMoonAndStars", "renderSunriseAndSunset", "renderDarkDisc"}, at = @At("HEAD"), cancellable = true)
     private void riserecode$celestials(CallbackInfo ci) { if (AmbienceRenderer.skyActive()) { ci.cancel(); } }
 }

@@ -43,9 +43,17 @@ public enum Client {
     private ConfigManager configManager;
     private KeybindManager keybindManager;
     private CommandManager commandManager;
+    private dev.riserecode.config.ClientPreferences clientPreferences;
+    private dev.riserecode.performance.PerformancePreferences performance;
+    public dev.riserecode.performance.PerformancePreferences getPerformance(){return performance;}
+    private dev.riserecode.integration.DiscordActivity discordActivity;
+    public dev.riserecode.config.ClientPreferences getClientPreferences(){return clientPreferences;}
+    public dev.riserecode.integration.DiscordActivity getDiscordActivity(){return discordActivity;}
     private FriendManager friendManager;
     private ProfileManager profileManager;
     private WorldRenderer worldRenderer;
+    private dev.riserecode.render.TargetHighlightCoordinator targetHighlights;
+    public dev.riserecode.render.TargetHighlightCoordinator getTargetHighlights(){return targetHighlights;}
     private dev.riserecode.render.LoadedBlockIndex blockIndex;
     private RotationManager rotationManager;
     private AttackManager attackManager;
@@ -53,6 +61,11 @@ public enum Client {
     private HudRenderer hudRenderer;
     private ThemeManager themeManager;
     private ClickGui clickGui;
+    private dev.riserecode.resources.ResourcesManager resourcesManager;
+    private dev.riserecode.map.MapService maps;
+    public dev.riserecode.map.MapService getMaps() { return maps; }
+    private dev.riserecode.cosmetics.CosmeticsManager cosmetics;
+    public dev.riserecode.cosmetics.CosmeticsManager getCosmetics(){return cosmetics;}
     private volatile boolean initialized;
     private boolean resourcesReady;
     public boolean resourcesReady() { return resourcesReady; }
@@ -65,6 +78,7 @@ public enum Client {
                 .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("development");
         friendManager = new FriendManager();
         worldRenderer = new WorldRenderer(eventBus);
+        targetHighlights = new dev.riserecode.render.TargetHighlightCoordinator(eventBus,minecraft);
         blockIndex = new dev.riserecode.render.LoadedBlockIndex(eventBus, minecraft);
         rotationManager = new RotationManager(eventBus, minecraft);
         attackManager = new AttackManager(eventBus, minecraft);
@@ -78,7 +92,19 @@ public enum Client {
                 moduleManager, friendManager, hudRenderer::isEnabled, hudRenderer::setEnabled, logger);
         configManager.bindHudStore(hudRenderer::snapshotLayouts, hudRenderer::applyLayouts, hudRenderer::validateLayouts);
         configManager.bindVisualPolicyStore(themeManager::policySnapshot, themeManager::applyPolicy, themeManager::validatePolicy);
+        resourcesManager = new dev.riserecode.resources.ResourcesManager(configManager.getDirectory(), eventBus);
+        configManager.bindResourcesStore(resourcesManager);
+        resourcesManager.onChange(configManager::requestSave);
+        cosmetics = new dev.riserecode.cosmetics.CosmeticsManager(configManager.getDirectory());
+        cosmetics.onChange(configManager::requestSave); cosmetics.bind(eventBus);
+        configManager.bindCosmeticsStore(cosmetics::snapshot, cosmetics::restore, cosmetics::validate);
         configManager.useExternalVisualPreferences(); configManager.load();
+        clientPreferences=new dev.riserecode.config.ClientPreferences(configManager);
+        performance=new dev.riserecode.performance.PerformancePreferences(configManager);
+        discordActivity=new dev.riserecode.integration.DiscordActivity(net.minecraft.SharedConstants.getCurrentVersion().name());
+        clientPreferences.onChange(()->discordActivity.configure(clientPreferences.discord.getValue(),clientPreferences.discordId.getValue()));
+        discordActivity.configure(clientPreferences.discord.getValue(),clientPreferences.discordId.getValue());
+        themeManager.migrateModuleAnimations(moduleManager.getModules());
         if (!themeManager.wasLoaded()) {
             var oldUi = configManager.getUiPreferences();
             hudRenderer.setEnabled(configManager.getLegacyHudEnabled());
@@ -113,6 +139,7 @@ public enum Client {
         commandManager.register(new HelpCommand(commandManager));
         commandManager.register(new HudCommand());
         commandManager.register(new dev.riserecode.command.commands.BaritoneCommand(moduleManager.getByClass(dev.riserecode.module.modules.BaritoneModule.class).orElseThrow()));
+        maps = new dev.riserecode.map.MapService(configManager.getDirectory(), eventBus, minecraft);
         initialized = true;
         logger.info("{} {} initialized with {} module(s)", NAME, version, moduleManager.getModules().size());
     }
@@ -121,11 +148,14 @@ public enum Client {
         if (!initialized) { return; }
         // Save user choices before cleanup temporarily disables active modules.
         configManager.save();
+        discordActivity.close();
         keybindManager.close();
         hudRenderer.close();
-        themeManager.close(); dev.riserecode.ui.theme.BrandingLogo.close(); dev.riserecode.render.ItemOutlineRenderer.close(); dev.riserecode.render.SilhouetteOutlineRenderer.close(); BlurUtil.close(); dev.riserecode.ui.menu.MenuBackdrop.close(); CustomTextRenderer.close();
-        worldRenderer.close(); blockIndex.close();
-        configManager.close();
+        dev.riserecode.ui.component.ResourcesPreviews.shutdown();
+        resourcesManager.close(); maps.close(); cosmetics.close();
+        dev.riserecode.ui.panorama.LivingPanorama.close(); themeManager.close(); dev.riserecode.ui.theme.BrandingLogo.close(); dev.riserecode.render.ItemOutlineRenderer.close(); dev.riserecode.render.SilhouetteOutlineRenderer.close(); dev.riserecode.render.glass.GlassRenderer.close(); dev.riserecode.render.glass.GlassPreview.close(); BlurUtil.close(); dev.riserecode.ui.menu.MenuBackdrop.close(); CustomTextRenderer.close();
+        dev.riserecode.render.WorldLabels.clearTextCache(); targetHighlights.close(); worldRenderer.close(); blockIndex.close();
+        profileManager.close(); configManager.close();
         moduleManager.disableAll();
         rotationManager.close();
         attackManager.close(); cameraEffects.close();
@@ -152,6 +182,7 @@ public enum Client {
     public WorldRenderer getWorldRenderer() { return worldRenderer; }
     public RotationManager getRotationManager() { return rotationManager; }
     public AttackManager getAttackManager() { return attackManager; }
+    public dev.riserecode.resources.ResourcesManager getResourcesManager() { return resourcesManager; }
     public ThemeManager getThemeManager() { return themeManager; }
     public HudRenderer getHudRenderer() { return hudRenderer; }
     /** Screens capture the font, so create this only after Minecraft initializes it. */

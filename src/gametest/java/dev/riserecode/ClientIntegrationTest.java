@@ -47,6 +47,46 @@ public final class ClientIntegrationTest implements FabricClientGameTest {
         context.restoreDefaultGameOptions();
         context.getInput().resizeWindow(2048, 1152);
         context.runOnClient(minecraft -> minecraft.options.guiScale().set(2));
+        if(Boolean.getBoolean("riserecode.glassOnly")){GlassIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.panoramaOnly")){PanoramaIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.font025Reference")){Release025FontReference.run(context);return;}
+        if(Boolean.getBoolean("riserecode.release025Only")){Release025IntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.guiPerformanceOnly")){GuiPerformanceTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.cameraFovOnly")){CameraFovClientTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.remediationOnly")){RemediationClientTest.run(context);if(Boolean.getBoolean("riserecode.chunkAnimationsOnly")){ChunkAnimationIntegrationTest.run(context);}return;}
+        if (Boolean.getBoolean("riserecode.release023Only")) {
+            Release023IntegrationTest.run(context);
+            Release022IntegrationTest.run(context);
+            if(Boolean.getBoolean("riserecode.blockOverlayOnly"))BlockOverlayIntegrationTest.run(context);
+            if(Boolean.getBoolean("riserecode.release021Only"))Release021IntegrationTest.run(context);
+            return;
+        }
+        if (Boolean.getBoolean("riserecode.release022Only")) {
+            Release022IntegrationTest.run(context);
+            if (Boolean.getBoolean("riserecode.blockOverlayOnly")) { BlockOverlayIntegrationTest.run(context); }
+            if (Boolean.getBoolean("riserecode.release021Only")) { Release021IntegrationTest.run(context); }
+            return;
+        }
+        if (Boolean.getBoolean("riserecode.release021Only")) {
+            Release021IntegrationTest.run(context);
+            if (Boolean.getBoolean("riserecode.blockOverlayOnly")) { BlockOverlayIntegrationTest.run(context); }
+            return;
+        }
+        if (Boolean.getBoolean("riserecode.blockOverlayOnly")) { BlockOverlayIntegrationTest.run(context); return; }
+        if(Boolean.getBoolean("riserecode.release020Only")){Release020IntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.release019Only")){Release019IntegrationTest.run(context);return;}
+        if (Boolean.getBoolean("riserecode.cosmeticsOnly")) { CosmeticsIntegrationTest.run(context); return; }
+        if (Boolean.getBoolean("riserecode.capePhysicsOnly")) { CapePhysicsIntegrationTest.run(context); return; }
+        if(Boolean.getBoolean("riserecode.baselineSmoke")){
+            context.runOnClient(mc->{mc.options.enableVsync().set(false);mc.options.framerateLimit().set(120);});
+            context.waitFor(mc->Client.INSTANCE.isInitialized()&&Client.INSTANCE.resourcesReady(),1200);
+            context.setScreen(TitleScreen::new);context.waitTicks(60);context.getInput().pressKey(InputConstants.KEY_RSHIFT);context.waitTicks(60);context.takeScreenshot("baseline-window");context.setScreen(TitleScreen::new);context.waitTicks(20);Client.INSTANCE.getLogger().info("Native menu/window smoke passed");return;
+        }
+        if(Boolean.getBoolean("riserecode.release017Only")){Release017IntegrationTest.run(context);return;}
+        if (Boolean.getBoolean("riserecode.uiRepairOnly")) { UiRepairIntegrationTest.run(context); return; }
+        if (Boolean.getBoolean("riserecode.release016Only")) { Release016IntegrationTest.run(context); return; }
+        if (Boolean.getBoolean("riserecode.utilitiesOnly")) { UtilitiesIntegrationTest.run(context); return; }
+        if (Boolean.getBoolean("riserecode.resourcesOnly")) { ResourcesIntegrationTest.run(context); return; }
         if (Boolean.getBoolean("riserecode.chunkAnimationsOnly")) { ChunkAnimationIntegrationTest.run(context); return; }
         if (Boolean.getBoolean("riserecode.noRenderOnly")) { NoRenderIntegrationTest.run(context); return; }
         if (Boolean.getBoolean("riserecode.upgradeOnly")) { UpgradeIntegrationTest.run(context); return; }
@@ -148,7 +188,8 @@ public final class ClientIntegrationTest implements FabricClientGameTest {
         ControlsModule controls = context.computeOnClient(minecraft -> Client.INSTANCE.getModuleManager().register(new ControlsModule("UI Test Controls")));
         ControlsModule longer = context.computeOnClient(minecraft -> Client.INSTANCE.getModuleManager().register(new ControlsModule("UI Test Longer Name")));
         context.runOnClient(minecraft -> gui().selectCategory(Category.UTILITY));
-        context.waitFor(minecraft -> panel(Category.UTILITY).getModuleButtons().size() == 2);
+        context.waitFor(minecraft -> panel(Category.UTILITY).getModuleButtons().stream()
+                .map(ModuleButton::getModule).toList().containsAll(java.util.List.of(controls, longer)));
         context.waitTicks(5);
         ModuleButton controlsButton = context.computeOnClient(minecraft -> button(controls.getName()));
         click(context, controlsButton::getBounds, 1);
@@ -186,10 +227,12 @@ public final class ClientIntegrationTest implements FabricClientGameTest {
         context.getInput().resizeWindow(2048, 1152);
         context.runOnClient(minecraft -> gui().selectPage(ClickGui.Page.SEARCH));
         context.waitTicks(5);
+        context.getInput().pressKey(InputConstants.KEY_RETURN);
         context.getInput().pressKey(InputConstants.KEY_RSHIFT);
         context.waitForScreen(TitleScreen.class);
         context.getInput().pressKey(InputConstants.KEY_RSHIFT);
         context.waitForScreen(ClickGui.class);
+        context.getInput().pressKey(InputConstants.KEY_RETURN);
         context.getInput().pressKey(InputConstants.KEY_ESCAPE);
         context.waitForScreen(TitleScreen.class);
 

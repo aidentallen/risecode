@@ -43,8 +43,8 @@ public final class KeybindIntegrationTest {
         check(keys.isCapturing(bright) && context.computeOnClient(mc -> mc.gui.screen() == gui()), "GUI key rejected without closing bind editor");
         context.getInput().pressKey(InputConstants.KEY_ESCAPE); context.waitTicks(3);
         check(!keys.isCapturing() && context.computeOnClient(mc -> mc.gui.screen() == gui()), "Escape cancels binding without closing GUI");
-        click(context, () -> control.getBindingButton().getBounds()); context.getInput().pressKey(InputConstants.KEY_F6); context.waitTicks(3);
-        check(bright.getKeybind() == InputConstants.KEY_F6 && !keys.isCapturing() && !bright.isEnabled(), "captured key assigns without toggling module in GUI");
+        click(context, () -> control.getBindingButton().getBounds()); context.getInput().pressKey(InputConstants.KEY_F12); context.waitTicks(3);
+        check(bright.getKeybind() == InputConstants.KEY_F12 && !keys.isCapturing() && !bright.isEnabled(), "captured key assigns without toggling module in GUI");
         click(context, () -> control.getHoldButton().getBounds()); check(bright.getBindMode() == Module.BindMode.HOLD, "Hold button changes activation mode immediately");
         context.takeScreenshot("keybind-hold-mode");
         context.runOnClient(mc -> {
@@ -52,18 +52,18 @@ public final class KeybindIntegrationTest {
             keys.bind(bright, "F7"); keys.setMode(bright, Module.BindMode.TOGGLE);
             check(client.getProfileManager().loadProfile("KeybindTest"), "binding profile loads while GUI is open");
         }); context.waitTicks(5);
-        check(bright.getKeybind() == InputConstants.KEY_F6 && bright.getBindMode() == Module.BindMode.HOLD, "profile restores key and Hold mode together");
+        check(bright.getKeybind() == InputConstants.KEY_F12 && bright.getBindMode() == Module.BindMode.HOLD, "profile restores key and Hold mode together");
         context.getInput().pressKey(InputConstants.KEY_RSHIFT); context.waitFor(mc -> mc.gui.screen() == null, 240);
-        context.getInput().holdKey(InputConstants.KEY_F6); context.waitTicks(4);
+        context.getInput().holdKey(InputConstants.KEY_F12); context.waitTicks(4);
         check(bright.isEnabled() && !keys.persistentEnabled(bright), "native key hold activates temporary module");
         context.runOnClient(mc -> check(!client.getConfigManager().profileSnapshot().getAsJsonObject("modules").getAsJsonObject("FullBright").get("enabled").getAsBoolean(), "saving during hold excludes temporary enabled state"));
-        context.getInput().releaseKey(InputConstants.KEY_F6); context.waitTicks(3); check(!bright.isEnabled(), "release deactivates module and restores lifecycle state");
-        context.getInput().holdKey(InputConstants.KEY_F6); context.waitTicks(3); context.getInput().pressKey(InputConstants.KEY_RSHIFT); context.waitFor(mc -> gui().isOpen(), 240);
-        check(!bright.isEnabled(), "opening GUI releases held modules before editing"); context.getInput().releaseKey(InputConstants.KEY_F6);
+        context.getInput().releaseKey(InputConstants.KEY_F12); context.waitTicks(3); check(!bright.isEnabled(), "release deactivates module and restores lifecycle state");
+        context.getInput().holdKey(InputConstants.KEY_F12); context.waitTicks(3); context.getInput().pressKey(InputConstants.KEY_RSHIFT); context.waitFor(mc -> gui().isOpen(), 240);
+        check(!bright.isEnabled(), "opening GUI releases held modules before editing"); context.getInput().releaseKey(InputConstants.KEY_F12);
         reveal(context, control); click(context, () -> control.getToggleButton().getBounds()); check(bright.getBindMode() == Module.BindMode.TOGGLE, "Toggle button changes activation mode");
         context.getInput().pressKey(InputConstants.KEY_RSHIFT); context.waitFor(mc -> mc.gui.screen() == null, 240);
-        context.getInput().pressKey(InputConstants.KEY_F6); context.waitTicks(3); check(bright.isEnabled(), "toggle press survives key release");
-        context.getInput().pressKey(InputConstants.KEY_F6); context.waitTicks(3); check(!bright.isEnabled(), "next press toggles module off");
+        context.getInput().pressKey(InputConstants.KEY_F12); context.waitTicks(3); check(bright.isEnabled(), "toggle press survives key release");
+        context.getInput().pressKey(InputConstants.KEY_F12); context.waitTicks(3); check(!bright.isEnabled(), "next press toggles module off");
         context.getInput().pressKey(InputConstants.KEY_RSHIFT); context.waitFor(mc -> gui().isOpen(), 240);
         reveal(context, control); click(context, () -> control.getResetButton().getBounds()); check(bright.getKeybind() == Module.UNBOUND, "Reset clears keybind");
         context.takeScreenshot("keybind-reset");
@@ -71,11 +71,11 @@ public final class KeybindIntegrationTest {
         click(context, () -> control.getBindingButton().getBounds()); context.getInput().pressKey(InputConstants.KEY_DELETE); context.waitTicks(2);
         check(bright.getKeybind() == Module.UNBOUND && !keys.isCapturing(), "Delete is a second clear-binding shortcut");
         context.getInput().pressKey(InputConstants.KEY_RSHIFT); context.waitFor(mc -> mc.gui.screen() == null, 240);
-        context.getInput().pressKey(InputConstants.KEY_F6); context.getInput().pressKey(InputConstants.KEY_F7); context.waitTicks(3);
+        context.getInput().pressKey(InputConstants.KEY_F12); context.getInput().pressKey(InputConstants.KEY_F7); context.waitTicks(3);
         check(!bright.isEnabled(), "cleared key no longer activates module");
         context.runOnClient(mc -> {
-            client.getCommandManager().handleChat(".bind FullBright F6 hold");
-            check(bright.getKeybind() == InputConstants.KEY_F6 && bright.getBindMode() == Module.BindMode.HOLD, "bind command assigns optional activation mode");
+            client.getCommandManager().handleChat(".bind FullBright F12 hold");
+            check(bright.getKeybind() == InputConstants.KEY_F12 && bright.getBindMode() == Module.BindMode.HOLD, "bind command assigns optional activation mode");
             client.getCommandManager().handleChat(".bind FullBright NONE");
             keys.bind(look, "LEFT_ALT"); keys.setMode(look, Module.BindMode.HOLD); look.setEnabled(false);
         });

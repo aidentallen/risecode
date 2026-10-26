@@ -40,6 +40,11 @@ public final class ModuleManager {
     private final List<Module> view = Collections.unmodifiableList(modules);
     private final Map<String, Module> byName = new LinkedHashMap<>();
     private long registryRevision;
+    private final Map<Class<?>,Optional<Module>> byClass=new java.util.HashMap<>();
+    private final Map<String, Module> byId = new LinkedHashMap<>();
+    private long stateRevision;
+    public long stateRevision() { return stateRevision; }
+    public Optional<Module> getById(String id) { return Optional.ofNullable(byId.get(id)); }
     public long registryRevision() { return registryRevision; }
     private Runnable changeListener = () -> { };
     private Consumer<Module> bindingChangeListener = ignored -> { };
@@ -50,6 +55,14 @@ public final class ModuleManager {
     }
 
     public void initDefaults(Minecraft minecraft, FriendManager friends, RotationManager rotations, AttackManager attacks, dev.riserecode.util.CameraEffectsManager camera, dev.riserecode.render.LoadedBlockIndex blocks) {
+        register(new dev.riserecode.module.modules.TrajectoriesModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.BetterChatModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.BetterTabModule(eventBus));
+        register(new dev.riserecode.module.modules.NametagsModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.WaypointsModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.AutoToolModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.FastBreakModule(eventBus));
+        register(new dev.riserecode.module.modules.hud.MinimapModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.ZoomModule(eventBus, camera));
         register(new dev.riserecode.module.modules.CrosshairModule(eventBus));
         register(new dev.riserecode.module.modules.ViewModelModule(eventBus));
@@ -59,6 +72,7 @@ public final class ModuleManager {
         register(new dev.riserecode.module.modules.AmbienceModule(eventBus));
         register(new dev.riserecode.module.modules.NoRenderModule(eventBus));
         register(new dev.riserecode.module.modules.ChunkAnimationsModule(eventBus));
+        register(new dev.riserecode.module.modules.CapePhysicsModule(eventBus));
         register(new dev.riserecode.module.modules.BaritoneModule(eventBus));
         register(new dev.riserecode.module.modules.hud.WatermarkModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.hud.ArrayListModule(eventBus, minecraft));
@@ -71,25 +85,30 @@ public final class ModuleManager {
         register(new CoordinatesModule(eventBus, minecraft)); register(new PotionEffectsModule(eventBus, minecraft));
         register(new MemoryUsageModule(eventBus, minecraft));
         register(new FreeLookModule(eventBus, minecraft)); register(new FreeCamModule(eventBus, minecraft));
-        register(new EnchantEffectModule(eventBus)); register(new ItemPhysicsModule(eventBus));
-        register(new WeatherChangerModule(eventBus)); register(new BlockOverlayModule(eventBus, minecraft));
+        register(new EnchantEffectModule(eventBus)); register(new dev.riserecode.module.modules.GlassModule(eventBus)); register(new ItemPhysicsModule(eventBus));
+        register(new WeatherChangerModule(eventBus));
+        var blockOverlay=register(new BlockOverlayModule(eventBus,minecraft));
+        register(new dev.riserecode.module.modules.HitboxesModule(eventBus,minecraft,blockOverlay));
+        register(new dev.riserecode.module.modules.BlockAnimationsModule(eventBus,minecraft));
     }
 
     public <M extends Module> M register(M module) {
         Objects.requireNonNull(module);
         String key = normalize(module.getName());
-        if (byName.containsKey(key)) {
+        if (byName.containsKey(key) || byId.containsKey(module.capabilityId())) {
             throw new IllegalArgumentException("Duplicate module: " + module.getName());
         }
-        byName.put(key, module);
-        modules.add(module); registryRevision++;
+        byName.put(key, module); byId.put(module.capabilityId(), module);
+        module.onChange(() -> { stateRevision++; changeListener.run(); });
+        modules.add(module); registryRevision++; byClass.clear();
         return module;
     }
 
     public List<Module> getModules() { return view; }
-    public Optional<Module> getByName(String name) { return Optional.ofNullable(byName.get(normalize(name))); }
+    public Optional<Module> getByName(String name) { return Optional.ofNullable(byName.get(normalize(name.equalsIgnoreCase("NoFall") ? "Clutch" : name))); }
     public <M extends Module> Optional<M> getByClass(Class<M> type) {
-        return modules.stream().filter(type::isInstance).map(type::cast).findFirst();
+        var match=byClass.computeIfAbsent(type,key->{for(var module:modules){if(key.isInstance(module)){return Optional.of(module);}}return Optional.empty();});
+        @SuppressWarnings("unchecked") Optional<M> result=(Optional<M>)(Optional<?>)match;return result;
     }
     public List<Module> getByCategory(Category category) {
         return modules.stream().filter(module -> module.getCategory() == category).toList();

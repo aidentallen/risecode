@@ -89,6 +89,13 @@ public final class ItemUtil {
         private boolean closed;
         public HotbarSelection(Player player) { this.player = Objects.requireNonNull(player); }
         public Player getPlayer() { return player; }
+        public boolean wasManuallyOverridden(){if(managedSlot>=0&&player.getInventory().getSelectedSlot()!=managedSlot){manualOverride=true;}return manualOverride;}
+        public boolean select(int slot){
+            if(closed||slot<0||slot>8){throw new IllegalArgumentException("Invalid hotbar selection");}
+            if(wasManuallyOverridden()){return false;}
+            int current=player.getInventory().getSelectedSlot();if(originalSlot<0){originalSlot=current;}managedSlot=slot;
+            if(current==slot){return false;}player.getInventory().setSelectedSlot(slot);return true;
+        }
         /** Returns true only when this call changes the selected slot. */
         public boolean selectBestWeapon() {
             if (closed) { throw new IllegalStateException("Hotbar selection is closed"); }

@@ -21,7 +21,7 @@ public final class ProfileCommand extends Command {
         if (args.length != 2) { throw new IllegalArgumentException("Usage: " + commands.getPrefix() + getUsage()); }
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "save" -> commands.reply(profiles.saveProfile(args[1]) ? "Saved profile " + args[1] : "Could not save profile " + args[1]);
-            case "load" -> commands.reply(profiles.loadProfile(args[1]) ? "Loaded profile " + args[1] : "Profile missing or invalid: " + args[1]);
+            case "load" -> { commands.reply("Loading profile " + args[1]); profiles.loadProfileAsync(args[1]).thenAccept(success -> commands.reply(success ? "Loaded profile " + args[1] : "Profile missing, invalid, or Resources unavailable: " + args[1])); }
             default -> throw new IllegalArgumentException("Usage: " + commands.getPrefix() + getUsage());
         }
     }

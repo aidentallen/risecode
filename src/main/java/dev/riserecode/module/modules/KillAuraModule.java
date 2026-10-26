@@ -21,11 +21,11 @@ import net.minecraft.world.entity.LivingEntity;
 public final class KillAuraModule extends Module {
     public enum Targets { PLAYERS, MOBS, BOTH }
 
-    private final DoubleSetting range = register(new DoubleSetting("Range", "Target selection radius; vanilla attack reach still applies", 4, 1, 6));
-    private final DoubleSetting minCps = register(new DoubleSetting("MinCPS", "Minimum requested attacks per second", 6, 1, 20));
-    private final DoubleSetting maxCps = register(new DoubleSetting("MaxCPS", "Maximum requested attacks per second", 10, 1, 20));
+    private final DoubleSetting range = register(DoubleSetting.extended("Range", "Target selection radius; vanilla attack reach still applies", 4, 1, 6));
+    private final DoubleSetting minCps = register(DoubleSetting.extended("MinCPS", "Minimum requested attacks per second", 6, 1, 20));
+    private final DoubleSetting maxCps = register(DoubleSetting.extended("MaxCPS", "Maximum requested attacks per second", 10, 1, 20));
     private final EnumSetting<RotationManager.Mode> rotate = register(new EnumSetting<>("Rotate", "Visible camera rotation toward the target", RotationManager.Mode.SMOOTH));
-    private final DoubleSetting rotationSpeed = register(new DoubleSetting("RotationSpeed", "Maximum angular speed in degrees per second", 360, 30, 1080));
+    private final DoubleSetting rotationSpeed = register(DoubleSetting.extended("RotationSpeed", "Maximum angular speed in degrees per second", 360, 30, 1080));
     private final EnumSetting<TargetUtil.SortMode> targetMode = register(new EnumSetting<>("TargetMode", "How eligible targets are ordered", TargetUtil.SortMode.DISTANCE));
     private final EnumSetting<Targets> targets = register(new EnumSetting<>("Targets", "Entity types to consider", Targets.PLAYERS));
     private final BooleanSetting targetPassive = register(new BooleanSetting("TargetPassive", "Include non-hostile mobs in MOBS or BOTH mode", true));

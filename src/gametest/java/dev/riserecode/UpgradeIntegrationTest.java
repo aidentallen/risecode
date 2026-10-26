@@ -84,13 +84,13 @@ public final class UpgradeIntegrationTest {
             c.runOnClient(mc->client.getLogger().info("Water fixture player={} camera={} loadedWater={}",mc.player.position(),mc.gameRenderer.mainCamera().position(),mc.level.getBlockState(new net.minecraft.core.BlockPos(104,70,104))));
             var ambience=modules.getByClass(AmbienceModule.class).orElseThrow();var baritone=modules.getByClass(BaritoneModule.class).orElseThrow();
             check(!ambience.isEnabled(),"Ambience defaults disabled");check(ambience.mode.getValue()==AmbienceModule.SkyMode.AURORA && ambience.quality.getValue()==AmbienceModule.Quality.BALANCED && ambience.theme.getValue(),"Ambience defaults");
-            c.runOnClient(mc->{modules.setEnabled(ambience,true);mc.player.setXRot(8);});
+            c.runOnClient(mc->{ambience.setEnabled(true);mc.player.setXRot(8);});
             for(var mode:AmbienceModule.SkyMode.values()) { c.runOnClient(mc->ambience.mode.setValue(mode));c.waitTicks(8);c.takeScreenshot("upgrade-sky-"+mode.name().toLowerCase(java.util.Locale.ROOT)); }
             check(AmbienceRenderer.frames()>20,"Procedural sky executes");check(AmbienceRenderer.waterDraws()>20,"Water uses native terrain pipeline");
             c.runOnClient(mc->{ambience.sky.setValue(false);});long sky=AmbienceRenderer.frames();c.waitTicks(6);check(AmbienceRenderer.frames()==sky && c.computeOnClient(mc->AmbienceRenderer.waterActive()),"Independent sky and water switches");
             c.runOnClient(mc->{ambience.sky.setValue(true);ambience.water.setValue(false);});long water=AmbienceRenderer.waterDraws();c.waitTicks(6);check(AmbienceRenderer.waterDraws()==water && c.computeOnClient(mc->AmbienceRenderer.skyActive()),"Independent water switch");
             c.runOnClient(mc->ambience.water.setValue(true));world.getServer().runCommand("tp @a 104.5 68.2 104.5 0 0");c.waitTicks(8);c.takeScreenshot("upgrade-water-underwater");
-            c.runOnClient(mc->modules.setEnabled(ambience,false));sky=AmbienceRenderer.frames();water=AmbienceRenderer.waterDraws();c.waitTicks(8);check(sky==AmbienceRenderer.frames() && water==AmbienceRenderer.waterDraws(),"Disable restores native sky and fluids");
+            c.runOnClient(mc->ambience.setEnabled(false));sky=AmbienceRenderer.frames();water=AmbienceRenderer.waterDraws();c.waitTicks(8);check(sky==AmbienceRenderer.frames() && water==AmbienceRenderer.waterDraws(),"Disable restores native sky and fluids");
             var watermark=modules.getByClass(WatermarkModule.class).orElseThrow();var array=modules.getByClass(ArrayListModule.class).orElseThrow();
             c.runOnClient(mc->{modules.setEnabled(watermark,true);modules.setEnabled(array,true);client.getHudRenderer().setEnabled(true);modules.getByName("Crosshair").orElseThrow().setEnabled(true);});c.waitTicks(15);
             check(client.getHudRenderer().getEntries().stream().noneMatch(e->e.module()==watermark||e.module()==array),"HUD containers excluded from array");
@@ -120,7 +120,7 @@ public final class UpgradeIntegrationTest {
                 c.runOnClient(mc->{modules.setEnabled(baritone,true);baritone.task.setValue(BaritoneModule.Task.DESTINATION);baritone.x.setValue(88.0);baritone.action("Start");});
                 c.waitFor(mc->mc.player.position().distanceToSqr(88.5,71,96.5)<2,400);c.runOnClient(mc->baritone.action("Stop"));check(c.computeOnClient(mc->baritone.status().contains("Idle")),"Restart after paused disable releases movement");
             } else { c.runOnClient(mc->baritone.action("Start"));check(c.computeOnClient(mc->baritone.status().contains("Unavailable")),"Missing dependency feedback"); }
-            c.runOnClient(mc->{modules.setEnabled(ambience,true);});
+            c.runOnClient(mc->{ambience.setEnabled(true);});
             if(Boolean.getBoolean("riserecode.withShaderPack")) {
                 c.runOnClient(mc->shaderPack(true));c.waitTicks(10);
                 check(AmbienceRenderer.shaderPackActive()&&!c.computeOnClient(mc->AmbienceRenderer.skyActive())&&!c.computeOnClient(mc->AmbienceRenderer.waterActive()),"Iris shader pack owns sky and water");

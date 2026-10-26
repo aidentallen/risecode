@@ -19,7 +19,7 @@ public final class ChunkMotionTracker {
     public record Settings(Direction direction, double distance, double duration, Curve curve) {
         public Settings {
             Objects.requireNonNull(direction); Objects.requireNonNull(curve);
-            if (!Double.isFinite(distance) || distance < 0 || distance > 64 || !Double.isFinite(duration) || duration < 0.05 || duration > 3) {
+            if (!Double.isFinite(distance) || distance < 0 || !Double.isFinite(duration) || duration < 0.05) {
                 throw new IllegalArgumentException("Invalid chunk animation settings");
             }
         }

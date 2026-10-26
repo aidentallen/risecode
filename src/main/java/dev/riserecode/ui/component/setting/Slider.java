@@ -41,7 +41,7 @@ public final class Slider extends UIComponent {
         this.setting = setting; this.changed = changed; this.step = step;
         input.onKey(event -> {
             if (event.key() != 265 && event.key() != 264) { return false; }
-            double increment = (step > 0 ? step : Math.min(1, (setting.getMax()-setting.getMin())/100)) * (event.hasShiftDown() ? 10 : 1);
+            double increment = (step > 0 ? step : setting.keyboardIncrement()) * (event.hasShiftDown() ? 10 : 1);
             setting.setValue(Math.clamp(setting.getValue() + (event.key()==265?increment:-increment),setting.getMin(),setting.getMax()));
             input.setValue(Double.toString(setting.getValue())); input.validation(""); changed.run(); return true;
         });
@@ -52,8 +52,7 @@ public final class Slider extends UIComponent {
     }
 
     private double normalized() {
-        double range = setting.getMax() - setting.getMin();
-        return range == 0 ? 0 : (setting.getValue() - setting.getMin()) / range;
+        return setting.position(setting.getValue());
     }
 
     @Override
@@ -92,7 +91,7 @@ public final class Slider extends UIComponent {
 
     private void setFromMouse(double mouseX) {
         double progress = MathUtil.clamp01((mouseX - x - 5) / Math.max(1, width - 10));
-        double value = MathUtil.lerp(setting.getMin(), setting.getMax(), progress);
+        double value = setting.valueAt(progress);
         if (step > 0) { value = setting.getMin() + Math.rint((value - setting.getMin()) / step) * step; }
         setting.setValue(Math.max(setting.getMin(), Math.min(setting.getMax(), value)));
         changed.run();

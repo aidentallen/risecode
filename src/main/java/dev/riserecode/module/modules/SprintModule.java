@@ -14,7 +14,8 @@ public final class SprintModule extends Module {
     private LocalPlayer controlled;
     private boolean originalSprint;
     public SprintModule(EventBus bus, Minecraft minecraft) {
-        super("Sprint", "Automatically request sprint while moving", Category.MOVEMENT, bus); this.minecraft = minecraft;
+        super("Sprint", "Automatically request sprint while moving", Category.MOVEMENT, bus);
+        this.minecraft = minecraft;
     }
     public BooleanSetting getOmniSprint() { return omniSprint; }
     @Override

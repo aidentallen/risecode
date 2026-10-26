@@ -56,7 +56,8 @@ public final class ItemOutlineRenderer {
     }
     private static double minX, minY, maxX, maxY;
     private static int allocations;
-    private static long composites;
+    private static long composites,specialSubmissions;
+    public static long specialSubmissions(){return specialSubmissions;}
     private static final class Pipelines {
         private static final RenderPipeline HELD_MASK = maskPipeline(false);
         private static final RenderPipeline WORLD_MASK = maskPipeline(true);
@@ -64,7 +65,9 @@ public final class ItemOutlineRenderer {
         private static final RenderPipeline COMPOSITE = postPipeline(true);
     }
     private ItemOutlineRenderer() { }
-    public static void beginFrame() { requested = false; frameStyle = null; fullBounds = false; needsDepth = depthCopied = false;
+    private static long lastRequestTick;
+    public static long ownedGpuBytes(){return mask==null?0:mask.width*(long)mask.height*12;}
+    public static void beginFrame() { if(mask!=null&&dev.riserecode.performance.PerformancePolicy.ticks()-lastRequestTick>=40){destroyTargets();} requested = false; frameStyle = null; fullBounds = false; needsDepth = depthCopied = false;
         minX = minY = Double.POSITIVE_INFINITY; maxX = maxY = Double.NEGATIVE_INFINITY;
     }
     public static long getCompositeCount() { return composites; }
@@ -99,7 +102,7 @@ public final class ItemOutlineRenderer {
     }
     public static void submit(ItemFeatureRenderer.Submit submit, Style style, Function<RenderType, VertexConsumer> buffers) {
         if (!style.outline() || style.intensity() <= 0 || submit.quads().isEmpty()) { return; }
-        ensureTargets();
+        lastRequestTick=dev.riserecode.performance.PerformancePolicy.ticks();ensureTargets();
         if (!requested) {
             RenderSystem.getDevice().createCommandEncoder().clearColorTexture(mask.getColorTexture(), new Vector4f(0, 0, 0, 0));
             RenderSystem.getDevice().createCommandEncoder().clearColorTexture(horizontal.getColorTexture(), new Vector4f(0, 0, 0, 0));
@@ -130,6 +133,21 @@ public final class ItemOutlineRenderer {
             }
         }
     }
+    public static <S> void submitModel(net.minecraft.client.renderer.feature.ModelFeatureRenderer.Submit<S> submit,
+            ItemVisualContext context, Style style, Function<RenderType, VertexConsumer> buffers) {
+        if (!style.outline() || style.intensity() <= 0) { return; }
+        Identifier texture=((TextureSource)(Object)submit.renderType()).riserecode$texture();
+        if(texture==null){return;}
+        specialSubmissions++;lastRequestTick=dev.riserecode.performance.PerformancePolicy.ticks();ensureTargets();
+        if(!requested){RenderSystem.getDevice().createCommandEncoder().clearColorTexture(mask.getColorTexture(),new Vector4f(0,0,0,0));RenderSystem.getDevice().createCommandEncoder().clearColorTexture(horizontal.getColorTexture(),new Vector4f(0,0,0,0));}
+        needsDepth|=!context.display().firstPerson();requested=true;frameStyle=style;fullBounds=true;
+        Key key=new Key(texture,context.display().firstPerson());
+        RenderType type=TYPES.computeIfAbsent(key,k->RenderType.create("risecode special item mask",RenderSetup.builder(k.held?Pipelines.HELD_MASK:Pipelines.WORLD_MASK).withTexture("Sampler0",k.atlas).setOutputTarget(OUTPUT).createRenderSetup()));
+        VertexConsumer vertices=EnchantmentRenderer.tint(buffers.apply(type),0xFFFFFFFF);
+        if(submit.sprite()!=null){vertices=submit.sprite().wrap(vertices);}
+        var pose=new com.mojang.blaze3d.vertex.PoseStack();pose.last().set(submit.pose());
+        submit.model().setupAnim(submit.state());submit.model().renderToBuffer(pose,vertices,submit.lightCoords(),submit.overlayCoords(),0xFFFFFFFF);
+    }
     /** Called after all world/held-item draws, before GUI scene blur and HUD composition. */
     public static void composite(RenderTarget main) {
         if (!requested || frameStyle == null || mask == null) { return; }
@@ -150,11 +168,11 @@ public final class ItemOutlineRenderer {
     private static void pass(RenderTarget destination, ColorSetting.Paint paint, Style style, int mode) {
         if (PARAMETERS[mode] == null) { PARAMETERS[mode] = RenderSystem.getDevice().createBuffer(() -> "risecode outline parameters", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 80); }
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            var bytes = Std140Builder.onStack(stack, 80).putVec4(1f / mask.width, 1f / mask.height, (float) style.width(), (float) style.glow())
+            var bytes = Std140Builder.onStack(stack, 80).putVec4(1f / mask.width, 1f / mask.height, (float) (style.width()*WorldResolution.pixelScale()), (float) (style.glow()*WorldResolution.pixelScale()))
                     .putVec4(channel(paint.primary(), 16), channel(paint.primary(), 8), channel(paint.primary(), 0), channel(paint.primary(), 24))
                     .putVec4(channel(paint.secondary(), 16), channel(paint.secondary(), 8), channel(paint.secondary(), 0), channel(paint.secondary(), 24))
                     .putVec4(paint.mode().ordinal(), paint.direction().ordinal(), (float) paint.speed(), (float) paint.spacing())
-                    .putVec4((float) Theme.gradientTime(), (float) style.intensity(), mode, (float) Minecraft.getInstance().getWindow().getGuiScale()).get();
+                    .putVec4((float) Theme.gradientTime(), (float) style.intensity(), mode, (float) (Minecraft.getInstance().getWindow().getGuiScale()*WorldResolution.pixelScale())).get();
             RenderSystem.getDevice().createCommandEncoder().writeToBuffer(PARAMETERS[mode].slice(), bytes);
         }
         try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "risecode item silhouette outline", destination.getColorTextureView(), Optional.empty())) {

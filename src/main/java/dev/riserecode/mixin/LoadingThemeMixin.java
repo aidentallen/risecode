@@ -36,6 +36,7 @@ public abstract class LoadingThemeMixin {
         double opacity = fadeOutStart < 0 ? 1 : Math.clamp(2 - (Util.getMillis() - fadeOutStart)/1000.0, 0, 1);
         if (opacity <= 0) { return; } g.nextStratum();
         if (Theme.bool("Loading Background", true)) { MenuBackdrop.draw(g, opacity); }
+        dev.riserecode.ui.menu.BackgroundParticles.draw(g,opacity);
         var font = net.minecraft.client.Minecraft.getInstance().font; String title = Client.INSTANCE.getName();
         double w = RenderUtil.textWidth(font,title,false)*3, x=(g.guiWidth()-w)/2, y=g.guiHeight()*0.42;
         RenderUtil.accentText(g,font,title,x,y,3,opacity);

@@ -1,3 +1,5 @@
+> Historical font repair notes. RiseRecode 0.25.0 bundles Qraftys with the confirmed redistribution permission; current asset handling and checksums are in [FONT_SOURCES.md](FONT_SOURCES.md).
+
 # Typography fix — 0.6.1
 
 The October 6 screenshots showed broken/hairline Montserrat strokes and rigid

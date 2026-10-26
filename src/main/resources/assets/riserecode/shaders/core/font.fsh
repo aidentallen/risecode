@@ -8,6 +8,13 @@ flat in vec4 data;
 out vec4 fragColor;
 // STB stores 128 at the outline and 2.5 intensity units per baked pixel; density is two.
 void main() {
+    // Qraftys body ink occupies texels 48..63 of each 128-texel cell. Retain
+    // a two-texel guard and the original quad/UV interpolation, so fractional
+    // nearest-sampling boundaries stay identical while empty padding costs no blend.
+    if (data.y == 2.0) {
+        vec2 cell = fract(local * 16.0) * 128.0;
+        if (any(lessThan(cell, vec2(46.0 - data.z / 128.0))) || any(greaterThan(cell, vec2(66.0 + data.z / 128.0)))) { discard; }
+    }
     float sampleValue = texture(Sampler0, local).r;
     // Normal TrueType text is filled 8x raster coverage, never a thresholded low-res SDF.
     if (data.y == 3.0 || data.y == 4.0) {
@@ -25,7 +32,7 @@ void main() {
         fragColor = vec4(tint.rgb, tint.a * coverage);
         return;
     }
-    float distance = (sampleValue * 255.0 - 128.0) / 5.0;
+    float distance = (sampleValue * 255.0 - 128.0) / 5.0 + data.z / 256.0;
     float coverage;
     if (data.y == 1.0 && data.x > 0.0) {
         float sigma = max(data.x / 256.0, 0.01);

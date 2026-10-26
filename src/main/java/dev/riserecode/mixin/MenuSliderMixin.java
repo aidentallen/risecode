@@ -14,6 +14,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(AbstractSliderButton.class)
 public abstract class MenuSliderMixin {
     @Shadow protected double value;
+    @Inject(method="onClick",at=@At("HEAD"))
+    private void risecode$press(net.minecraft.client.input.MouseButtonEvent event,boolean twice,CallbackInfo ci) {
+        if(MenuTheme.enabled()) { MenuTheme.press((AbstractSliderButton)(Object)this); }
+    }
     @Inject(method = "extractWidgetRenderState", at = @At("HEAD"), cancellable = true)
     private void riserecode$slider(GuiGraphicsExtractor graphics, int x, int y, float delta, CallbackInfo callback) {
         if (!MenuTheme.enabled()) { return; }

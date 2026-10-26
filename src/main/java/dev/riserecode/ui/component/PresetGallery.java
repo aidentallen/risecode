@@ -17,13 +17,14 @@ public final class PresetGallery extends UIComponent {
             RenderUtil.drawRoundedRect(g, left, top, w, 21, 3, Theme.opacity(colors[2], opacity));
             RenderUtil.drawGradientRect(g, left + 3, top + 3, 8, 15, Theme.opacity(colors[0], opacity), Theme.opacity(colors[1], opacity));
             RenderUtil.text(g, font, presets[i] == ThemeManager.Preset.CLASSIC_RISECODE ? "Classic risecode" : Theme.displayName(presets[i].name()), left + 15, top + 7, 0.7, Theme.opacity(Theme.TEXT, opacity));
+            if(mx>=left&&mx<left+w&&my>=top&&my<top+21){RenderUtil.drawGlow(g,left,top,w,21,3,Theme.opacity(colors[0],opacity));RenderUtil.drawRoundedBorder(g,left,top,w,21,3,Theme.opacity(colors[0],opacity),1);}
             if (manager.choice("Appearance Preset", ThemeManager.Preset.class) == presets[i]) { RenderUtil.drawRoundedBorder(g, left, top, w, 21, 3, Theme.opacity(colors[0], opacity), 0.8); }
         }
     }
     @Override public boolean mouseClicked(double mx, double my, int button) {
         if (button != 0 || !contains(mx, my)) { return false; }
         double w = (width - 6) / 2; int index = (int)((my - y) / 24) * 2 + (mx - x >= w + 6 ? 1 : 0);
-        if (index < ThemeManager.Preset.values().length) { manager.applyPreset(ThemeManager.Preset.values()[index]); }
+        if (index < ThemeManager.Preset.values().length) { manager.applyPreset(ThemeManager.Preset.values()[index]);dev.riserecode.ui.sound.UiSounds.play(); }
         return true;
     }
 }

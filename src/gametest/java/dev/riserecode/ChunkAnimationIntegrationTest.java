@@ -35,12 +35,19 @@ public final class ChunkAnimationIntegrationTest {
             world.getServer().runCommand("gamemode spectator @a");
             world.getServer().runCommand("gamerule minecraft:advance_time false");
             world.getServer().runCommand("time set noon"); world.getServer().runCommand("weather clear");
+            world.getServer().runCommand("forceload add 96 96 111 111");
+            world.getServer().runOnServer(server -> server.overworld().getChunk(6,6));
+            c.waitTicks(12);
+            world.getServer().runCommand("tp @a 104.5 79.5 88.5 0 25");
+            c.waitFor(mc -> mc.player.position().distanceToSqr(104.5,79.5,88.5)<1&&mc.level.hasChunk(6,6),600);
             world.getServer().runCommand("fill 96 70 96 111 70 111 minecraft:stone");
             world.getServer().runCommand("fill 97 71 101 103 72 109 minecraft:water");
             world.getServer().runCommand("fill 106 71 103 110 74 107 minecraft:glass");
             world.getServer().runCommand("setblock 105 71 101 minecraft:chest");
-            world.getServer().runCommand("tp @a 104.5 79.5 88.5 0 25");
-            c.waitFor(mc -> mc.player.position().distanceToSqr(104.5, 79.5, 88.5) < 1, 200); c.waitTicks(30);
+            c.waitFor(mc -> mc.level.getBlockState(new net.minecraft.core.BlockPos(96,70,96)).is(net.minecraft.world.level.block.Blocks.STONE),600);
+            world.getServer().runCommand("forceload remove 96 96 111 111");
+            c.runOnClient(mc->mc.levelExtractor.allChanged());
+            c.waitFor(mc->fixtureReady(),600);c.waitTicks(30);
             c.runOnClient(mc -> mc.gui.setScreen(null));
             check(!chunks.isEnabled(), "Movement starts disabled");
             c.runOnClient(mc -> { noRender.allFog.setValue(false); noRender.chunkFade.setValue(true); noRender.setEnabled(true); }); c.waitTicks(3);
@@ -64,7 +71,7 @@ public final class ChunkAnimationIntegrationTest {
                 near(c.computeOnClient(mc -> ChunkTerrainRenderer.offset(6, 6)), 0, "Completed position " + direction);
                 c.takeScreenshot("chunks-" + direction.name().toLowerCase(java.util.Locale.ROOT) + "-complete");
             }
-            check(FabricLoader.getInstance().isModLoaded("sodium") ? ChunkTerrainRenderer.sodiumDraws() > 10 : ChunkTerrainRenderer.vanillaDraws() > 10, "Renderer adapter executed on real terrain");
+            check(FabricLoader.getInstance().isModLoaded("sodium") ? ChunkTerrainRenderer.sodiumDraws() > 10 : ChunkTerrainRenderer.vanillaDraws() > 10, "Renderer adapter executed on real terrain: vanilla="+ChunkTerrainRenderer.vanillaDraws()+", sodium="+ChunkTerrainRenderer.sodiumDraws());
             fixture(c, chunks, ChunkMotionTracker.Direction.UP, 0.25);
             c.runOnClient(mc -> ambience.setEnabled(true)); c.waitTicks(6); c.takeScreenshot("chunks-ambience-water");
             check(c.computeOnClient(mc -> AmbienceRenderer.waterActive()) && AmbienceRenderer.waterDraws() > 0, "Ambience composes with motion");
@@ -92,7 +99,7 @@ public final class ChunkAnimationIntegrationTest {
             check(true, "Actual newly streamed terrain starts animation"); c.waitTicks(12);
             world.getServer().runCommand("execute in minecraft:the_nether run tp @a 0 80 0");
             c.waitFor(mc -> mc.level.dimension().equals(net.minecraft.world.level.Level.NETHER), 400); c.waitTicks(8);
-            check(c.computeOnClient(mc -> ChunkTerrainRenderer.offset(6, 6)) == 0, "Dimension change clears old column");
+            check(c.computeOnClient(mc -> ChunkTerrainRenderer.offset(32,32)) == 0, "Dimension change clears old streamed column");
             c.runOnClient(mc -> ChunkTerrainRenderer.loaded(10000, 10000)); c.waitTick();
             check(c.computeOnClient(mc -> chunks.motion().moving(10000, 10000)), "Pre-reload flight present");
             var reload = c.computeOnClient(mc -> mc.reloadResourcePacks()); c.waitFor(mc -> reload.isDone(), 600); c.waitTicks(8);
@@ -104,6 +111,11 @@ public final class ChunkAnimationIntegrationTest {
         check(!c.computeOnClient(mc -> ChunkTerrainRenderer.motionActive()) && chunks.motion().pendingCount() == 0, "Disconnect cleanup");
         c.runOnClient(mc -> modules.disableAll());
         Client.INSTANCE.getLogger().info("Chunk animation GPU checks passed ({} assertions)", checks);
+    }
+    private static boolean fixtureReady(){
+        if(!FabricLoader.getInstance().isModLoaded("sodium")){return net.minecraft.client.Minecraft.getInstance().levelRenderer.isSectionCompiledAndVisible(new net.minecraft.core.BlockPos(96,70,96));}
+        try{var type=Class.forName("net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer");var renderer=type.getMethod("instance").invoke(null);return (boolean)type.getMethod("isSectionReady",int.class,int.class,int.class).invoke(renderer,6,4,6);}
+        catch(ReflectiveOperationException failure){throw new AssertionError("Sodium fixture readiness",failure);}
     }
     private static void shaderPack(boolean enabled) {
         try {

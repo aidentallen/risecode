@@ -13,7 +13,7 @@ import net.minecraft.world.phys.Vec3;
 public final class TracersModule extends Module {
     private final ColorSetting color = register(new ColorSetting("Color", "Player line color", 0xFF3B82F6));
     private final ColorSetting friendColor = register(new ColorSetting("FriendColor", "Friend line color", 0xFF34D399));
-    private final DoubleSetting width = register(new DoubleSetting("Width", "Line width in pixels", 1.5, 0.5, 4));
+    private final DoubleSetting width = register(DoubleSetting.extended("Width", "Line width in pixels", 1.5, 0.5, 4));
     private final Minecraft minecraft;
     private final FriendManager friends;
     public TracersModule(EventBus bus, Minecraft minecraft, FriendManager friends) {

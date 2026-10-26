@@ -8,12 +8,12 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.riserecode.mixin.VertexDataAccessor;
 import dev.riserecode.setting.ColorSetting;
 import dev.riserecode.ui.theme.Theme;
+import dev.riserecode.ui.menu.MenuTransition;
 import dev.riserecode.util.ColorUtil;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
 import org.joml.Matrix3x2f;
 import org.lwjgl.system.MemoryUtil;
 
@@ -39,20 +39,25 @@ public final class PaintMesh {
     }
     public static void shape(GuiGraphicsExtractor g, double x, double y, double w, double h, double radius,
             ColorSetting.Paint paint, ColorSetting.Paint next, double blend, double effect) {
+        if(transparent(paint)&&(next==null||transparent(next)))return;
         double pad = effect < 0 ? -effect + 1 : 1;
         var pose = new Matrix3x2f(g.pose()); var scissor = g.scissorStack.peek();
         var bounds = new ScreenRectangle((int)Math.floor(x-pad),(int)Math.floor(y-pad),(int)Math.ceil(w+pad*2+1),(int)Math.ceil(h+pad*2+1)).transformMaxBounds(pose);
         if (scissor != null) { bounds = bounds.intersection(scissor); } if (bounds == null) { return; }
         ColorSetting.Paint first = resolved(paint), second = next == null ? first : resolved(next);
         float[] data = new float[32]; data[0]=(float)w/2; data[1]=(float)h/2; data[2]=(float)Math.min(radius,Math.min(w,h)/2); data[3]=(float)effect;
+        double opacity = MenuTransition.opacity();
+        if (opacity < 1) { first = first.opacity(opacity); second = second.opacity(opacity); }
+        if(transparent(first)&&transparent(second))return;
         pack(data,4,first); pack(data,16,second); data[28]=(float)blend; data[29]=(float)Theme.gradientTime();
         UiBatch.submit(g, new Shape(pose,(float)x,(float)y,(float)w,(float)h,(float)pad,data,scissor,bounds));
     }
+    private static boolean transparent(ColorSetting.Paint paint){return ((paint.primary()|paint.secondary())>>>24)==0;}
     private static void pack(float[] data, int offset, ColorSetting.Paint p) {
         color(data,offset,p.primary()); color(data,offset+4,p.secondary()); data[offset+8]=p.mode().ordinal(); data[offset+9]=p.direction().ordinal(); data[offset+10]=(float)p.speed(); data[offset+11]=(float)p.spacing();
     }
     private static void color(float[] data,int offset,int color) { for(int i=0;i<3;i++){data[offset+i]=((color>>(16-i*8))&255)/255f;} data[offset+3]=(color>>>24)/255f; }
-    private record Shape(Matrix3x2f pose,float x,float y,float w,float h,float pad,float[] data,ScreenRectangle scissorArea,ScreenRectangle bounds) implements GuiElementRenderState {
+    private record Shape(Matrix3x2f pose,float x,float y,float w,float h,float pad,float[] data,ScreenRectangle scissorArea,ScreenRectangle bounds) implements MenuTransition.Captured {
         public RenderPipeline pipeline() { return PIPELINE; }
         public TextureSetup textureSetup() { return TextureSetup.noTexture(); }
         public void buildVertices(VertexConsumer v) {

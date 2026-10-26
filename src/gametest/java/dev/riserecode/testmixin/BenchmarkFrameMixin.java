@@ -10,5 +10,5 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GameRenderer.class)
 public abstract class BenchmarkFrameMixin {
     @Inject(method = "extract", at = @At("HEAD"))
-    private void riserecode$measure(CallbackInfo callback) { UpgradeBenchmark.frame(); }
+    private void riserecode$measure(CallbackInfo callback) { UpgradeBenchmark.frame();dev.riserecode.RemediationClientTest.frame();dev.riserecode.GuiPerformanceTest.frame(); }
 }

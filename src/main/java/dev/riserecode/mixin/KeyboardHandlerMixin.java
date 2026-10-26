@@ -16,6 +16,13 @@ public abstract class KeyboardHandlerMixin {
     private void riserecode$keyPress(long window, int action, KeyEvent input, CallbackInfo callback) {
         if (!Client.INSTANCE.isInitialized() || window != Minecraft.getInstance().getWindow().handle()) { return; }
         var mc = Minecraft.getInstance();
+        // The GUI toggle and explicit key capture must precede the text-input owner.
+        if (action != 0 && mc.gui.screen() instanceof dev.riserecode.ui.clickgui.ClickGui
+                && (Client.INSTANCE.getKeybindManager().isCapturing()
+                    || Client.INSTANCE.getKeybindManager().getClickGuiKey().matches(input))) {
+            KeyPressEvent priority = Client.INSTANCE.getEventBus().post(new KeyPressEvent(input, action));
+            if (priority.isCancelled()) { callback.cancel(); return; }
+        }
         if (action != 0 && (mc.gui.screen() instanceof dev.riserecode.ui.clickgui.ClickGui || mc.gui.screen() instanceof dev.riserecode.ui.hud.HudEditorScreen)
                 && dev.riserecode.ui.component.FocusedInput.key(input, mc.keyboardHandler::getClipboard, mc.keyboardHandler::setClipboard)) { callback.cancel(); return; }
         KeyPressEvent event = Client.INSTANCE.getEventBus().post(new KeyPressEvent(input, action));

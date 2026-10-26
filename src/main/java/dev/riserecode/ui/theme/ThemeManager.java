@@ -38,6 +38,15 @@ public final class ThemeManager implements AutoCloseable {
     private JsonObject presetUndo;
     public enum Typeface { GOOGLE_SANS, QRAFTYS, MINECRAFTIA, MONTSERRAT, INTER }
     public enum HudBackground { NONE, SOLID_BOX, BLUR_BOX }
+    public enum Background { LAKE, SCENIC, SPACE, ABSTRACT, GRADIENT, SOLID, LOCAL_IMAGE, ANIMATED_GRADIENT, AURORA, STARFIELD, NONE }
+    public enum ContainerStyle { MINECRAFT, RISECODE }
+    public enum MapBackground { INHERIT, SOLID, IMAGE, TRANSPARENT_WORLD }
+    public enum Particles { NONE, RAIN, SNOW, DUST, ABSTRACT }
+    public enum ParticleStyle { MINECRAFT, SMOOTH }
+    public enum ButtonStyle { SUBTLE, ACCENT }
+    public enum ImageMotion { NONE, PAN, ZOOM, PAN_AND_ZOOM }
+    public enum ImageFit { COVER, CONTAIN, STRETCH }
+    public enum ClickSound { POP, SOFT_POP, BLOB, VANILLA, MUTED, LOCAL_OGG, TICK, TAP, MECHANICAL, WOOD, GLASS }
     public record Control(String group, Setting<?> setting, double step) { }
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private final Path directory;
@@ -50,9 +59,33 @@ public final class ThemeManager implements AutoCloseable {
     private long revision;
     private String activeProfile = "default";
     private boolean loaded;
+    private final Map<String,ModuleAppearance> moduleAppearances=new LinkedHashMap<>();
+    public ModuleAppearance module(String id){return moduleAppearances.computeIfAbsent(id,ignored->new ModuleAppearance(this));}
+    public ModuleAppearance module(dev.riserecode.module.Module value){var appearance=module(ModuleAppearance.id(value));appearance.bind(value);return appearance;}
+    public ModuleAppearance existingModule(String id){return moduleAppearances.get(id);}
+    public void migrateModuleAnimations(List<dev.riserecode.module.Module> modules){for(var value:modules){module(value);if(value.popOverride.getValue()||!value.popIn.getValue()){module(value).migrate(value);}}}
+    private final Map<String,PageAppearance> pages=new LinkedHashMap<>();
+    public PageAppearance page(String id){return pages.computeIfAbsent(id,ignored->new PageAppearance(this));}
+    public void resetPage(String id){pages.remove(id);changed();}
+    public Map<String,PageAppearance> pages(){return java.util.Collections.unmodifiableMap(pages);}
+    public Setting<?> effective(String name){
+        if(!ModuleAppearance.context().isEmpty()){
+            var local=moduleAppearances.get(ModuleAppearance.context());
+            if(local!=null){var setting=local.effective(name);if(setting!=null){return setting;}}
+        }
+        if(!PageAppearance.editing()&&!PageAppearance.context().isEmpty()){
+            PageAppearance page=pages.get(PageAppearance.context());if(page!=null){Setting<?> value=page.effective(name);if(value!=null){return value;}}
+        }
+        return getSetting(name);
+    }
+
+
+    private final dev.riserecode.ui.panorama.PanoramaPreferences panorama;
+    public dev.riserecode.ui.panorama.PanoramaPreferences panorama(){return panorama;}
 
     public ThemeManager(Path directory, Logger logger) {
         this.directory = directory; this.logger = logger;
+        panorama=new dev.riserecode.ui.panorama.PanoramaPreferences((setting,step)->add("Living Panorama",setting,step));
         add("Presets", new EnumSetting<>("Appearance Preset", "Apply a palette without changing your layout", Preset.CLASSIC_RISECODE));
         add("Branding", new dev.riserecode.setting.StringSetting("Display Name", "Interface name", "risecode", 64));
         add("Branding", new dev.riserecode.setting.StringSetting("Interface Tagline", "Title screen tagline", "make it yours", 96));
@@ -63,12 +96,15 @@ public final class ThemeManager implements AutoCloseable {
         add("Branding", new EnumSetting<>("Logo Placement", "Logo beside or above text", LogoPlacement.LEFT));
         add("Branding", new ColorSetting("Logo Tint", "Logo color and opacity", 0xFFFFFFFF));
         add("Typography", new EnumSetting<>("Font Selection", "Typeface shared by menu and HUD", Typeface.GOOGLE_SANS));
+        number("Typography", "Font Boldness", 0, 0, 100, 1);
         number("Typography", "Font Scale", 1, 0.75, 2, 0.01);
         bool("Typography", "Text Shadow", true);
         number("Typography", "Shadow Offset X", 0.5, -4, 4, 0.05);
         number("Typography", "Shadow Offset Y", 0.7, -4, 4, 0.05);
         number("Typography", "Shadow Blur", 0.65, 0, 8, 0.05);
         number("Typography", "Shadow Opacity", 0.6, 0, 1, 0.01);
+        add("Buttons", new EnumSetting<>("Button Style", "Subtle dark buttons or colorful accent fill", ButtonStyle.SUBTLE));
+        add("Container Screens", new EnumSetting<>("Container Style", "Default style for inventory, recipes and containers", ContainerStyle.RISECODE));
         bool("Colors & Glow", "Global Glow", true);
         number("Colors & Glow", "Glow Radius", 5, 0, 20, 0.1);
         number("Colors & Glow", "Glow Intensity", 0.2, 0, 1, 0.01);
@@ -100,19 +136,58 @@ public final class ThemeManager implements AutoCloseable {
         number("Geometry & Layout", "Border Opacity", 0.08, 0, 1, 0.01);
         number("Geometry & Layout", "Content Padding", 8, 4, 20, 1);
         number("Geometry & Layout", "Interface Scale", 1, 0.75, 1.3, 0.01);
-        number("Animations", "Animation Speed", 1, 0.5, 3, 0.05);
+        number("Geometry & Layout", "Window Width", 428, 360, 900, 1);
+        number("Geometry & Layout", "Window Height", 320, 240, 700, 1);
+        add("Background Previews", new EnumSetting<>("Background", "Shared window and menu background", Background.LAKE));
+        add("Background Browser", new dev.riserecode.setting.StringSetting("Background File", "Local PNG path; use Import Image below", "", 512));
+        add("Background Browser", new ColorSetting("Background Tint", "Photo tint", 0xFFFFFFFF));
+        add("Background Browser", new ColorSetting("Gradient Start", "Gradient top", 0xFF121C32));
+        add("Background Browser", new ColorSetting("Gradient End", "Gradient bottom", 0xFF366F80));
+        number("Background Browser", "Background Opacity", 1, 0, 1, 0.01);
+        add("Map Backgrounds", new EnumSetting<>("World Map Background", "Independent map backdrop", MapBackground.INHERIT));
+        add("Map Backgrounds", new EnumSetting<>("Minimap Background", "Independent minimap backdrop", MapBackground.INHERIT));
+        add("Map Backgrounds", new EnumSetting<>("World Map Image", "Independent map image selection", Background.LAKE));
+        add("Map Backgrounds", new EnumSetting<>("Minimap Image", "Independent minimap image selection", Background.LAKE));
+        add("Map Backgrounds", new ColorSetting("Map Solid Color", "Independent solid map color", 0xFF101824));
+        add("Map Backgrounds", new ColorSetting("Unexplored Color", "Unexplored terrain overlay", 0xFF111925));
+        number("Map Backgrounds", "Unexplored Opacity", 0.55, 0, 1, 0.01);
+        number("Button Feedback", "Press Compression", 0.06, 0, 0.6, 0.01);
+        number("Button Feedback", "Press Strength", 1, 0, 10, 0.01);
+        number("Button Feedback", "Press Rebound", 0.28, 0, 1, 0.01);
+        number("Button Feedback", "Press Timing", 0.32, 0.02, 10, 0.01);
+        add("Interface Sounds", new EnumSetting<>("Click Sound", "One sound per activation", ClickSound.SOFT_POP));
+        add("Interface Sounds", new dev.riserecode.setting.StringSetting("Sound File", "Local OGG path; use Import Sound below", "", 512));
+        number("Interface Sounds", "Click Volume", 0.35, 0, 1, 0.01);
+        number("Interface Sounds", "Click Pitch", 1, 0.5, 2, 0.01);
+        for (String window : List.of("Client", "Dialogs", "Dropdowns", "Tooltips", "Map")) {
+            bool("Window Animation: " + window, window + " Animation Override", false);
+            number("Window Animation: " + window, window + " Pop Duration", 0.2, 0, 10, 0.01);
+            number("Window Animation: " + window, window + " Pop Scale", 1, 0, 10, 0.01);
+        }
+        number("Animations", "Animation Speed", 1, 0.1, 10, 0.05);
         add("Animations", new EnumSetting<>("Easing Curve", "Fallback curve for transitions without an independent channel", MathUtil.Easing.OUT_QUART));
         bool("Animations", "Reduced Motion", false);
         for (Channel channel : Channel.values()) {
             String label = channelLabel(channel);
-            number("Animation: " + label, label + " Duration", channel == Channel.HUD_ENTRANCE ? 0.32 : 0.2, 0, 2, 0.01);
+            number("Animation: " + label, label + " Duration", channel == Channel.HUD_ENTRANCE ? 0.32 : 0.2, 0, 10, 0.01);
             add("Animation: " + label, new EnumSetting<>(label + " Easing", "Independent animation curve", MathUtil.Easing.OUT_QUART));
             if (channel == Channel.HOVER || channel == Channel.NAVIGATION || channel == Channel.HUD_ENTRANCE || channel == Channel.HUD_EXIT) {
-                number("Animation: " + label, label + " Movement", 1, 0, 2, 0.01);
+                number("Animation: " + label, label + " Movement", 1, 0, 10, 0.01);
             }
-            if (channel == Channel.OPENING || channel == Channel.PRESS) { number("Animation: " + label, label + " Scale", 1, 0, 2, 0.01); }
+            if (channel == Channel.OPENING || channel == Channel.PRESS) { number("Animation: " + label, label + " Scale", 1, 0, 10, 0.01); }
         }
-        number("Background Effects", "GUI Blur Radius", 12, 0, 30, 1);
+        number("Background Effects", "GUI Blur Radius", 12, 0, 80, 1);
+        add("Background Motion",new EnumSetting<>("Image Motion","Motion applied to still images",ImageMotion.NONE));
+        add("Background Motion",new EnumSetting<>("Image Fit","Image framing",ImageFit.COVER));
+        number("Background Motion","Background Motion Speed",1,.1,5,.05);
+        add("Background Particles",new EnumSetting<>("Background Particles","Overlay behind controls",Particles.NONE));
+        add("Background Particles",new EnumSetting<>("Particle Style","Pixel or smooth shapes",ParticleStyle.SMOOTH));
+        number("Background Particles","Particle Density",70,0,384,1);
+        number("Background Particles","Particle Speed",1,0,5,.05);
+        number("Background Particles","Particle Size",1.5,.5,8,.1);
+        number("Background Particles","Particle Wind",.15,-3,3,.05);
+        number("Background Particles","Particle Opacity",.35,0,1,.01);
+        add("Background Particles",new ColorSetting("Particle Color","Overlay color",0xFFD8E8FF));
         number("Background Effects", "GUI Blur Opacity", 0.8, 0, 1, 0.01);
         bool("Background Effects", "World Blur", false);
         number("Background Effects", "World Blur Radius", 8, 0, 30, 1);
@@ -133,10 +208,10 @@ public final class ThemeManager implements AutoCloseable {
         settings.put(setting.getName(), setting); controls.add(new Control(group, setting, step));
     }
     private void number(String group, String name, double value, double min, double max, double step) {
-        add(group, new DoubleSetting(name, name, value, min, max), step);
+        add(group, DoubleSetting.extended(name, name, value, min, max), step);
     }
     private void bool(String group, String name, boolean value) { add(group, new BooleanSetting(name, name, value)); }
-    public String text(String name) { return ((dev.riserecode.setting.StringSetting) getSetting(name)).getValue(); }
+    public String text(String name) { return ((dev.riserecode.setting.StringSetting) effective(name)).getValue(); }
     public static String channelLabel(Channel channel) { return channel.name().startsWith("HUD_") ? "HUD " + Theme.displayName(channel.name().substring(4)) : Theme.displayName(channel.name()); }
     public double channelNumber(Channel channel, String suffix) { return number(channelLabel(channel) + " " + suffix); }
     public MathUtil.Easing channelCurve(Channel channel) { return choice(channelLabel(channel) + " Easing", MathUtil.Easing.class); }
@@ -175,6 +250,20 @@ public final class ThemeManager implements AutoCloseable {
         ((dev.riserecode.setting.StringSetting) getSetting("Logo File")).setValue(name); changed();
     }
     public Path getDirectory() { return directory; }
+    public void resetLayout() {
+        for (String name : List.of("Window Width", "Window Height", "Interface Scale")) { getSetting(name).reset(); }
+        if (dev.riserecode.Client.INSTANCE.isInitialized()) {
+            JsonObject ui = dev.riserecode.Client.INSTANCE.getConfigManager().getUiPreferences();
+            ui.remove("offsetX"); ui.remove("offsetY"); dev.riserecode.Client.INSTANCE.getConfigManager().setUiPreferences(ui);
+            dev.riserecode.Client.INSTANCE.getClickGui().resetPosition();
+        }
+        changed();
+    }
+    public void importBackground() throws IOException {
+        String file = BrandingLogo.importPng(directory, Path.of(text("Background File")));
+        ((dev.riserecode.setting.StringSetting)getSetting("Background File")).setValue(file);
+        assign(getSetting("Background"), Background.LOCAL_IMAGE); changed();
+    }
     public Path getFontDirectory() { return directory.resolve("fonts"); }
     public List<Control> getControls() { return List.copyOf(controls); }
     public Setting<?> getSetting(String name) {
@@ -182,11 +271,11 @@ public final class ThemeManager implements AutoCloseable {
         if (result == null) { throw new IllegalArgumentException("Unknown visual setting " + name); }
         return result;
     }
-    public double number(String name) { return ((DoubleSetting) getSetting(name)).getValue(); }
-    public boolean bool(String name) { return ((BooleanSetting) getSetting(name)).getValue(); }
-    public ColorSetting colorSetting(String name) { return (ColorSetting) getSetting(name); }
-    public int color(String name) { return ((ColorSetting) getSetting(name)).getValue(); }
-    public <E extends Enum<E>> E choice(String name, Class<E> type) { return type.cast(getSetting(name).getValue()); }
+    public double number(String name) { return ((DoubleSetting) effective(name)).getValue(); }
+    public boolean bool(String name) { return ((BooleanSetting) effective(name)).getValue(); }
+    public ColorSetting colorSetting(String name) { return (ColorSetting) effective(name); }
+    public int color(String name) { return ((ColorSetting) effective(name)).getValue(); }
+    public <E extends Enum<E>> E choice(String name, Class<E> type) { return type.cast(effective(name).getValue()); }
     public long getRevision() { return revision; }
     public String getActiveProfile() { return activeProfile; }
     public boolean wasLoaded() { return loaded; }
@@ -234,6 +323,8 @@ public final class ThemeManager implements AutoCloseable {
     public ThemeProfile snapshot() {
         JsonObject values = new JsonObject();
         settings.forEach((name, setting) -> values.add(name, setting instanceof ColorSetting color ? color.toJson() : GSON.toJsonTree(setting.getValue())));
+        JsonObject overrides=new JsonObject();pages.forEach((id,page)->overrides.add(id,page.json()));values.add("Page Overrides",overrides);
+        JsonObject modules=new JsonObject();moduleAppearances.forEach((id,appearance)->modules.add(id,appearance.json()));values.add("Module Overrides",modules);
         return new ThemeProfile(ThemeProfile.VERSION, values);
     }
     /** Validate the complete document before applying it, so a bad file cannot half-load a theme. */
@@ -245,10 +336,25 @@ public final class ThemeManager implements AutoCloseable {
             if (value == null && setting.getName().endsWith(" Easing") && values.has("Easing Curve")) { value = values.get("Easing Curve"); }
             parsed.put(setting, value == null ? setting instanceof ColorSetting color ? color.defaultPaint() : setting.getDefaultValue() : decode(setting, value));
         }
-        parsed.forEach(ThemeManager::assign);
+        Map<String,PageAppearance> nextPages=new LinkedHashMap<>();
+        if(values.has("Page Overrides")){
+            var overrides=values.getAsJsonObject("Page Overrides");if(overrides.size()>1024){throw new IllegalArgumentException("Too many page overrides");}
+            overrides.entrySet().forEach(entry->{if(entry.getKey().length()>256){throw new IllegalArgumentException("Invalid screen ID");}PageAppearance page=new PageAppearance(this);page.load(entry.getValue().getAsJsonObject());nextPages.put(entry.getKey(),page);});
+        }
+        Map<String,ModuleAppearance> nextModules=new LinkedHashMap<>();
+        if(values.has("Module Overrides")){
+            var overrides=values.getAsJsonObject("Module Overrides");if(overrides.size()>1024){throw new IllegalArgumentException("Too many module overrides");}
+            overrides.entrySet().forEach(entry->{if(entry.getKey().length()>256){throw new IllegalArgumentException("Invalid module ID");}var appearance=new ModuleAppearance(this);appearance.load(entry.getValue().getAsJsonObject());nextModules.put(entry.getKey(),appearance);});
+        }
+        panorama.transaction(()->parsed.forEach(ThemeManager::assign));pages.clear();pages.putAll(nextPages);
+        // Keep existing editor references live when changing appearance profiles.
+        for(var entry:moduleAppearances.entrySet()){
+            var next=nextModules.remove(entry.getKey());entry.getValue().load(next==null?new ModuleAppearance(this).json():next.json());
+        }
+        moduleAppearances.putAll(nextModules);
         changed();
     }
-    private static Object decode(Setting<?> setting, JsonElement element) {
+    public static Object decode(Setting<?> setting, JsonElement element) {
         if (setting instanceof ColorSetting color) { return color.decode(element); }
         if (!element.isJsonPrimitive()) { throw new IllegalArgumentException("Invalid " + setting.getName()); }
         var value = element.getAsJsonPrimitive();
@@ -275,7 +381,7 @@ public final class ThemeManager implements AutoCloseable {
         }
         throw new IllegalArgumentException("Unsupported setting type");
     }
-    private static <T> void assign(Setting<T> setting, Object value) {
+    public static <T> void assign(Setting<T> setting, Object value) {
         if (setting instanceof ColorSetting color) { color.apply((ColorSetting.Paint) value); return; }
         @SuppressWarnings("unchecked") T typed = (T) value;
         setting.setValue(typed);
@@ -326,7 +432,7 @@ public final class ThemeManager implements AutoCloseable {
                     .map(name -> name.substring(0, name.length() - 5)).sorted().toList();
         } catch (IOException failure) { logger.warn("Could not list theme profiles", failure); return List.of(); }
     }
-    public void reset() { settings.values().forEach(Setting::reset); activeProfile = "default"; changed(); }
+    public void reset() { moduleAppearances.values().forEach(value->value.load(new ModuleAppearance(this).json())); pages.clear(); panorama.transaction(()->settings.values().forEach(Setting::reset)); activeProfile = "default"; changed(); }
     private static ThemeProfile read(Path file) throws IOException {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();

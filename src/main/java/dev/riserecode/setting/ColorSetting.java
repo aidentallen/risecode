@@ -24,7 +24,7 @@ public final class ColorSetting extends Setting<Integer> {
                         double speed, double spacing) {
         public Paint {
             Objects.requireNonNull(mode); Objects.requireNonNull(direction);
-            if (!Double.isFinite(speed) || speed < 0 || speed > 3 || !Double.isFinite(spacing) || spacing < 1 || spacing > 1000) {
+            if (!Double.isFinite(speed) || speed < 0 || speed > 12 || !Double.isFinite(spacing) || spacing < 1 || spacing > 4000) {
                 throw new IllegalArgumentException("Invalid color gradient speed/spacing");
             }
         }
@@ -58,20 +58,21 @@ public final class ColorSetting extends Setting<Integer> {
     }
     public static void configureThemeSampler(ThemeSampler sampler) { themeSampler = Objects.requireNonNull(sampler); }
     public Mode getMode() { return mode; }
-    public void setMode(Mode value) { mode = Objects.requireNonNull(value); }
+    public void setMode(Mode value) { Objects.requireNonNull(value); if (mode != value) { mode = value; changed(); } }
     public int getSecondary() { return secondary; }
-    public void setSecondary(int value) { secondary = value; }
+    public void setSecondary(int value) { if (secondary != value) { secondary = value; changed(); } }
     public ColorUtil.GradientDirection getDirection() { return direction; }
-    public void setDirection(ColorUtil.GradientDirection value) { direction = Objects.requireNonNull(value); }
+    public void setDirection(ColorUtil.GradientDirection value) { Objects.requireNonNull(value); if (direction != value) { direction = value; changed(); } }
     public double getSpeed() { return speed; }
     public double getSpacing() { return spacing; }
-    public void setSpeed(double value) { new Paint(getValue(), secondary, mode, direction, value, spacing); speed = value; }
-    public void setSpacing(double value) { new Paint(getValue(), secondary, mode, direction, speed, value); spacing = value; }
+    public void setSpeed(double value) { new Paint(getValue(), secondary, mode, direction, value, spacing); if (speed != value) { speed = value; changed(); } }
+    public void setSpacing(double value) { new Paint(getValue(), secondary, mode, direction, speed, value); if (spacing != value) { spacing = value; changed(); } }
     public Paint paint() { return new Paint(getValue(), secondary, mode, direction, speed, spacing); }
     public Paint defaultPaint() { return new Paint(getDefaultValue(), defaultSecondary, defaultMode, ColorUtil.GradientDirection.HORIZONTAL, 0.18, 100); }
     public int sample(double x, double y) { return paint().sample(x, y, ColorUtil.time()); }
     public void apply(Paint paint) {
-        setValue(paint.primary()); secondary = paint.secondary(); mode = paint.mode(); direction = paint.direction(); speed = paint.speed(); spacing = paint.spacing();
+        if (paint().equals(paint)) { return; }
+        setValue(paint.primary()); secondary = paint.secondary(); mode = paint.mode(); direction = paint.direction(); speed = paint.speed(); spacing = paint.spacing(); changed();
     }
     @Override protected void onReset() { apply(defaultPaint()); }
     public JsonObject toJson() { return toJson(paint()); }

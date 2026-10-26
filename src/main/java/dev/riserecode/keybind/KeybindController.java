@@ -13,6 +13,7 @@ public final class KeybindController implements AutoCloseable {
     private final ModuleManager modules;
     private final Set<Integer> pressed = new HashSet<>();
     private final Map<Module, Integer> temporary = new HashMap<>();
+    private final Map<Module, Integer> effects = new HashMap<>();
     public KeybindController(ModuleManager modules) {
         this.modules = modules; modules.setBindingChangeListener(this::release);
     }
@@ -20,6 +21,14 @@ public final class KeybindController implements AutoCloseable {
         if (!allowed || key == Module.UNBOUND || !pressed.add(key)) { return; }
         for (Module module : modules.getModules()) {
             if (module.getKeybind() != key) { continue; }
+            if (module.bindingActivatesEffect()) {
+                if (module.isEnabled()) {
+                    boolean active = module.getBindMode() == Module.BindMode.HOLD || !effects.containsKey(module);
+                    if (active) { effects.put(module, key); } else { effects.remove(module); }
+                    module.activateBinding(active);
+                }
+                continue;
+            }
             if (module.getBindMode() == Module.BindMode.TOGGLE) { modules.toggle(module); }
             else if (!module.isEnabled()) {
                 // Record ownership before onEnable: a synchronous save must see the permanent state.
@@ -30,17 +39,26 @@ public final class KeybindController implements AutoCloseable {
     }
     public void releaseKey(int key) {
         pressed.remove(key);
+        for (Module module : Set.copyOf(effects.keySet())) {
+            if (effects.get(module) == key && module.getBindMode() == Module.BindMode.HOLD) { release(module); }
+        }
         for (Module module : Set.copyOf(temporary.keySet())) {
             if (temporary.get(module) == key) { release(module); }
         }
     }
     public void release(Module module) {
+        if (effects.remove(module) != null || module.bindingActivatesEffect()) { module.activateBinding(false); }
         if (temporary.remove(module) != null) { modules.setEnabled(module, false); }
     }
     public boolean isTemporarilyEnabled(Module module) { return temporary.containsKey(module); }
     public boolean persistentEnabled(Module module) { return module.isEnabled() && !isTemporarilyEnabled(module); }
     /** Polling also handles a lost release callback, screen/focus changes, disconnects and direct rebinds. */
     public void update(boolean allowed, IntPredicate keyDown) {
+        for (Module module : Set.copyOf(effects.keySet())) {
+            int key = effects.get(module);
+            if (!allowed || !module.isEnabled() || module.getKeybind() != key
+                    || module.getBindMode() == Module.BindMode.HOLD && !keyDown.test(key)) { release(module); }
+        }
         for (Module module : Set.copyOf(temporary.keySet())) {
             int key = temporary.get(module);
             if (!allowed || !keyDown.test(key) || module.getKeybind() != key
@@ -48,5 +66,5 @@ public final class KeybindController implements AutoCloseable {
         }
         if (!allowed) { pressed.clear(); }
     }
-    @Override public void close() { temporary.keySet().stream().toList().forEach(this::release); pressed.clear(); }
+    @Override public void close() { effects.keySet().stream().toList().forEach(this::release); temporary.keySet().stream().toList().forEach(this::release); pressed.clear(); }
 }

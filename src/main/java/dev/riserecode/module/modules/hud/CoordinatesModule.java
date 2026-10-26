@@ -13,7 +13,7 @@ public final class CoordinatesModule extends HudModule {
     private final ColorSetting x = register(new ColorSetting("XColor", "X axis", 0xFFFF879C));
     private final ColorSetting y = register(new ColorSetting("YColor", "Y axis", 0xFF8CE8B5));
     private final ColorSetting z = register(new ColorSetting("ZColor", "Z axis", 0xFF83BEFF));
-    private final DoubleSetting precision = register(new DoubleSetting("Precision", "Decimal places", 1, 0, 3));
+    private final DoubleSetting precision = register(DoubleSetting.extended("Precision", "Decimal places", 1, 0, 3));
     private final BooleanSetting direction = register(new BooleanSetting("Direction", "Show direction letter", true));
     public CoordinatesModule(EventBus bus, Minecraft mc) { super("Coordinates", "Live position and cardinal direction.", bus, mc); }
     @Override protected Object contentKey() { var p = minecraft.player; return p == null ? "disconnected" : java.util.List.of(p.getX(), p.getY(), p.getZ(), p.getDirection()); }

@@ -56,12 +56,15 @@ final class SilhouetteMask {
     private int allocations;
     private long composites;
     private static final class Pipelines {
-        private static final Map<String, RenderPipeline> MASKS = new HashMap<>();
+        private record PipelineKey(com.mojang.blaze3d.vertex.VertexFormat format,boolean visible) { }
+        private static final Map<PipelineKey, RenderPipeline> MASKS = new HashMap<>();
         private static final RenderPipeline DILATE = postPipeline(false);
         private static final RenderPipeline COMPOSITE = postPipeline(true);
     }
     SilhouetteMask() { }
-    public void beginFrame() { requested = false; frameStyle = null; fullBounds = false; needsDepth = depthCopied = false;
+    private long lastRequestTick;
+    public long ownedGpuBytes(){return mask==null?0:mask.width*(long)mask.height*12;}
+    public void beginFrame() { if(mask!=null&&dev.riserecode.performance.PerformancePolicy.ticks()-lastRequestTick>=40){destroyTargets();} requested = false; frameStyle = null; fullBounds = false; needsDepth = depthCopied = false;
         minX = minY = Double.POSITIVE_INFINITY; maxX = maxY = Double.NEGATIVE_INFINITY;
     }
     public long getCompositeCount() { return composites; }
@@ -95,15 +98,16 @@ final class SilhouetteMask {
         allocations++;
     }
     void request(Style style, net.minecraft.world.phys.AABB bounds, net.minecraft.client.renderer.state.level.CameraRenderState camera) {
-        ensureTargets();
+        lastRequestTick=dev.riserecode.performance.PerformancePolicy.ticks();ensureTargets();
         if (!requested) {
             RenderSystem.getDevice().createCommandEncoder().clearColorTexture(mask.getColorTexture(), new Vector4f(0, 0, 0, 0));
             RenderSystem.getDevice().createCommandEncoder().clearColorTexture(horizontal.getColorTexture(), new Vector4f(0, 0, 0, 0));
         }
         requested = true; frameStyle = style;
         var matrix = new org.joml.Matrix4f(camera.projectionMatrix).mul(camera.viewRotationMatrix);
+        var point=new Vector4f();
         for (int i = 0; i < 8; i++) {
-            var point = matrix.transform(new Vector4f((float) ((i & 1) == 0 ? bounds.minX - camera.pos.x : bounds.maxX - camera.pos.x),
+            matrix.transform(point.set((float) ((i & 1) == 0 ? bounds.minX - camera.pos.x : bounds.maxX - camera.pos.x),
                     (float) ((i & 2) == 0 ? bounds.minY - camera.pos.y : bounds.maxY - camera.pos.y),
                     (float) ((i & 4) == 0 ? bounds.minZ - camera.pos.z : bounds.maxZ - camera.pos.z), 1));
             if (point.w <= 0) { fullBounds = true; continue; }
@@ -115,11 +119,9 @@ final class SilhouetteMask {
     private final Map<MaskType, RenderType> maskTypes = new HashMap<>();
     RenderType type(Identifier atlas, com.mojang.blaze3d.vertex.VertexFormat format, boolean visible) {
         needsDepth |= visible;
-        return maskTypes.computeIfAbsent(new MaskType(atlas, format, visible), key -> {
-            String id = format.toString() + visible;
-            RenderPipeline pipeline = Pipelines.MASKS.computeIfAbsent(id, ignored -> maskPipeline(visible, format));
-            return RenderType.create("risecode silhouette", RenderSetup.builder(pipeline).withTexture("Sampler0", atlas).setOutputTarget(OUTPUT).createRenderSetup());
-        });
+        var key=new MaskType(atlas,format,visible);var cached=maskTypes.get(key);if(cached!=null){return cached;}
+        var id=new Pipelines.PipelineKey(format,visible);var pipeline=Pipelines.MASKS.get(id);if(pipeline==null){pipeline=maskPipeline(visible,format);Pipelines.MASKS.put(id,pipeline);}
+        var type=RenderType.create("risecode silhouette",RenderSetup.builder(pipeline).withTexture("Sampler0",atlas).setOutputTarget(OUTPUT).createRenderSetup());maskTypes.put(key,type);return type;
     }
     /** Called after all world/held-item draws, before GUI scene blur and HUD composition. */
     public void composite(RenderTarget main) {
@@ -141,11 +143,11 @@ final class SilhouetteMask {
     private void pass(RenderTarget destination, ColorSetting.Paint paint, Style style, int mode) {
         if (PARAMETERS[mode] == null) { PARAMETERS[mode] = RenderSystem.getDevice().createBuffer(() -> "risecode outline parameters", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 80); }
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            var bytes = Std140Builder.onStack(stack, 80).putVec4(1f / mask.width, 1f / mask.height, (float) style.width(), (float) style.glow())
+            var bytes = Std140Builder.onStack(stack, 80).putVec4(1f / mask.width, 1f / mask.height, (float) (style.width()*WorldResolution.pixelScale()), (float) (style.glow()*WorldResolution.pixelScale()))
                     .putVec4(channel(paint.primary(), 16), channel(paint.primary(), 8), channel(paint.primary(), 0), channel(paint.primary(), 24))
                     .putVec4(channel(paint.secondary(), 16), channel(paint.secondary(), 8), channel(paint.secondary(), 0), channel(paint.secondary(), 24))
                     .putVec4(paint.mode().ordinal(), paint.direction().ordinal(), (float) paint.speed(), (float) paint.spacing())
-                    .putVec4((float) Theme.gradientTime(), (float) style.intensity(), mode, (float) Minecraft.getInstance().getWindow().getGuiScale()).get();
+                    .putVec4((float) Theme.gradientTime(), (float) style.intensity(), mode, (float) (Minecraft.getInstance().getWindow().getGuiScale()*WorldResolution.pixelScale())).get();
             RenderSystem.getDevice().createCommandEncoder().writeToBuffer(PARAMETERS[mode].slice(), bytes);
         }
         try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "risecode item silhouette outline", destination.getColorTextureView(), Optional.empty())) {

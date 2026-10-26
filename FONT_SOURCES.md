@@ -1,12 +1,12 @@
 # Font sources and installation
 
 The menu and HUD share the same live font choice. Google Sans, Montserrat and Inter
-are bundled; Qraftys and Minecraftia are installed locally in this development instance.
+and Qraftys are bundled; Minecraftia remains a local optional font.
 
 | Choice | Source | Asset handling |
 | --- | --- | --- |
 | Google Sans (default) | [Google Fonts official v14.000 release](https://github.com/googlefonts/googlesans/releases/tag/v14.000) | Unmodified static Regular/Medium; SIL OFL 1.1, embedded copyright notice and upstream license included. |
-| Qraftys | [The exact CAPITALIZED FONT 2.1 file supplied by the user](https://www.curseforge.com/minecraft/texture-packs/qraftys-capitalized-font/files/5605880) | Local resource pack; original lowercase small-cap artwork and advances. No Qraftys texture is bundled. |
+| Qraftys | [The exact CAPITALIZED FONT 2.1 file supplied by the user](https://www.curseforge.com/minecraft/texture-packs/qraftys-capitalized-font/files/5605880) | Original bitmap and namespaced font JSON bundled with the redistribution permission confirmed for 0.25.0; lowercase small-cap artwork and advances unchanged. |
 | Minecraftia | [Andrew Tyler's author listing](https://www.dafont.com/minecraftia.font) | Local personal-use font; nearest sampling at its native 12 px em. Commercial apps need the author's license. No Minecraftia asset is bundled. |
 | Montserrat | [Official v7.222](https://github.com/JulietaUla/Montserrat/tree/v7.222) | Unmodified static Regular/Medium; SIL OFL 1.1 included. |
 | Inter | [Official project](https://github.com/rsms/inter) | Existing unmodified static Regular/Medium, embedded version 4.001; SIL OFL 1.1 included. |
@@ -81,14 +81,14 @@ To install that downloaded ZIP in another game directory:
 python scripts/install-qraftys.py /path/to/qraftys.zip /path/to/game-directory
 ```
 
-The Themes font renderer reads its 128×128 bitmap directly from the local pack,
+The Appearance font renderer reads its bundled 128×128 bitmap, or an explicit local override,
 preserving small-cap lowercase cells. It creates an original distance-field atlas
 for shadows/glow and uses nearest sampling for normal text. Selecting Qraftys affects
 risecode immediately without a global resource reload. Enable the pack in Minecraft's
 Resource Packs menu too if you want its font applied to vanilla interfaces.
 
 Qraftys is [listed as All Rights Reserved](https://www.curseforge.com/minecraft/texture-packs/qraftys-capitalized-font/files/5605880).
-Its artwork remains local and is absent from both distributable JARs. An
+The user confirmed redistribution permission for RiseRecode 0.25.0; attribution and the exact original bitmap checksum are embedded in `licenses/qraftys-NOTICE.txt`. An
 [official 26.2 pack release](https://www.curseforge.com/minecraft/texture-packs/qraftys-capitalized-font/files/8741759)
 also exists; this workspace retains the exact glyph version requested by the user.
 
@@ -104,3 +104,7 @@ also exists; this workspace retains the exact glyph version requested by the use
 | `montserrat_regular.ttf` | `6eabd0fb8e3066b6155bac338ef5a6c35b9963ab3f39be7c67edc4a99d870699` |
 | `roboto_medium.ttf` | `2879a5ecb7fbfa13a7fc3e2cdd7fecbf73aa45e91b541dfdfa2c442eed0aac21` |
 | `roboto_regular.ttf` | `56a45233d29f11b4dfb86d248e921939d115778f87325e7ae8cc108383d6664d` |
+
+| `textures/font/qraftys.png` | `b3aa3de3f4a8ecc6f1b71c05f03765b5202178b915df478869b0d74717b7e0df` |
+
+Font Boldness (0–100, default 0) adds up to 0.75 logical pixels of stroke at draw time. Advances, wrapping and atlases remain unchanged; body, shadow and glow draws capture the stroke in their extracted state.

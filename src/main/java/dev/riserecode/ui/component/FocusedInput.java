@@ -7,24 +7,33 @@ import net.minecraft.client.input.KeyEvent;
 
 /** One keyboard owner across all custom settings contexts. */
 public final class FocusedInput {
-    private static TextField active;
+    public interface Owner {
+        boolean contains(double x,double y);
+        void commit(); void cancel();
+        boolean charTyped(CharacterEvent event);
+        boolean keyPressed(KeyEvent event,Supplier<String> clipboard,Consumer<String> copy);
+        default void confirmation(KeyEvent event) { commit(); }
+    }
+    private static Owner active;
+    private static java.util.function.DoubleUnaryOperator pointerX=v->v,pointerY=v->v;
+    public static void pointerMapping(java.util.function.DoubleUnaryOperator x,java.util.function.DoubleUnaryOperator y){if(active!=null){pointerX=x;pointerY=y;}}
     private FocusedInput() { }
-    static void focus(TextField field) {
+    static void focus(Owner field) {
         if (active == field) { return; }
         if (active != null) { active.commit(); }
-        active = field;
+        active = field;pointerX=v->v;pointerY=v->v;
     }
-    static void release(TextField field) { if (active == field) { active = null; } }
+    static void release(Owner field) { if (active == field) { active = null;pointerX=v->v;pointerY=v->v; } }
     public static boolean active() { return active != null; }
-    public static boolean owns(TextField field) { return active == field; }
-    public static void pointer(double x, double y) { if (active != null && !active.contains(x, y)) { active.commit(); } }
+    public static boolean owns(Owner field) { return active == field; }
+    public static void pointer(double x, double y) { if (active != null && !active.contains(pointerX.applyAsDouble(x), pointerY.applyAsDouble(y))) { active.commit(); } }
     public static void commit() { if (active != null) { active.commit(); } }
     public static void cancel() { if (active != null) { active.cancel(); } }
     public static boolean key(KeyEvent event, Supplier<String> clipboard, Consumer<String> copy) {
         if (active == null) { return false; }
-        TextField field = active;
+        Owner field = active;
         if (event.isEscape()) { field.cancel(); }
-        else if (event.isConfirmation()) { field.commit(); }
+        else if (event.isConfirmation()) { field.confirmation(event); }
         else { field.keyPressed(event, clipboard, copy); }
         return true;
     }

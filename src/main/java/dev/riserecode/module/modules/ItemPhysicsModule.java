@@ -14,14 +14,15 @@ public final class ItemPhysicsModule extends Module {
     public enum Spin { OFF, AIRBORNE, ALWAYS }
     public enum SpinAxis { X, Y, Z }
     private final dev.riserecode.setting.BooleanSetting randomYaw = register(new dev.riserecode.setting.BooleanSetting("RandomYaw", "Stable per-item yaw", true));
-    private final dev.riserecode.setting.DoubleSetting rotationX = register(new dev.riserecode.setting.DoubleSetting("RotationX", "Additional X pose", 0, -180, 180));
-    private final dev.riserecode.setting.DoubleSetting rotationY = register(new dev.riserecode.setting.DoubleSetting("RotationY", "Additional Y pose", 0, -180, 180));
-    private final dev.riserecode.setting.DoubleSetting rotationZ = register(new dev.riserecode.setting.DoubleSetting("RotationZ", "Additional Z pose", 0, -180, 180));
+    private final dev.riserecode.setting.DoubleSetting rotationX = register(dev.riserecode.setting.DoubleSetting.extended("RotationX", "Additional X pose", 0, -180, 180));
+    private final dev.riserecode.setting.DoubleSetting rotationY = register(dev.riserecode.setting.DoubleSetting.extended("RotationY", "Additional Y pose", 0, -180, 180));
+    private final dev.riserecode.setting.DoubleSetting rotationZ = register(dev.riserecode.setting.DoubleSetting.extended("RotationZ", "Additional Z pose", 0, -180, 180));
     private final dev.riserecode.setting.EnumSetting<Spin> spin = register(new dev.riserecode.setting.EnumSetting<>("Spin", "When to animate rotation", Spin.AIRBORNE));
     private final dev.riserecode.setting.EnumSetting<SpinAxis> axis = register(new dev.riserecode.setting.EnumSetting<>("SpinAxis", "Axis for animated rotation", SpinAxis.Z));
-    private final dev.riserecode.setting.DoubleSetting speed = register(new dev.riserecode.setting.DoubleSetting("SpinSpeed", "Degrees per second", 68.75494, -360, 360));
+    private final dev.riserecode.setting.DoubleSetting speed = register(dev.riserecode.setting.DoubleSetting.extended("SpinSpeed", "Degrees per second", 68.75494, -360, 360));
     private final RandomSource random = RandomSource.create();
-    public ItemPhysicsModule(EventBus bus) { super("ItemPhysics", "Dropped items rest on the ground with stable individual rotations.", Category.WORLD, bus); axis.setVisibleWhen(() -> spin.getValue() != Spin.OFF); speed.setVisibleWhen(() -> spin.getValue() != Spin.OFF); }
+    public ItemPhysicsModule(EventBus bus) { super("ItemPhysics", "Dropped items rest on the ground with stable individual rotations.", Category.WORLD, bus);
+        axis.setVisibleWhen(() -> spin.getValue() != Spin.OFF); speed.setVisibleWhen(() -> spin.getValue() != Spin.OFF); }
     @Override protected void onEnable() {
         listen(ItemRenderEvent.class, event -> {
             var state = event.state(); if (state.item.isEmpty()) { return; }

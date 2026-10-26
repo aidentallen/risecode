@@ -21,6 +21,19 @@ public final class UiChecks {
     private UiChecks() { }
 
     public static void main(String[] args) {
+        assertions += dev.riserecode.ui.render.UiMeshScissorChecks.run();
+        assertions += BlurRegionChecks.run();
+        assertions += dev.riserecode.ui.render.OrderedBatchChecks.run();
+        for (double width : new double[] {213, 305, 753}) {
+            for (double height : new double[] {22, 28}) {
+                var header = dev.riserecode.ui.component.HeaderLayout.at(115, 8, width, height, 96);
+                check(header.gear().centerY() == header.action().centerY() && header.label().centerY() == header.gear().centerY(), "header controls share a vertical center");
+                check(header.label().x() + header.label().width() < header.action().x() && header.action().x() + header.action().width() < header.gear().x(), "header label and actions cannot overlap");
+                check(header.gear().x() + header.gear().width() == 115 + width, "gear aligns with content right edge");
+            }
+        }
+        var searchHeader = dev.riserecode.ui.component.HeaderLayout.at(115, 8, 305, 22, 0);
+        check(searchHeader.action() == null && searchHeader.label().x() + searchHeader.label().width() < searchHeader.gear().x(), "search field leaves room for the gear");
         check(Theme.lerp(0x00000000, 0xFFFFFFFF, 0.5) == 0x80808080, "all channels interpolate");
         check(Theme.lerp(Theme.BLUE, Theme.FUCHSIA, -1) == Theme.BLUE, "negative color progress clamps");
         check(Theme.lerp(Theme.BLUE, Theme.FUCHSIA, 2) == Theme.FUCHSIA, "overshoot color progress clamps");

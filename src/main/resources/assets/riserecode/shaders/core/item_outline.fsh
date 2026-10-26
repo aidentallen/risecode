@@ -31,8 +31,8 @@ void main() {
         fragColor = vec4(0.0); return;
     }
     float border = 0.0, glow = 0.0;
-    int radius = int(ceil(Metrics.z + Metrics.w));
-    for (int i = -32; i <= 32; i++) {
+    int radius = min(80,int(ceil(Metrics.z + Metrics.w)));
+    for (int i = -radius; i <= radius; i++) {
         if (abs(i) > radius) continue;
         vec2 stepUV = horizontal ? vec2(Metrics.x * float(i), 0.0) : vec2(0.0, Metrics.y * float(i));
         vec4 sampleColor = texture(Sampler0, texCoord + stepUV);

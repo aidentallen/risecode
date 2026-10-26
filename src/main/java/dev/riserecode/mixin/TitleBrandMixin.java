@@ -19,7 +19,7 @@ public abstract class TitleBrandMixin {
     private void riserecode$logo(LogoRenderer renderer, GuiGraphicsExtractor graphics, int width, float opacity) {
         if (!MenuTheme.enabled()) { renderer.extractRenderState(graphics, width, opacity); return; }
         var font = Minecraft.getInstance().font; double scale = 4;
-        RenderUtil.accentText(graphics, font, dev.riserecode.Client.INSTANCE.getName(), (width - RenderUtil.textWidth(font, dev.riserecode.Client.INSTANCE.getName(), false) * scale) / 2, 37, scale, opacity);
+        RenderUtil.brandText(graphics, font, dev.riserecode.Client.INSTANCE.getName(), (width - RenderUtil.textWidth(font, dev.riserecode.Client.INSTANCE.getName(), false) * scale) / 2, 37, scale, opacity);
         dev.riserecode.ui.theme.BrandingLogo.drawBeside(graphics, (width - RenderUtil.textWidth(font, dev.riserecode.Client.INSTANCE.getName(), false) * scale) / 2, 37, RenderUtil.textWidth(font, dev.riserecode.Client.INSTANCE.getName(), false) * scale, opacity);
         RenderUtil.text(graphics, font, Theme.manager().text("Interface Tagline"), (width - RenderUtil.textWidth(font, Theme.manager().text("Interface Tagline"), false)) / 2, 83, 1, Theme.opacity(Theme.SECONDARY, opacity));
     }

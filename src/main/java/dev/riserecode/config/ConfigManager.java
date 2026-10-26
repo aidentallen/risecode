@@ -34,7 +34,15 @@ import org.slf4j.Logger;
 public final class ConfigManager implements AutoCloseable {
     private record ModuleState(Module module, boolean enabled, int keybind, Module.BindMode bindMode, Map<Setting<?>, JsonElement> settings) { }
     private record Binding(int key, Module.BindMode mode) { }
-    private record ProfileState(boolean hud, List<ModuleState> modules, JsonObject layouts, JsonObject visuals) { }
+    private record ProfileState(boolean hud, List<ModuleState> modules, JsonObject layouts, JsonObject visuals, JsonObject resources, JsonObject cosmetics) { }
+    private Supplier<JsonObject> cosmeticsSnapshot = () -> dev.riserecode.cosmetics.CosmeticLoadout.empty().json();
+    private Consumer<JsonObject> applyCosmetics = value -> { }, validateCosmetics = value -> { };
+    public void bindCosmeticsStore(Supplier<JsonObject> snapshot,Consumer<JsonObject> apply,Consumer<JsonObject> validate){cosmeticsSnapshot=snapshot;applyCosmetics=apply;validateCosmetics=validate;}
+    private dev.riserecode.resources.ResourcesManager resourcesManager;
+    public void bindResourcesStore(dev.riserecode.resources.ResourcesManager manager) { resourcesManager = manager; }
+    private static JsonObject resourcesOf(JsonObject data) {
+        return dev.riserecode.resources.ResourcesMigration.upgrade(data).getAsJsonObject("resources");
+    }
     private final Gson gson = new Gson();
     private final Path directory;
     private final Path file;
@@ -57,8 +65,14 @@ public final class ConfigManager implements AutoCloseable {
     }
     private String commandPrefix = ".";
     private EventBus.Subscription subscription;
-    private boolean dirty;
-    private long saveAfterNanos;
+    private volatile boolean dirty;
+    private final java.util.concurrent.ExecutorService writer;
+    private final java.util.concurrent.Executor clientExecutor;
+    private int pendingWrites;
+    private volatile long saveRevision;
+    private volatile boolean writing;
+    private final Object writeLock = new Object();
+    private volatile long saveAfterNanos;
 
     public ConfigManager(Path directory, ModuleManager modules, BooleanSupplier hudEnabled,
             Consumer<Boolean> setHudEnabled, Logger logger) {
@@ -67,6 +81,15 @@ public final class ConfigManager implements AutoCloseable {
 
     public ConfigManager(Path directory, ModuleManager modules, FriendManager friends, BooleanSupplier hudEnabled,
             Consumer<Boolean> setHudEnabled, Logger logger) {
+        this(directory, modules, friends, hudEnabled, setHudEnabled, logger,
+                task -> net.minecraft.client.Minecraft.getInstance().execute(task),
+                java.util.concurrent.Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "risecode-config-io"); t.setDaemon(true); return t; }));
+    }
+
+    ConfigManager(Path directory, ModuleManager modules, FriendManager friends, BooleanSupplier hudEnabled,
+            Consumer<Boolean> setHudEnabled, Logger logger, java.util.concurrent.Executor clientExecutor,
+            java.util.concurrent.ExecutorService writer) {
+        this.clientExecutor = java.util.Objects.requireNonNull(clientExecutor); this.writer = writer;
         this.directory = directory; file = directory.resolve("config.json"); this.modules = modules;
         this.friends = friends; this.hudEnabled = hudEnabled; this.setHudEnabled = setHudEnabled; this.logger = logger;
     }
@@ -90,8 +113,10 @@ public final class ConfigManager implements AutoCloseable {
     }
     /** Editor saves touch only HUD modules/layout and visual policy in the selected profile. */
     public JsonObject withCurrentHudState(JsonObject profile) {
+        profile = dev.riserecode.resources.ResourcesMigration.upgrade(profile);
         parseProfile(profile);
-        JsonObject result = profile.deepCopy(); result.addProperty("schemaVersion", 3);
+        JsonObject result = profile.deepCopy(); result.addProperty("schemaVersion", 5);
+        result.add("resources", resourcesOf(profile));
         result.add("hudLayout", hudSnapshot.get()); result.add("visualPolicy", visualSnapshot.get());
         JsonObject entries = result.getAsJsonObject("modules");
         for (Module module : modules.getModules()) {
@@ -116,12 +141,12 @@ public final class ConfigManager implements AutoCloseable {
     public void init(EventBus eventBus) {
         if (subscription != null) { return; }
         subscription = eventBus.subscribe(UpdateEvent.class, -100, false, event -> {
-            if (dirty && System.nanoTime() - saveAfterNanos >= 0 && !save()) {
-                saveAfterNanos = System.nanoTime() + 5_000_000_000L;
+            if (dirty && !writing && System.nanoTime() - saveAfterNanos >= 0) {
+                saveAsync().thenAccept(ok -> { if (!ok) { saveAfterNanos = System.nanoTime() + 5_000_000_000L; } });
             }
         });
     }
-    public void requestSave() { dirty = true; saveAfterNanos = System.nanoTime() + 500_000_000L; }
+    public void requestSave() { saveRevision++; dirty = true; saveAfterNanos = System.nanoTime() + 500_000_000L; }
 
     public void load() {
         try {
@@ -136,11 +161,19 @@ public final class ConfigManager implements AutoCloseable {
             } catch (IOException backupFailure) { logger.error("Could not preserve invalid config", backupFailure); }
             return;
         }
+        try {
+            if (!document.has("resources") || document.has("styles")) {
+                Path backup = directory.resolve("config.pre-resources.json"); if (!Files.exists(backup)) { Files.copy(file, backup); }
+            }
+            document = dev.riserecode.resources.ResourcesMigration.upgrade(document);
+            if (resourcesManager != null) { resourcesManager.restoreStartup(resourcesOf(document)); }
+        } catch (IOException | RuntimeException invalid) { logger.warn("Could not migrate Resources; original file is preserved", invalid); }
         if (document.has("commandPrefix")) { apply("commandPrefix", () -> setCommandPrefix(stringValue(document.get("commandPrefix")))); }
         loadFriends(document.get("friends"));
+        if(document.has("cosmetics")){apply("cosmetics",()->{var value=requiredObject(document.get("cosmetics"));validateCosmetics.accept(value);applyCosmetics.accept(value);});}
         if (document.has("hudLayout")) { apply("HUD layout", () -> { JsonObject layouts = requiredObject(document.get("hudLayout")); validateHud.accept(layouts); applyHud.accept(layouts); }); }
         if (!externalVisualPreferences && document.has("hudEnabled")) { apply("hudEnabled", () -> setHudEnabled.accept(booleanValue(document.get("hudEnabled")))); }
-        JsonObject entries = objectOrEmpty(document.get("modules"));
+        JsonObject entries = migrateModuleNames(objectOrEmpty(document.get("modules")));
         modules.releaseKeybindActivations();
         // Disable before replacing values so lifecycle resources are restored first.
         for (Module module : modules.getModules()) {
@@ -183,12 +216,31 @@ public final class ConfigManager implements AutoCloseable {
 
     public JsonObject profileSnapshot() {
         JsonObject result = new JsonObject();
-        result.addProperty("schemaVersion", 3);
+        result.addProperty("schemaVersion", 5);
+        result.add("cosmetics", cosmeticsSnapshot.get());
+        if (resourcesManager != null) { result.add("resources", resourcesManager.snapshot()); }
         result.add("hudLayout", hudSnapshot.get()); result.add("visualPolicy", visualSnapshot.get());
         if (!externalVisualPreferences) { result.addProperty("hudEnabled", hudEnabled.getAsBoolean()); }
         JsonObject entries = new JsonObject(); result.add("modules", entries);
         for (Module module : modules.getModules()) { entries.add(module.getName(), moduleSnapshot(module, new JsonObject())); }
-        return result;
+        return result.deepCopy();
+    }
+
+    /** Resolve omitted fields through the exact load semantics before a profile preview. */
+    public JsonObject resolvedProfile(JsonObject data){
+        ProfileState state=parseProfile(data);JsonObject resolved=profileSnapshot();JsonObject entries=new JsonObject();
+        for(ModuleState m:state.modules()){
+            JsonObject entry=new JsonObject();entry.addProperty("enabled",m.enabled());entry.addProperty("keybind",m.keybind());entry.addProperty("bindMode",m.bindMode().name());JsonObject settings=new JsonObject();m.settings().forEach((setting,value)->settings.add(setting.getName(),value.deepCopy()));entry.add("settings",settings);entries.add(m.module().getName(),entry);
+        }
+        resolved.add("cosmetics",state.cosmetics());resolved.add("modules",entries);if(!externalVisualPreferences){resolved.addProperty("hudEnabled",state.hud());}if(state.layouts()!=null){resolved.add("hudLayout",state.layouts());}if(state.visuals()!=null){resolved.add("visualPolicy",state.visuals());}if(resourcesManager!=null){resolved.add("resources",state.resources());}return resolved;
+    }
+
+    private static JsonObject migrateModuleNames(JsonObject entries) {
+        if (entries.has("NoFall")) {
+            if (!entries.has("Clutch")) { entries.add("Clutch", entries.get("NoFall").deepCopy()); }
+            entries.remove("NoFall");
+        }
+        return entries;
     }
 
     private JsonObject moduleSnapshot(Module module, JsonObject entry) {
@@ -199,16 +251,14 @@ public final class ConfigManager implements AutoCloseable {
         return entry;
     }
 
-    private JsonElement encodeSetting(Setting<?> setting, Object value) {
-        if (setting instanceof ColorSetting color) { return color.toJson(); }
-        if (value instanceof Enum<?> option) { return new JsonPrimitive(option.name()); }
-        return gson.toJsonTree(value);
-    }
+    public static JsonElement encodeSetting(Setting<?> setting, Object value) { return SettingCodecs.encode(setting, value); }
 
-    public boolean save() {
-        try {
+    /** Capture mutable managers only on their owning client thread. */
+    private JsonObject saveSnapshot() {
             JsonObject next = document.deepCopy();
-            next.addProperty("schemaVersion", 3);
+            next.addProperty("schemaVersion", 5);
+            next.add("cosmetics", cosmeticsSnapshot.get());
+            if (resourcesManager != null) { next.add("resources", resourcesManager.snapshot()); }
             next.add("hudLayout", hudSnapshot.get());
             if (externalVisualPreferences) { next.remove("hudEnabled"); }
             else { next.addProperty("hudEnabled", hudEnabled.getAsBoolean()); }
@@ -219,35 +269,101 @@ public final class ConfigManager implements AutoCloseable {
                 if (friend.uuid() != null) { value.addProperty("uuid", friend.uuid().toString()); }
                 friendList.add(value);
             }
-            JsonObject entries = objectOrEmpty(next.get("modules")); next.add("modules", entries);
+            JsonObject entries = migrateModuleNames(objectOrEmpty(next.get("modules"))); next.add("modules", entries);
             for (Module module : modules.getModules()) {
                 entries.add(module.getName(), moduleSnapshot(module, objectOrEmpty(entries.get(module.getName()))));
             }
-            JsonStorage.write(file, next); document = next; dirty = false; return true;
-        } catch (IOException | RuntimeException failure) {
-            logger.error("Could not save {}", file, failure); dirty = true; return false;
-        }
+            next.remove("styles");
+            return next.deepCopy();
+    }
+    /** Snapshot capture, bookkeeping and every completion (including failure) run on the client executor. */
+    public java.util.concurrent.CompletionStage<Boolean> saveAsync() {
+        var result = new java.util.concurrent.CompletableFuture<Boolean>();
+        clientExecutor.execute(() -> {
+            JsonObject next;
+            try { next = saveSnapshot(); }
+            catch (RuntimeException invalid) { logger.error("Could not capture config snapshot", invalid); dirty=true;result.complete(false);return; }
+            // The worker owns next exclusively; future edits mutate a separate tree.
+            document = next.deepCopy();
+            long revision = saveRevision; pendingWrites++; writing = true;
+            try {
+                writer.execute(() -> {
+                    boolean success;
+                    try { synchronized (writeLock) { JsonStorage.write(file, next); } success = true; }
+                    catch (IOException | RuntimeException failure) { logger.error("Could not save {}", file, failure); success = false; }
+                    boolean ok = success;
+                    clientExecutor.execute(() -> {
+                        if (saveRevision == revision) { dirty = !ok; }
+                        writing = --pendingWrites != 0;
+                        result.complete(ok);
+                    });
+                });
+            } catch (java.util.concurrent.RejectedExecutionException failure) {
+                dirty = true; writing = --pendingWrites != 0; result.complete(false);
+            }
+        });
+        return result;
+    }
+    public boolean save() {
+        try {
+            // Explicit legacy saves and shutdown remain ordered after queued snapshots.
+            writer.submit(() -> { }).get(5, java.util.concurrent.TimeUnit.SECONDS);
+            JsonObject next = saveSnapshot(); synchronized (writeLock) { JsonStorage.write(file, next); }
+            document = next; dirty = false; return true;
+        } catch (InterruptedException failure) { Thread.currentThread().interrupt(); dirty = true; return false; }
+        catch (Exception failure) { logger.error("Could not save {}", file, failure); dirty = true; return false; }
     }
 
     /** Validate first, then restart lifecycles; rollback is attempted on activation failure. */
     public void applyProfile(JsonObject data) {
         ProfileState next = parseProfile(data);
         ProfileState previous = parseProfile(profileSnapshot());
+        if (resourcesManager != null) {
+            var resources = dev.riserecode.resources.ResourcesState.read(next.resources());
+            if (!resources.equals(resourcesManager.state())) { throw new IllegalArgumentException("Texture profile changes require asynchronous loading"); }
+            resourcesManager.restoreStartup(next.resources());
+        }
         try { commit(next); }
         catch (RuntimeException failure) {
-            try { commit(previous); }
+            try { commit(previous); if (resourcesManager != null) { resourcesManager.restoreStartup(previous.resources()); } }
             catch (RuntimeException rollbackFailure) { failure.addSuppressed(rollbackFailure); }
             requestSave(); throw failure;
         }
         requestSave();
     }
 
+    public java.util.concurrent.CompletableFuture<Boolean> applyProfileAsync(JsonObject data) {return applyProfileAsync(data,()->true);}
+    /** Recheck an asynchronous caller's session/state grant immediately before lifecycles can restart. */
+    public java.util.concurrent.CompletableFuture<Boolean> applyProfileAsync(JsonObject data,BooleanSupplier allowCommit) {
+        var result = new java.util.concurrent.CompletableFuture<Boolean>();
+        JsonObject owned = data.deepCopy();
+        clientExecutor.execute(() -> {
+            try {
+                if (!allowCommit.getAsBoolean()) { result.complete(false); return; }
+                if (resourcesManager == null) { applyProfile(owned); result.complete(true); return; }
+                ProfileState next = parseProfile(owned), previous = parseProfile(profileSnapshot());
+                resourcesManager.apply(dev.riserecode.resources.ResourcesState.read(next.resources()), () -> {
+                    if (!allowCommit.getAsBoolean()) { throw new java.util.concurrent.CancellationException("Profile grant invalidated before commit"); }
+                    try { commit(next); } catch (RuntimeException failure) { commit(previous); throw failure; }
+                }).whenCompleteAsync((applied, failure) -> {
+                    requestSave();
+                    if (failure != null) { logger.warn("Profile Resources failed", failure); result.complete(false); }
+                    else { if (!applied.success()) { logger.warn("Profile Resources failed: {}", applied.message()); } result.complete(applied.success()); }
+                }, clientExecutor);
+            } catch (RuntimeException failure) { logger.warn("Could not apply profile", failure); result.complete(false); }
+        });
+        return result;
+    }
+
+    java.util.concurrent.Executor clientExecutor() { return clientExecutor; }
+
     private ProfileState parseProfile(JsonObject data) {
+        data = dev.riserecode.resources.ResourcesMigration.upgrade(data);
         if (data.has("schemaVersion")) {
             int version = integerValue(data.get("schemaVersion"));
-            if (version < 1 || version > 3) { throw new IllegalArgumentException("Unsupported profile schema " + version); }
+            if (version < 1 || version > 5) { throw new IllegalArgumentException("Unsupported profile schema " + version); }
         }
-        JsonObject entries = requiredObject(data.get("modules"));
+        JsonObject entries = migrateModuleNames(requiredObject(data.get("modules")).deepCopy());
         boolean hud = !externalVisualPreferences && data.has("hudEnabled") ? booleanValue(data.get("hudEnabled")) : true;
         List<ModuleState> states = new ArrayList<>();
         for (Module module : modules.getModules()) {
@@ -266,10 +382,13 @@ public final class ConfigManager implements AutoCloseable {
         JsonObject layouts = data.has("hudLayout") ? requiredObject(data.get("hudLayout")).deepCopy() : null;
         JsonObject visuals = data.has("visualPolicy") ? requiredObject(data.get("visualPolicy")).deepCopy() : null;
         if (layouts != null) { validateHud.accept(layouts); } if (visuals != null) { validateVisual.accept(visuals); }
-        return new ProfileState(hud, states, layouts, visuals);
+        JsonObject resources = resourcesOf(data);
+        var cosmetics=data.has("cosmetics")?requiredObject(data.get("cosmetics")).deepCopy():cosmeticsSnapshot.get(); validateCosmetics.accept(cosmetics);
+        return new ProfileState(hud, states, layouts, visuals, resources, cosmetics);
     }
 
     private void commit(ProfileState state) {
+        applyCosmetics.accept(state.cosmetics());
         modules.releaseKeybindActivations();
         for (ModuleState entry : state.modules()) {
             if (!modules.setEnabled(entry.module(), false)) { throw new IllegalStateException("Could not disable " + entry.module().getName()); }
@@ -285,34 +404,8 @@ public final class ConfigManager implements AutoCloseable {
         }
     }
 
-    private static void validateSetting(Setting<?> setting, JsonElement value) {
-        if (setting instanceof dev.riserecode.setting.StringSetting text) { String decoded = stringValue(value); if (decoded.length() > text.maximum() || decoded.codePoints().anyMatch(Character::isISOControl)) { throw new IllegalArgumentException("Invalid text"); } }
-        else if (setting instanceof BooleanSetting) { booleanValue(value); }
-        else if (setting instanceof DoubleSetting number) {
-            double decoded = numberValue(value).getAsDouble();
-            if (!Double.isFinite(decoded) || decoded < number.getMin() || decoded > number.getMax()) {
-                throw new IllegalArgumentException("Out-of-range value for " + setting.getName());
-            }
-        } else if (setting instanceof ColorSetting color) { color.decode(value); }
-        else if (setting instanceof dev.riserecode.setting.BlockListSetting blocks) { blocks.decode(value); }
-        else if (setting instanceof EnumSetting<?> choice) { enumValue(choice, value); }
-        else { throw new IllegalArgumentException("Unsupported setting type " + setting.getClass().getName()); }
-    }
-    private static void loadSetting(Setting<?> setting, JsonElement value) {
-        validateSetting(setting, value);
-        if (setting instanceof dev.riserecode.setting.StringSetting text) { text.setValue(stringValue(value)); }
-        else if (setting instanceof BooleanSetting flag) { flag.setValue(booleanValue(value)); }
-        else if (setting instanceof DoubleSetting number) { number.setValue(numberValue(value).getAsDouble()); }
-        else if (setting instanceof ColorSetting color) { color.apply(color.decode(value)); }
-        else if (setting instanceof dev.riserecode.setting.BlockListSetting blocks) { blocks.setValue(blocks.decode(value)); }
-        else if (setting instanceof EnumSetting<?> choice) { loadEnum(choice, value); }
-    }
-    private static <E extends Enum<E>> E enumValue(EnumSetting<E> setting, JsonElement value) {
-        String name = stringValue(value);
-        return setting.getOptions().stream().filter(option -> option.name().equals(name)).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown option " + name));
-    }
-    private static <E extends Enum<E>> void loadEnum(EnumSetting<E> setting, JsonElement value) { setting.setValue(enumValue(setting, value)); }
+    public static void validateSetting(Setting<?> setting, JsonElement value) { SettingCodecs.validate(setting, value); }
+    public static void loadSetting(Setting<?> setting, JsonElement value) { SettingCodecs.apply(setting, value); }
     private void apply(String label, Runnable operation) {
         try { operation.run(); }
         catch (RuntimeException failure) { logger.warn("Ignoring invalid config value {}: {}", label, failure.getMessage()); }
@@ -353,5 +446,5 @@ public final class ConfigManager implements AutoCloseable {
     }
     private static JsonObject objectOrEmpty(JsonElement value) { return value != null && value.isJsonObject() ? value.getAsJsonObject() : new JsonObject(); }
     @Override
-    public void close() { if (subscription != null) { subscription.close(); } }
+    public void close() { if (subscription != null) { subscription.close(); } writer.shutdown(); }
 }

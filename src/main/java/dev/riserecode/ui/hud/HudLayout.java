@@ -11,7 +11,7 @@ public final class HudLayout {
     public enum Background { INHERIT, NONE, SOLID, BLUR }
     public enum Border { INHERIT, ON, OFF }
     public final EnumSetting<Border> border = new EnumSetting<>("Border", "Use the interface border style", Border.INHERIT);
-    public final DoubleSetting scale = new DoubleSetting("Scale", "Element scale", 1, 0.5, 3);
+    public final DoubleSetting scale = DoubleSetting.extended("Scale", "Element scale", 1, 0.5, 3);
     public final EnumSetting<Alignment> alignment = new EnumSetting<>("Alignment", "Text alignment", Alignment.LEFT);
     public final EnumSetting<Background> background = new EnumSetting<>("Background", "Element backdrop", Background.INHERIT);
     public final ColorSetting backgroundColor = new ColorSetting("BackgroundColor", "Element background or inherited HUD theme", 0xFF111820, ColorSetting.Mode.THEME);
@@ -33,7 +33,7 @@ public final class HudLayout {
         for (String key : new String[] {"x", "y", "scale"}) {
             if (!object.has(key) || !object.get(key).isJsonPrimitive() || !object.getAsJsonPrimitive(key).isNumber()) { throw new IllegalArgumentException("Invalid HUD " + key); }
             double value = object.get(key).getAsDouble();
-            if (!Double.isFinite(value) || value < (key.equals("scale") ? 0.5 : 0) || value > (key.equals("scale") ? 3 : 1)) { throw new IllegalArgumentException("Out-of-range HUD " + key); }
+            if (!Double.isFinite(value) || value < (key.equals("scale") ? 0.5 : 0) || value > (key.equals("scale") ? 12 : 1)) { throw new IllegalArgumentException("Out-of-range HUD " + key); }
         }
         for (String key : new String[] {"alignment", "background"}) {
             if (!object.has(key) || !object.get(key).isJsonPrimitive() || !object.getAsJsonPrimitive(key).isString()) { throw new IllegalArgumentException("Invalid HUD " + key); }

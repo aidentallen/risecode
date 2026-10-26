@@ -82,10 +82,10 @@ public final class EngineIntegrationTest {
             check(context.computeOnClient(minecraft -> sprint.getKeybind() == -1), "NONE unbinds module");
 
             context.runOnClient(minecraft -> {
-                noFall.getMode().setValue(NoFallModule.Mode.VANILLA); modules.setEnabled(noFall, true);
+                noFall.getMode().setValue(NoFallModule.Mode.AUTO); modules.setEnabled(noFall, true);
                 minecraft.player.fallDistance = 6;
                 client.getEventBus().post(new UpdateEvent(minecraft, 0));
-                check(minecraft.player.fallDistance == 0, "NoFall vanilla local reset");
+                check(minecraft.player.fallDistance == 6, "NoFall never fakes local fall-distance success");
                 noFall.getMode().setValue(NoFallModule.Mode.PACKET);
             });
             AtomicBoolean cancelledCallback = new AtomicBoolean();
@@ -94,7 +94,7 @@ public final class EngineIntegrationTest {
             AtomicBoolean resetAtSend = new AtomicBoolean();
             var replace = client.getEventBus().subscribe(PacketEvent.Send.class, -10, false, event -> {
                 if (event.getPacket() == originalPacket.get()) {
-                    resetAtSend.set(net.minecraft.client.Minecraft.getInstance().player.fallDistance == 0);
+                    resetAtSend.set(net.minecraft.client.Minecraft.getInstance().player.fallDistance > 0);
                     event.setPacket(replacementPacket.get()); event.cancel();
                 }
             });
@@ -105,7 +105,7 @@ public final class EngineIntegrationTest {
                     var replacement = new ServerboundMovePlayerPacket.StatusOnly(false, true);
                     originalPacket.set(packet); replacementPacket.set(replacement);
                     minecraft.getConnection().getConnection().send(packet, future -> cancelledCallback.set(!future.isSuccess()));
-                    check(minecraft.player.fallDistance == 0 && !packet.isOnGround(), "packet-mode reset does not spoof ground state");
+                    check(minecraft.player.fallDistance > 0 && !packet.isOnGround(), "original movement packet remains immutable");
                 });
                 context.waitFor(minecraft -> cancelledCallback.get());
                 check(resetAtSend.get(), "NoFall observes real network send before cancellation");

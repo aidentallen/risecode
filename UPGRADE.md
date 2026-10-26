@@ -1,7 +1,138 @@
-# risecode 0.9.2
+# risecode 0.24.2
+
+GUI rendering optimizations apply automatically, including with Performance mode Off.
+Your font, blur, glow, shadows, animations and existing profiles keep their settings.
+See [the GUI rendering investigation](docs/gui-rendering.md) for measured validation.
+
+
+Client Sounds, Discord Activity and GUI Scale open inside the existing client GUI.
+Footer row toggles and sound import/preview remain available. Existing page appearance
+preferences and settings are retained.
+
+Appearance section cards now bounce as a whole, including the surface and controls.
+Tune the shared response under **Appearance → Button Feedback**. Set **Press Strength**
+to zero to disable it; Reduced Motion also disables it. The same controls govern module cards.
+
+Complex BlockOverlay contours use the union of Minecraft selection shapes. Anvils,
+stairs and connected shapes retain their steps without component-box seams. Corner
+marks apply to continuous union edges. Switching between different shapes retains
+motion, including the shared entity highlight and placement-animation behavior.
+
+Module-local Appearance shows only controls consumed by that module's output.
+Some settings appear after selecting a relevant mode or a Theme-based color. Existing
+inactive overrides stay in appearance profiles; no manual profile migration is needed.
+
+# risecode 0.20.0
+
+Container styling defaults to risecode. Choose **Appearance → Container Screens →
+Container Style** or use the screen gear for **Inherit / Minecraft / risecode**.
+Minecraft styling restores the native controls and surfaces; the gear stays available.
+Existing explicit page opt-outs remain honored. Opening a container's gear preserves
+its live menu and carried item; closing the editor returns to the same menu.
+
+Profiles and Friends now open from the player/settings button at the bottom left of
+ClickGUI. Profiles retains client and appearance Save/Load. Client Sounds and GUI Scale
+moved into that popup; existing values and custom sound imports remain valid.
+The sound master switch applies even to module-local sound choices. Click the chevron
+beside Client Sounds or Discord Activity to open the corresponding setup panel.
+
+Command Suggestions controls local-prefix risecode and Baritone completions only.
+Minecraft/server slash commands keep their own suggestions. Menu Keybind edits the
+existing Minecraft key mapping (Right Shift by default); Escape cancels capture.
+
+Discord Activity is off by default. Its setup panel accepts a public Discord application
+ID and reports connection status. Presence contains Minecraft and risecode only,
+without server addresses, world names, player identities or module state.
+
+**Background: None** removes the custom image/procedural backdrop, leaving the world
+or native menu backdrop and normal interface surfaces. Particle controls and page
+inheritance are independent of image opacity, tint, blur, darkness and motion. Legacy
+per-page particle values migrate with their existing ownership and values.
+
+
+Block Overlay has **See-through Outline**, off by default, and thickness up to 32 px.
+Enable it to see every edge and the pop animation through the block. The fill keeps
+its existing depth behavior. Module Appearance now changes rendered output only;
+modules without supported visuals omit that section. Old overrides remain stored,
+but unsupported fields no longer affect cards or other modules.
+
+Appearance sections now match module cards. Native menu transitions animate only
+buttons; the ClickGUI window keeps its own opening effect. Extensible numeric ranges
+are larger, with fine slider travel around familiar values and exact numeric entry.
+Existing defaults, percentages, opacity and world-coordinate bounds are preserved.
+
+---
+
+# risecode 0.16.1
 
 Minecraft 26.2, Java 25, Fabric Loader 0.19.5 and Fabric API 0.161.0+26.2.
 The package, mod ID and configuration directory remain `riserecode`.
+
+## 0.16.1 UI motion repairs
+
+Profiles contains the Save/Load controls for client and appearance profiles.
+Appearance opens directly into settings. Reset Theme and Undo Preset sit beside
+presets; Import Logo, Import Image, Import Sound, Preview Sound, Reload Fonts and
+Reset Layout sit in their related sections.
+
+Sidebar hover fades, the moving selection highlight and page-switch movement are
+restored. Minecraft menus animate their foreground over one stationary background,
+without an additional vanilla dimming layer. Buttons use independent soft springs;
+repeated presses preserve their motion and actions still execute immediately once.
+Existing animation, sound and appearance settings remain valid. Reduced Motion
+disables movement, scaling and spring feedback. Adjust the bounce in Appearance's
+Button Feedback section.
+
+## 0.16.0 appearance and maps
+
+The sidebar arrow expands Friends, Profiles, Waypoints and Map settings inline.
+Saved utility destinations expand automatically. Existing profiles, bindings,
+friends, explored surface terrain and waypoints remain compatible.
+
+Appearance controls the shared menu/container backdrop, background browser,
+local PNG import, darkness, tint, blur and opacity. Image / Sound import accepts
+local paths; imported assets are copied into the configuration directory. Sound
+accepts OGG. Play previews the selected click sound. Width and Height resize the
+client window independently of Interface Scale; the bottom-right handle also
+resizes it. Layout restores the default dimensions and position. Reduced Motion
+suppresses movement, scale and button springs. Global animation controls and
+window overrides live in Appearance; each module's Pop In overrides save in its
+module profile. The pause menu's risecode GUI button returns to that pause menu.
+
+M opens the world map; B adds a waypoint. Rebind these in Minecraft Controls.
+Choose Fullscreen or Panel in the map. Drag the panel title to move it and its
+bottom-right handle to resize it. Wheel zoom stays centered on the cursor;
+Shift+wheel chooses altitude. Auto uses roof/sky checks with hysteresis; Surface
+and Cave force the layer type. The Y control selects a manual cave altitude or
+returns to Auto. Minimap retains HUD-editor placement and adds Square / Circle.
+
+Map recording defaults on, independently of overlay modules. Map settings can
+turn it off. Terrain and destinations live under `config/riserecode/maps/`,
+isolated by world/server and dimension and separate from module profiles.
+Existing surface files remain readable. Cave layers add separate altitude stores.
+Back up this directory when transferring an instance. Map backgrounds inherit
+Appearance unless overridden; unexplored color and opacity are separate.
+
+Every death records even with recording and overlays disabled. The newest death
+is tracked; reaching it marks it reached rather than deleting it. Waypoints has
+Recent / History pages, Hide reached and a confirmed bulk-clear action.
+
+Zoom now stays armed when enabled. Its Hold / Toggle binding activates zoom;
+each activation starts at the saved magnification. Wheel changes are temporary.
+Opening a screen, losing focus, death, disconnect, disabling, rebinding or loading
+a profile releases active zoom. FreeLook is now under Render with its original
+identity, settings and bindings.
+
+The new modules start off. Enable Minimap and place/scale it in the HUD editor.
+Inventory Tools in AutoTool is opt-in; the default only selects hotbar tools.
+FastBreak's default multiplier is 1×. Trajectory centerlines exclude random
+spread and cannot predict another entity's future movement. BetterChat preserves
+original signed messages and annotates repeated messages rather than deleting
+signed entries.
+
+Minecraftia remains an optional local TTF. Its visible capital height now matches
+the shared text metrics; Font Scale still controls overall size. Integer physical
+scales use crisp sampling; fractional scales use filtered coverage.
 
 ## Controls
 
@@ -83,24 +214,43 @@ migration, with global HUD Visible and F1 still respected. The ArrayList exclude
 its own containers and other HUD modules by default; both choices are settings.
 The HUD editor also accepts typed scale and normalized X/Y positions.
 
-## Ambience
+## Resources and Ambience in 0.14.0
 
-Render → Ambience starts disabled, with Aurora, theme colors and Balanced
-quality selected. Sky and Water are independent. Aurora, Nebula, Sunset, Clouds
-and Storm are original procedural shaders with intensity, speed, softness,
-stars, color and quality settings. Water shades native still and flowing fluid
-surfaces with animated swell/ripple normals, optical-depth tint, transparency
-and analytical reflections of the same sky. It retains the fluid meshes,
-terrain lighting, fog, texture sampling, cutout and native transparency sorting.
-Animation updates GPU parameters without rebuilding chunks.
+**Resources** replaces Styles with the public Vanilla Tweaks resource-pack picker
+for Minecraft 26.2. Search categories, click to select, right-click for details,
+and use **Selected** to change top-first priority. Overlapping choices remain
+selectable with warnings. **Apply** performs one resource reload; **Cancel** or
+closing discards the draft. Failed reloads restore the previous resources and
+ordinary pack list. Server packs remain above the generated Resources pack.
 
-Adapters use Minecraft 26.2 RenderPass/RenderPipeline on OpenGL and Vulkan,
-including Sodium's packed terrain format. Sky rendering respects native reverse
-depth and the actual camera pose. Dimensions without an overworld sky retain
-their native sky. An active Iris shader pack owns sky and water; Ambience keeps
-its saved settings, shows a suspended status and resumes when the pack is off.
-Disable, disconnect, dimension changes and resource reload release or reset
-owned resources and restore native pipelines.
+The first visit caches every public resource, icon, preview and discovered official
+combination recipe. Wait for **Offline ready** to create new combinations without
+network access. Pause/Resume, Stop and Retry retain validated downloads. Refresh
+checks for source changes; each profile pins its cache revision. Copy
+`config/riserecode/resources/26.2/` when moving profiles to another installation.
+The WebP preview is cached in its original format and displayed using its official
+icon on the stock JVM. Original Vanilla Tweaks pack contents and credits are retained.
+
+**Ambience** is a normal Render module again, with the existing procedural sky,
+water, colors and numeric settings, plus the standard module Hold/Toggle binding.
+Active Iris shader packs own sky/water until disabled; module settings survive
+that handoff. No resource selection automatically toggles Ambience.
+
+Configuration schema 5 backs up old configurations as `config.pre-resources.json`
+and old profiles as `<name>.json.pre-resources`. Former Styles atmosphere settings,
+activation and binding move into Ambience. An explicit existing Ambience entry wins.
+Old texture/style selections are cleared rather than replaced by unrelated tweaks.
+Old `styles/` cache files move to a timestamped `styles-backup-*` directory and
+remain recoverable. The old imported-sky renderer and Styles import browser are
+removed; use Minecraft's normal resource-pack screen for other packs.
+
+Resources cover publicly listed Java resource packs for 26.2. Hidden experimental
+entries, data packs and crafting tweaks are not included. Some resources require
+optional renderer features or conflict with Sodium/Iris/Vulkan; their original
+notices remain visible. The picker and offline compiler use no embedded browser.
+
+Credits:
+Vanilla Tweaks: https://vanillatweaks.net/
 
 ## Baritone
 
@@ -191,7 +341,7 @@ The CPU is an Intel i3-10100F and the GPU is an AMD Radeon RX 9070 using Mesa
 26.2.2. World blur, panel blur, shadows, glow and animated Sine gradients are
 enabled at the existing quality settings; VSync is off and the software cap is
 unlimited. Each measurement contains 600 consecutive full-frame intervals after
-warm-up. New Ambience stays at its disabled default for this comparison; the
+warm-up. Built-in atmosphere stays at its disabled default for this comparison; the
 separate sky/water suite exercises all modes. No Baritone task or shader pack
 runs during measurement.
 
@@ -245,3 +395,23 @@ mods and twenty-two configuration files retain their pre-install checksums.
 `release/manifest.json`, `release/SHA256SUMS` and
 `upgrade-evidence/installation.json` record the artifacts and preservation checks.
 No game process was stopped. Restart Minecraft to load both updated JARs.
+
+## Agent removal in 0.13.1
+
+The Agent page, provider connections, chat, AI tools and automated Agent tasks
+have been removed. A previously selected AI/Agent tab opens Search instead.
+F12 is available for normal module bindings again. The Baritone module and
+`.b` commands remain available for direct navigation, mining and following.
+
+Existing module profiles, Styles, appearance preferences and other configuration
+are preserved. Old Agent records remain on disk but are no longer loaded.
+Restart Minecraft after installing the updated JAR.
+
+## 0.17.0
+
+Keep the existing configuration directory. Old functional sidebar selections resolve to Gameplay or Visuals; no module IDs change. Theme profiles retain schema 1 and add an optional `Page Overrides` object. Old NoFall `VANILLA` values resolve to `AUTO`; existing `PACKET` selections remain Packet. Wider animation values require 0.17.0; restoring an older JAR may also require restoring the earlier theme/profile snapshot if those limits were used. Restart Minecraft after replacing the JAR.
+
+
+## 0.17.1
+
+The original category tabs and Utilities menu return; Appearance is one scrolling settings page again, including HUD/map styling. Saved Gameplay selections open Combat, and Visuals selections open Render. Other valid selections, modules, profiles and per-page customization remain intact. Appearance → Button Style offers Subtle (default for existing profiles) and Accent; the choice is saved independently in each theme profile. Restart Minecraft after replacing the JAR.

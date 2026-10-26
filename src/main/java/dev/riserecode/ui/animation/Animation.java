@@ -18,9 +18,12 @@ public final class Animation {
     private static DoubleSupplier uiSpeed = () -> 1;
     private static Supplier<MathUtil.Easing> uiCurve = () -> null;
     private boolean themed;
+    private String appearanceId="";
     private static dev.riserecode.ui.theme.ThemeManager channels;
     private dev.riserecode.ui.theme.ThemeManager.Channel channel;
     private double configuredDuration;
+    private DoubleSupplier durationOverride;
+    public Animation timing(DoubleSupplier supplier){durationOverride=supplier;return this;}
     public static void configureChannels(dev.riserecode.ui.theme.ThemeManager manager) { channels = manager; }
     public static Animation ui(dev.riserecode.ui.theme.ThemeManager.Channel channel, double initial, double duration, MathUtil.Easing easing) {
         return ui(initial, duration, easing).channel(channel);
@@ -28,7 +31,7 @@ public final class Animation {
     public Animation channel(dev.riserecode.ui.theme.ThemeManager.Channel value) { channel = value; return this; }
     public static double movement(dev.riserecode.ui.theme.ThemeManager.Channel channel) { return channels == null ? 1 : channels.bool("Reduced Motion") ? 0 : channels.channelNumber(channel, "Movement"); }
     public static double scale(dev.riserecode.ui.theme.ThemeManager.Channel channel) { return channels == null ? 1 : channels.bool("Reduced Motion") ? 0 : channels.channelNumber(channel, "Scale"); }
-    private double selectedDuration() { return themed && channels != null && channels.bool("Reduced Motion") ? 0 : themed && channel != null && channels != null ? channels.channelNumber(channel, "Duration") : durationSeconds; }
+    private double selectedDuration() { if(themed && channels != null && channels.bool("Reduced Motion")){return 0;} if(durationOverride!=null){return Math.max(0,durationOverride.getAsDouble());} return themed && channels != null && channels.bool("Reduced Motion") ? 0 : themed && channel != null && channels != null ? channels.channelNumber(channel, "Duration") : durationSeconds; }
 
     private MathUtil.Easing activeCurve;
     private double segmentDuration;
@@ -61,6 +64,7 @@ public final class Animation {
 
     /** Repeated requests for the same target do not restart the animation. */
     public Animation animateTo(double target) {
+        if(themed){appearanceId=dev.riserecode.ui.theme.ModuleAppearance.context();}
         requireFinite(target, "Target");
         if (!Double.isFinite(target - value)) {
             throw new IllegalArgumentException("Animation range must be finite");
@@ -87,7 +91,8 @@ public final class Animation {
         return advance(deltaSeconds);
     }
 
-    double advance(double deltaSeconds) {
+    double advance(double deltaSeconds) {return dev.riserecode.ui.theme.ModuleAppearance.call(appearanceId,()->advanceScoped(deltaSeconds));}
+    private double advanceScoped(double deltaSeconds) {
         requireFinite(deltaSeconds, "Delta time");
         if (deltaSeconds < 0.0) {
             throw new IllegalArgumentException("Delta time cannot be negative");
@@ -106,7 +111,7 @@ public final class Animation {
             segmentDuration = Math.max(0, segmentDuration - elapsedSeconds);
             startValue = value; elapsedSeconds = 0; activeCurve = selected;
         }
-        double speed = themed ? Math.max(0.5, Math.min(3, uiSpeed.getAsDouble())) : 1;
+        double speed = themed ? Math.clamp(uiSpeed.getAsDouble(), 0.1, 40) : 1;
         elapsedSeconds = Math.min(segmentDuration, elapsedSeconds + deltaSeconds * speed);
         // Avoid an extra frame caused only by accumulated floating-point error.
         double tolerance = Math.min(4.0 * Math.ulp(segmentDuration), segmentDuration * 1.0e-12);

@@ -28,17 +28,21 @@ public final class HudEditorScreen extends Screen {
     private final Animation contextOpening = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.EXPANSION, 0, 0.18, MathUtil.Easing.OUT_QUART);
     private HudRenderer.Box dragging;
     private HudElement selected;
+    private dev.riserecode.ui.component.SettingsSection settingsSection;
     private UIComponent captured;
     private double dragX, dragY, panelX, panelY, panelHeight, contextMaxScroll;
     private final Animation contextScroll = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.SCROLLING, 0, 0.15, MathUtil.Easing.OUT_QUART);
     private long previousFrame;
     public HudEditorScreen(HudRenderer hud) { super(Component.literal("risecode HUD editor")); this.hud = hud; }
+    public dev.riserecode.ui.component.SettingsSection getSettingsSection(){return settingsSection;}
     public HudElement getSelected() { return selected; }
     public boolean isDraggingElement() { return dragging != null; }
     public List<UIComponent> getControls() { return List.copyOf(controls); }
     private void changed() { Client.INSTANCE.getConfigManager().requestSave(); }
     private void select(HudElement element) {
-        selected = element; controls.clear(); contextOpening.reset(0); contextOpening.animateTo(1);
+        selected = element;
+        settingsSection=new dev.riserecode.ui.component.SettingsSection("hud:"+element.id()+":layout","Layout & Style",()->{if(captured!=null){captured.mouseReleased(0,0,0);captured=null;}controls.forEach(c->{if(c instanceof ColorPicker picker){picker.unfocus();}});});
+        controls.clear(); contextOpening.reset(0); contextOpening.animateTo(1);
         controls.add(new Slider(element.layout().scale, this::changed, 0.01));
         var positionX = new dev.riserecode.setting.DoubleSetting("Position X", "Normalized anchor", element.layout().x(), 0, 1);
         var positionY = new dev.riserecode.setting.DoubleSetting("Position Y", "Normalized anchor", element.layout().y(), 0, 1);
@@ -76,7 +80,7 @@ public final class HudEditorScreen extends Screen {
         RenderUtil.drawRoundedRect(g, (width - hintWidth) / 2, height - 26, hintWidth, 21, 6, 0xDF111820);
         RenderUtil.text(g, font, hint, (width - hintWidth) / 2 + 11, height - 19, 0.9, Theme.TEXT);
         if (selected != null && !controls.isEmpty()) {
-            double panelWidth = Math.min(190, width - 12), contentHeight = controls.stream().mapToDouble(HudEditorScreen::controlHeight).sum();
+            double panelWidth = Math.min(190, width - 12), contentHeight = dev.riserecode.ui.component.SettingsSection.HEADER+settingsSection.bodyHeight(controls.stream().mapToDouble(HudEditorScreen::controlHeight).sum());
             panelHeight = Math.min(height - 50, 33 + contentHeight); contextMaxScroll = Math.max(0, contentHeight - (panelHeight - 33));
             contextScroll.animateTo(Math.clamp(contextScroll.getTarget(), 0, contextMaxScroll));
             panelX = Math.max(6, width - panelWidth - 12); panelY = Math.max(8, Math.min(height - panelHeight - 34, 40));
@@ -84,8 +88,9 @@ public final class HudEditorScreen extends Screen {
             RenderUtil.drawDropShadow(g, panelX, panelY, panelWidth, panelHeight, 8, Theme.opacity(0x70000000, opening));
             RenderUtil.drawRoundedRect(g, panelX, panelY, panelWidth, panelHeight, 8, Theme.opacity(Theme.BACKGROUND, opening * 0.93));
             RenderUtil.accentText(g, font, selected.label(), panelX + 10, panelY + 9 + (1 - opening) * 4, 1, opening);
-            double controlY = panelY + 30 - contextScroll.getValue();
-            RenderUtil.scissorPush(g, panelX, panelY + 29, panelWidth, panelHeight - 29);
+            settingsSection.setBounds(panelX+6,panelY+29,panelWidth-12,dev.riserecode.ui.component.SettingsSection.HEADER);settingsSection.render(g,font,mouseX,mouseY,seconds,opening);
+            double controlY = panelY + 30 + dev.riserecode.ui.component.SettingsSection.HEADER - contextScroll.getValue();
+            RenderUtil.scissorPush(g, panelX, panelY + 29+dev.riserecode.ui.component.SettingsSection.HEADER, panelWidth, Math.max(0,panelHeight - 29-dev.riserecode.ui.component.SettingsSection.HEADER));
             try {
                 for (UIComponent control : controls) {
                     control.setBounds(panelX + 10, controlY, panelWidth - 20, controlHeight(control) - 3);
@@ -98,7 +103,9 @@ public final class HudEditorScreen extends Screen {
         dev.riserecode.ui.component.FocusedInput.pointer(event.x(),event.y());
         controls.forEach(control -> { if (control instanceof ColorPicker picker) { picker.pointerFocus(event.x(), event.y()); } });
         if (selected != null && event.x() >= panelX && event.x() <= panelX + 190 && event.y() >= panelY && event.y() <= panelY + panelHeight) {
-            for (UIComponent control : controls) { if (control.mouseClicked(event.x(), event.y(), event.button())) { captured = control; return true; } }
+            if(settingsSection.mouseClicked(event.x(),event.y(),event.button())){return true;}
+            if(!settingsSection.isExpanded()){return true;}
+            for (UIComponent control : controls) { if (control.getBounds().y()>=panelY+29+dev.riserecode.ui.component.SettingsSection.HEADER&&control.getBounds().y()+control.getBounds().height()<=panelY+panelHeight&&control.mouseClicked(event.x(), event.y(), event.button())) { captured = control; return true; } }
             return true;
         }
         List<HudRenderer.Box> boxes = hud.getBoxes();
@@ -156,7 +163,7 @@ public final class HudEditorScreen extends Screen {
     private static double controlHeight(UIComponent control) { return control instanceof ColorPicker picker ? picker.getPreferredHeight() + 3 : 28; }
     @Override public boolean charTyped(CharacterEvent event) { if (dev.riserecode.ui.component.FocusedInput.character(event)) { return true; } return controls.stream().anyMatch(control -> control instanceof ColorPicker picker && picker.charTyped(event)); }
     @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
-        if (selected == null || x < panelX || x > panelX + 190 || y < panelY || y > panelY + panelHeight) { return false; }
+        if (selected == null || settingsSection==null||!settingsSection.isExpanded()|| x < panelX || x > panelX + 190 || y < panelY || y > panelY + panelHeight) { return false; }
         contextScroll.animateTo(Math.clamp(contextScroll.getTarget() - vertical * 28, 0, contextMaxScroll)); return true;
     }
 

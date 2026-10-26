@@ -1,4 +1,7 @@
 {
   "key.category.riserecode.controls": "risecode",
-  "key.riserecode.clickgui": "Open / close ClickGUI"
+  "key.riserecode.clickgui": "Open / close ClickGUI",
+  "key.category.riserecode.maps": "risecode Maps",
+  "key.riserecode.map": "Open world map",
+  "key.riserecode.waypoint": "Add waypoint"
 }

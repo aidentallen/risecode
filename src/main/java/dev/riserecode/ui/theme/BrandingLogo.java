@@ -17,7 +17,10 @@ import net.minecraft.resources.Identifier;
 
 /** Local content-addressed imports and one cached GPU texture. No per-frame image decoding. */
 public final class BrandingLogo {
-    private static final Identifier ID = Identifier.fromNamespaceAndPath("riserecode", "branding/logo");
+    private static Identifier id=Identifier.fromNamespaceAndPath("riserecode","branding/logo");
+    private record Image(Identifier id,DynamicTexture texture,int width,int height){}
+    private static final java.util.Map<String,Image> IMAGES=new java.util.LinkedHashMap<>();
+    private static long residentBytes;
     private static String loaded = "", status = "No logo";
     private static long stamp = -1, nextCheck, loads;
     private static int width, height;
@@ -52,20 +55,26 @@ public final class BrandingLogo {
         String requested = theme.text("Logo File"); long now = System.nanoTime();
         if (loaded.equals(requested) && now < nextCheck) { return; }
         nextCheck = now + 1_000_000_000L;
-        if (!requested.matches("[a-f0-9]{64}\\.png")) { close(); loaded = requested; status = requested.isBlank() ? "No logo" : "Use Import Logo to copy this PNG"; return; }
+        if (!requested.matches("[a-f0-9]{64}\\.png")) { texture=null; loaded = requested; status = requested.isBlank() ? "No logo" : "Use Import Logo to copy this PNG"; return; }
+        Image cached=IMAGES.get(requested);
+        if(cached!=null){id=cached.id();texture=cached.texture();width=cached.width();height=cached.height();loaded=requested;return;}
         Path file = theme.getDirectory().resolve("branding").resolve(requested);
         try {
             long modified = Files.getLastModifiedTime(file).toMillis();
             if (texture != null && loaded.equals(requested) && stamp == modified) { return; }
-            close(); var image = NativeImage.read(Files.readAllBytes(file)); width = image.getWidth(); height = image.getHeight();
-            texture = new DynamicTexture(() -> "risecode branding", image); Minecraft.getInstance().getTextureManager().register(ID, texture);
+            if(IMAGES.size()>=128||Files.size(file)>16_777_216){throw new IOException("Too many or oversized logos");}
+            var image = NativeImage.read(Files.readAllBytes(file)); width = image.getWidth(); height = image.getHeight();
+            if(width>4096||height>4096){image.close();throw new IOException("Oversized logo");}
+            long bytes=(long)width*height*4;if(residentBytes+bytes>64L*1024*1024){image.close();throw new IOException("Logo texture budget exceeded");}
+            id=Identifier.fromNamespaceAndPath("riserecode","branding/"+requested.substring(0,64));
+            texture = new DynamicTexture(() -> "risecode branding", image); Minecraft.getInstance().getTextureManager().register(id, texture);IMAGES.put(requested,new Image(id,texture,width,height));residentBytes+=bytes;
             loaded = requested; stamp = modified; loads++; status = width + " × " + height + " PNG";
-        } catch (IOException | RuntimeException failure) { close(); loaded = requested; status = "Logo unavailable: " + failure.getMessage(); }
+        } catch (IOException | RuntimeException failure) { texture=null; loaded = requested; status = "Logo unavailable: " + failure.getMessage(); }
     }
     public static void draw(GuiGraphicsExtractor g, double x, double y, double size, double opacity) {
         refresh(); if (texture == null || !Theme.bool("Logo Visible", true)) { return; }
         double w = size * width / Math.max(width, height), h = size * height / Math.max(width, height);
-        g.blit(RenderPipelines.GUI_TEXTURED, ID, (int)x, (int)y, 0, 0, (int)Math.ceil(w), (int)Math.ceil(h), width, height, width, height,
+        g.blit(RenderPipelines.GUI_TEXTURED, id, (int)x, (int)y, 0, 0, (int)Math.ceil(w), (int)Math.ceil(h), width, height, width, height,
                 Theme.opacity(Theme.manager().colorSetting("Logo Tint").sample(x, y), opacity));
     }
     public static void drawBeside(GuiGraphicsExtractor g, double x, double y, double textWidth, double opacity) {
@@ -75,7 +84,7 @@ public final class BrandingLogo {
                 placement == ThemeManager.LogoPlacement.ABOVE ? y - size - 3 : y, size, opacity);
     }
     public static void close() {
-        if (texture != null) { Minecraft.getInstance().getTextureManager().release(ID); texture = null; }
+        var manager=Minecraft.getInstance().getTextureManager();IMAGES.values().forEach(image->manager.release(image.id()));IMAGES.clear();residentBytes=0;texture=null;loaded="";
         stamp = -1;
     }
 }

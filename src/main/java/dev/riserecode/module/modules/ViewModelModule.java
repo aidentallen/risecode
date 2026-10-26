@@ -10,8 +10,9 @@ import net.minecraft.world.item.ItemDisplayContext;
 public final class ViewModelModule extends Module {
     private record Transform(DoubleSetting x,DoubleSetting y,DoubleSetting z,DoubleSetting rx,DoubleSetting ry,DoubleSetting rz,DoubleSetting scale) { }
     private final Transform left,right;
-    public ViewModelModule(EventBus bus) { super("ViewModel","Independent position, rotation and scale for each held item.",Category.RENDER,bus);left=hand("Left");right=hand("Right"); }
-    private DoubleSetting number(String name,double initial,double min,double max) { return register(new DoubleSetting(name,name,initial,min,max)); }
+    public ViewModelModule(EventBus bus) { super("ViewModel","Independent position, rotation and scale for each held item.",Category.RENDER,bus);
+        left=hand("Left");right=hand("Right"); }
+    private DoubleSetting number(String name,double initial,double min,double max) { return register(DoubleSetting.extended(name,name,initial,min,max)); }
     private Transform hand(String hand) { return new Transform(number(hand+" X",0,-2,2),number(hand+" Y",0,-2,2),number(hand+" Z",0,-2,2),number(hand+" Rotation X",0,-180,180),number(hand+" Rotation Y",0,-180,180),number(hand+" Rotation Z",0,-180,180),number(hand+" Scale",1,.1,3)); }
     @Override protected void onEnable() { listen(HeldItemTransformEvent.class,event->{
         if(!event.context().firstPerson()) { return; }

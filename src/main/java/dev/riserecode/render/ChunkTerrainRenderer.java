@@ -58,7 +58,7 @@ public final class ChunkTerrainRenderer {
     public static boolean suppressFade() { return policy.fadeSuppressed() && supported(); }
     public static boolean motionActive() { return policy.motion() != null && supported(); }
     public static boolean hasOffsets() { return motionActive() && policy.motion().pendingCount() > 0; }
-    private static boolean supported() { return !AmbienceRenderer.shaderPackActive() || (irisPatched && incompatibility == null); }
+    private static boolean supported() { return RendererCapabilities.chunkAdapters && (!AmbienceRenderer.shaderPackActive() || (irisPatched && incompatibility == null)); }
     public static float offset(int x, int z) { return motionActive() ? policy.motion().offset(x, z) : 0; }
     public static float drawable(int x, int z) { return motionActive() ? policy.motion().drawable(x, z) : 0; }
     public static void vanillaDraw(float offset) { if (offset != 0) { vanillaDraws++; } }
@@ -70,6 +70,7 @@ public final class ChunkTerrainRenderer {
         if (incompatibility == null) { incompatibility = reason; Client.INSTANCE.getLogger().warn("ChunkAnimations compatibility: {}", reason); }
     }
     public static String compatibilityStatus() {
+        if(!RendererCapabilities.chunkAdapters){return "Renderer adapter signatures unavailable";}
         if (incompatibility != null && AmbienceRenderer.shaderPackActive()) { return "Iris compatibility unavailable · " + incompatibility; }
         return AmbienceRenderer.shaderPackActive() ? "Iris terrain and shadows" : "Native terrain · shader movement";
     }
@@ -130,6 +131,7 @@ public final class ChunkTerrainRenderer {
         });
     }
     public static void bindParameters(RenderPass pass, RenderPipeline pipeline) {
+        if(!RendererCapabilities.chunkAdapters || AmbienceRenderer.shaderPackActive()&&!supported()){return;}
         String vertex = pipeline.getVertexShader().toString();
         if (vertex.equals("riserecode:core/chunk_sodium") || vertex.equals("riserecode:core/water_sodium")
                 || (AmbienceRenderer.shaderPackActive() && vertex.equals("sodium:blocks/block_layer_opaque"))) {

@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import dev.riserecode.config.ConfigManager;
 import dev.riserecode.event.Event;
 import dev.riserecode.event.EventBus;
+import dev.riserecode.event.FovEvent;
 import dev.riserecode.module.Category;
 import dev.riserecode.module.Module;
 import dev.riserecode.module.ModuleManager;
@@ -28,6 +29,22 @@ public final class RuntimeChecks {
     private RuntimeChecks() { }
 
     public static void main(String[] args) throws Exception {
+        for (float nativeFov : new float[]{0, -0.0F, .25F, 70, 180, Float.NaN, Float.POSITIVE_INFINITY}) {
+            var event = new FovEvent(nativeFov);
+            event.applyMagnification(1);
+            check(Float.floatToIntBits(event.value()) == Float.floatToIntBits(nativeFov), "inactive zoom preserves native FOV exactly");
+        }
+        for (float nativeFov : new float[]{0, -1, Float.NaN, Float.POSITIVE_INFINITY}) {
+            var event = new FovEvent(nativeFov);
+            event.applyMagnification(3);
+            check(Float.floatToIntBits(event.value()) == Float.floatToIntBits(nativeFov), "zoom tolerates unready native camera FOV");
+        }
+        var zoomed = new FovEvent(90);
+        zoomed.applyMagnification(3);
+        check(zoomed.value() == 30, "active zoom divides valid FOV");
+        var tiny = new FovEvent(Float.MIN_VALUE);
+        tiny.applyMagnification(Double.MAX_VALUE);
+        check(tiny.value() == 1, "extreme zoom clamps before float underflow");
         Path directory = Files.createTempDirectory("riserecode-config-check-");
         try {
             EventBus bus = new EventBus();
