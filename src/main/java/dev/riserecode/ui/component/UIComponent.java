@@ -10,7 +10,7 @@ public abstract class UIComponent {
     protected double y;
     protected double width;
     protected double height;
-    protected final Animation hover = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER, 0, 0.14, MathUtil.Easing.IN_OUT_CUBIC);
+    protected final Animation hover = new Animation(0, 0.14, MathUtil.Easing.IN_OUT_CUBIC);
 
     public record Bounds(double x, double y, double width, double height) {
         public double centerX() { return x + width / 2; }

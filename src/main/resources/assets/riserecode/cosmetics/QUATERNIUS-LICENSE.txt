@@ -1,4 +1,0 @@
-Cute Animated Monsters Pack by Quaternius. CC0-1.0.
-Source: https://quaternius.com/packs/cutemonsters.html
-Pinned glTF mirror: https://raw.githubusercontent.com/agentkaerf/FreeModels/db3df04d1e4714298a09510b26fb6de6645138a2/
-Converted to GLB and fitted as cosmetic companions; textures and animation retained.
