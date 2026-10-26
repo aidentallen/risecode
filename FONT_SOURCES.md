@@ -1,6 +1,6 @@
 # Font sources and installation
 
-The menu and HUD share the same live font choice. Google Sans, Montserrat and Inter
+The menu and HUD share the same live font choice. Google Sans, Montserrat, Inter,
 and Qraftys are bundled; Minecraftia remains a local optional font.
 
 | Choice | Source | Asset handling |
@@ -36,7 +36,7 @@ Each TrueType face uses a filled 8× coverage atlas for normal text and a separa
 distance-field atlas for shadows/glow. Pixel-footprint filtering keeps fractional
 interface scales antialiased. Changing Font Scale, shadows or glow never rebakes
 the atlases. Missing pixel fonts use smooth Inter sampling rather than inheriting
-the requested pixel font’s sampling mode. See [FONT_FIX.md](FONT_FIX.md).
+the requested pixel font’s sampling mode. See [historical font repair notes](https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/FONT_FIX.md).
 
 ## Local overrides and optional fonts
 
@@ -51,8 +51,8 @@ minecraftia.ttf              # Minecraftia-Regular.ttf renamed
 qraftys.zip                  # optional alternative to a ZIP in resourcepacks/
 ```
 
-Choose the face in Right Shift → Themes → Typography. After adding or replacing a
-file, click **Fonts** in the Themes toolbar. Missing/invalid assets show a fallback
+Choose the face in Right Shift → Appearance → Typography. After adding or replacing a
+file, click **Fonts** in the Appearance toolbar. Missing/invalid assets show a fallback
 notice and use Inter. Regular is reused if no medium variant exists. Local files
 are limited to 16 MiB and their SFNT headers/table bounds are checked before STB.
 

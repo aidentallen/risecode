@@ -13,8 +13,8 @@
         "This is the earliest surviving binary/source pair; the original development history predates Git and cannot be reconstructed fully."
       ],
       "evidence": [
-        "PHASE3.md",
-        "PHASE4.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/PHASE3.md",
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/PHASE4.md"
       ],
       "assets": [
         {
@@ -84,7 +84,7 @@
         "Adapted raw keyboard, packet, and attack hooks into the EventBus; NoFall does not prevent server-side fall damage."
       ],
       "evidence": [
-        "PHASE5.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/PHASE5.md"
       ],
       "assets": [
         {
@@ -120,7 +120,7 @@
         "Preserved the existing settings, UI/HUD, profiles, packet hooks, and module subscription lifecycle."
       ],
       "evidence": [
-        "PHASE6.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/PHASE6.md"
       ],
       "assets": [
         {
@@ -156,7 +156,7 @@
         "Retained lowercase risecode branding and existing engine/module controls."
       ],
       "evidence": [
-        "UI_REDESIGN.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/UI_REDESIGN.md"
       ],
       "assets": [
         {
@@ -192,7 +192,7 @@
         "Added shader-backed shape, font, and blur rendering while retaining the sidebar layout."
       ],
       "evidence": [
-        "PHASE7.md",
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/PHASE7.md",
         "FONT_SOURCES.md"
       ],
       "assets": [
@@ -229,7 +229,7 @@
         "Corrected missing Minecraftia fallback so Inter uses smooth sampling rather than a requested pixel-font mode."
       ],
       "evidence": [
-        "FONT_FIX.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/FONT_FIX.md"
       ],
       "assets": [
         {
@@ -265,7 +265,7 @@
         "Added the full lightmap FullBright mode with native restoration and retained a configurable gamma alternative."
       ],
       "evidence": [
-        "PHASE8.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/PHASE8.md"
       ],
       "assets": [
         {
@@ -301,7 +301,7 @@
         "Corrected enchanted held-item outlines to an exterior-only silhouette mask with independent optional glint overlay."
       ],
       "evidence": [
-        "COLOR_OUTLINE_FIX.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/COLOR_OUTLINE_FIX.md"
       ],
       "assets": [
         {
@@ -337,7 +337,7 @@
         "Persisted bindings/modes in config and profiles; migrated FreeLook to the shared Hold binding."
       ],
       "evidence": [
-        "KEYBINDS.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/KEYBINDS.md"
       ],
       "assets": [
         {
@@ -374,7 +374,7 @@
         "Recovered the original installed JAR from its backup and the preserved source-0.8.0 snapshot. Later overwritten build-folder copies are deliberately excluded."
       ],
       "evidence": [
-        "POLISH.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/POLISH.md"
       ],
       "assets": [
         {
@@ -412,7 +412,7 @@
         "Added shader-sampled gradients, rendering/layout caches, and blur/resource reuse. Historical performance evidence is documented in the upgrade guide."
       ],
       "evidence": [
-        "UPGRADE.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/UPGRADE.md"
       ],
       "assets": [
         {
@@ -449,7 +449,7 @@
         "Preserves the original installed release JAR rather than the later build-folder rebuild of the same version."
       ],
       "evidence": [
-        "UPGRADE.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/UPGRADE.md"
       ],
       "assets": [
         {
@@ -488,7 +488,7 @@
         "Repository publication adds an original-code MIT license, preserved third-party notices, public build dependency retrieval, and reconstructed historical release notes."
       ],
       "evidence": [
-        "UPGRADE.md"
+        "https://github.com/aidentallen/risecode/blob/44cc1f286ac601a59e65061626fce306be41645e/UPGRADE.md"
       ],
       "assets": [
         {
@@ -512,6 +512,432 @@
           "sha256": "8f7792858e1d6344a5f2727de05c0e147d94b26dfe87175e4d9db51ce2a4e9db"
         }
       ]
+    },
+    {
+      "version": "0.10.0",
+      "title": "Styles",
+      "tag": "v0.10.0",
+      "notes": "docs/releases/v0.10.0.md",
+      "changes": [
+        "Added an original Styles sidebar browser with local/cloud previews, category mixing, and one Apply action.",
+        "Added resource-pack imports with native model dependencies, per-entity EMF/ETF styles, and compatibility notices.",
+        "Integrated the former Ambience sky/water controls and migrated existing settings and bindings into client profiles.",
+        "Added imported sky rendering, cached SHA-256 downloads, shared-resource conflict detection, and resource-reload rollback.",
+        "EMF and ETF remain optional companion mods rather than bundled dependencies."
+      ],
+      "evidence": [
+        "docs/releases/v0.10.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.11.0",
+      "title": "Native AI configuration assistant",
+      "tag": "v0.11.0",
+      "notes": "docs/releases/v0.11.0.md",
+      "changes": [
+        "Added native AI conversation/settings, multiline Unicode editing, streaming compatible transport and connection/tool-format probes.",
+        "Added generic real module discovery/inspection, shared setting codecs, stable capability IDs, state revisions, targeted transactions and conflict-aware Undo.",
+        "Added locally enforced narrow configuration scopes, concrete gameplay/inferred-change previews, call deduplication and session/cancellation gates.",
+        "Added session/environment credentials, opt-in chat persistence, bounded redacted audit/Undo retention, and F12 before focused input.",
+        "Added deterministic HTTP/provider checks and Minecraft input/mutation/Undo fixtures; preserved the Styles baseline."
+      ],
+      "evidence": [
+        "docs/releases/v0.11.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.11.1",
+      "title": "Restore AI conversation context",
+      "tag": "v0.11.1",
+      "notes": "docs/releases/v0.11.1.md",
+      "changes": [
+        "Opt-in saved conversations now restore bounded provider context after restart, including redacted historical tool outcomes.",
+        "Archives contain plain conversation and receipts, excluding executable calls, raw tool arguments, pending approvals and credentials; live tools still validate each new request.",
+        "Migrate existing saved chat, preserve Undo/audit when retention is disabled, and clear both visible chat and model context together.",
+        "Added restart, retention, migration, credential redaction and permission-isolation checks."
+      ],
+      "evidence": [
+        "docs/releases/v0.11.1.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.11.2",
+      "title": "AI streaming and retention performance",
+      "tag": "v0.11.2",
+      "notes": "docs/releases/v0.11.2.md",
+      "changes": [
+        "Reuse unchanged Markdown paragraphs while streaming and wrap with actual glyph advances/kerning without allocating or caching every text prefix.",
+        "Reuse immutable chat snapshots between updates; preserve Unicode boundaries when clipping displayed text.",
+        "Release message layout caches when leaving/closing the AI panel, and reset scrolling when a conversation is cleared/restored.",
+        "Added fixed-scene HTTP/SSE, tool-burst and long-chat benchmarks, cleared-object/worker probes, and native font/wrapping regression checks. Fixtures remain outside release JARs."
+      ],
+      "evidence": [
+        "docs/releases/v0.11.2.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.11.3",
+      "title": "Responses protocol",
+      "tag": "v0.11.3",
+      "notes": "docs/releases/v0.11.3.md",
+      "changes": [
+        "Added explicit Chat Completions/Responses selection to native AI settings; old profiles keep Chat Completions.",
+        "Added Responses JSON/SSE text, function calls, call-result continuation, actual usage and stateless encrypted reasoning round trips within an active request.",
+        "Shared bounded HTTP transport, deadlines and cancellation between protocols; failed/truncated/conflicting responses cannot execute calls or trigger fallback.",
+        "Added adversarial protocol, migration, HTTP agent and native selector/FullBright/Undo fixtures. Credentials and opaque reasoning remain outside saved history/audit/Undo."
+      ],
+      "evidence": [
+        "docs/releases/v0.11.3.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.11.4",
+      "title": "Provider capability reports",
+      "tag": "v0.11.4",
+      "notes": "docs/releases/v0.11.4.md",
+      "changes": [
+        "Split connection testing into bounded JSON text, harmless echo-tool and optional streaming probes; no game tools are offered or executed.",
+        "Show per-connection observed, unknown, absent and failed formats separately from client declarations, including provider-reported token usage and unknown context/pricing.",
+        "Retain at most eight session reports by endpoint/model/protocol/output parameter; invalidate them on credential changes and suppress late cancelled results.",
+        "Add a native connection report view and visibly disabled Responses token-parameter control with an explanation.",
+        "Add protocol, timeout, cancellation, retention, credential and native report/scroll/control fixtures."
+      ],
+      "evidence": [
+        "docs/releases/v0.11.4.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.11.5",
+      "title": "Explicit OpenRouter routing",
+      "tag": "v0.11.5",
+      "notes": "docs/releases/v0.11.5.md",
+      "changes": [
+        "Added native Compatible/OpenRouter gateway selection, bounded ordered provider slugs, supported-parameter filtering and requested data-collection policy.",
+        "OpenRouter mode emits explicit no-fallback preferences for Chat Completions and Responses, restricted to official API bases or loopback gateways; Compatible mode emits no routing fields.",
+        "Preserve the selected policy through probes and tool rounds; routing changes cannot inherit another policy's capability evidence.",
+        "Migrate older connections as Compatible, preserve invalid stored policies, and keep credentials outside profiles/payloads.",
+        "Added policy, migration, endpoint, HTTP, capability-isolation and native editing/mutation/Undo checks. Live upstream routing remains unverified."
+      ],
+      "evidence": [
+        "docs/releases/v0.11.5.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.12.0",
+      "title": "Agent",
+      "tag": "v0.12.0",
+      "notes": "docs/releases/v0.12.0.md",
+      "changes": [
+        "Rebrand the native AI page to Agent; route recognized commands locally with zero model tokens and select only relevant remote tool schemas.",
+        "Add bounded opt-in game observations, explicit vanilla options, version-gated Iris status/toggles, profile/binding tools and reviewed preferences/documentation.",
+        "Add approved deterministic Baritone navigation, mining, follow, exploration and gather-and-return, with resource ownership, safety/watchdogs, manual pause and interrupted checkpoints.",
+        "Add on-demand frame metrics and repeated one-candidate visual experiments with conservative retention and conditional restoration, including Stop during persistence.",
+        "Add OpenRouter input/output price ceilings, lower unset budgets and a repeated-failure stop; keep credentials session/environment only.",
+        "Verify offline/scripted/native/live-provider workflows and repeated frame/retention benchmarks. Keep experimental world controllers and arbitrary mod tuning unexposed; document pinned external API limitations."
+      ],
+      "evidence": [
+        "docs/releases/v0.12.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.13.0",
+      "title": "Experimental controllers",
+      "tag": "v0.13.0",
+      "notes": "docs/releases/v0.13.0.md",
+      "changes": [
+        "Add reviewed, server-confirmed container transfers, unlocked recipe batches, equipment and bounded loadout preparation; stop on stale/rejected snapshots without replay or drops.",
+        "Add a bounded safe-food survival routine with authoritative hunger proof and immediate forced-use cleanup.",
+        "Add version-pinned Iris pack selection/options and Sodium/Sodium Extra fields, verified persistence, native change revisions and targeted Undo.",
+        "Keep idle work bounded and recognized reads local; cap pack metadata to reduce tokens and avoid repeated inventory serialization while waiting.",
+        "Verify disposable survival-world operations, optional integrations, existing GUI/controller regressions and renderer/performance compatibility."
+      ],
+      "evidence": [
+        "docs/releases/v0.13.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.13.1",
+      "title": "Remove AI Agent",
+      "tag": "v0.13.1",
+      "notes": "docs/releases/v0.13.1.md",
+      "changes": [
+        "Remove the Agent page, provider/chat services, AI tools, background workers and Agent automation hooks.",
+        "Remove Agent-only build tasks, fixtures, tests and current feature documentation.",
+        "Preserve direct Baritone controls, shared settings/text editing, existing profiles and Styles; map saved AI/Agent tabs to Search and restore F12 bindings."
+      ],
+      "evidence": [
+        "docs/releases/v0.13.1.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.14.0",
+      "title": "Resources and Ambience",
+      "tag": "v0.14.0",
+      "notes": "docs/releases/v0.14.0.md",
+      "changes": [
+        "Replace the old Styles catalog/import browser with the native Vanilla Tweaks Resources picker for Minecraft 26.2.",
+        "Cache all public resources, images and official combined assets; compose new selections offline with explicit priority, warnings and profile persistence.",
+        "Restore Ambience as a Render module, migrating Sky/Water settings and bindings while preserving Iris handoff.",
+        "Retain atomic cache writes, integrity checks, cancellable/resumable downloads and resource reload rollback; archive old personal Styles files.",
+        "Keep downloaded third-party assets out of source/release JARs and include Vanilla Tweaks attribution."
+      ],
+      "evidence": [
+        "docs/releases/v0.14.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.15.0",
+      "title": "Navigation, typography and world utilities",
+      "tag": "v0.15.0",
+      "notes": "docs/releases/v0.15.0.md",
+      "changes": [
+        "Move Friends and Profiles into the gear Settings hub, preserving saved destinations, data and commands; keep Appearance and Resources in the sidebar.",
+        "Animate every Resources view with shared scrolling controls and displayed-position hit detection.",
+        "Normalize the local Minecraftia font to shared text metrics with scale-aware sampling and Unicode fallback.",
+        "Add disabled-by-default Nametags, Trajectories, AutoTool, FastBreak, BetterChat, BetterTab, Waypoints and a graphical Minimap in the HUD editor.",
+        "Add the world map, rebindable M/B shortcuts, shared waypoint editing and latest death markers per dimension.",
+        "Persist only client-observed surface terrain with texture/biome/water/height colors, bounded recording/work/caches and resource-reload recoloring; keep map data outside profiles.",
+        "Adapt the pinned MIT Simple Map page-layout and density helpers, retaining their license and attribution."
+      ],
+      "evidence": [
+        "docs/releases/v0.15.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.16.0",
+      "title": "Shared appearance, cave maps and polish",
+      "tag": "v0.16.0",
+      "notes": "docs/releases/v0.16.0.md",
+      "changes": [
+        "Share menu/container backgrounds, styled text, entrance animations and single-dispatch spring/click feedback; add background/sound imports and window/module overrides.",
+        "Expand sidebar utilities inline; add resizable client windows, pause-menu access and compact Resources browsing.",
+        "Restyle chat, tab and nametags; fix legacy formatting and clickable custom-font text while preserving native metadata/content.",
+        "Separate Zoom enablement from Hold/Toggle activation, preserve temporary wheel changes, move FreeLook to Render and extend enchanted outlines to special models/tridents.",
+        "Share detailed surface/cave terrain rendering, automatic altitude layers, fullscreen/panel modes, circle/square minimaps and separate map backgrounds.",
+        "Retain existing surface exploration, bound map work and byte residency, and preserve paged reached/death history independently of recording and overlays."
+      ],
+      "evidence": [
+        "docs/releases/v0.16.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.16.1",
+      "title": "UI motion repairs",
+      "tag": "v0.16.1",
+      "notes": "docs/releases/v0.16.1.md",
+      "changes": [
+        "Restore sidebar hover fades, moving selection highlights and page-switch movement with scrolling and keyboard navigation.",
+        "Keep menu backgrounds stationary, remove redundant vanilla dimming and coordinate foreground scale/fade once.",
+        "Give each button a continuous spring response, including native controls and supported Sodium buttons, while dispatching actions and sounds once.",
+        "Move Appearance imports, previews, font and layout actions beside their settings; retain a compact theme toolbar and responsive galleries."
+      ],
+      "evidence": [
+        "docs/releases/v0.16.1.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.17.0",
+      "title": "Interface polish and controls",
+      "tag": "v0.17.0",
+      "notes": "docs/releases/v0.17.0.md",
+      "changes": [
+        "Interface polish: six-page navigation, focused Appearance sections, shared themed buttons and hover feedback, glow clipping repair, high-resolution branding, expanded animation controls and five click sounds. Adds independent per-page themes/backgrounds, procedural animation, particles and Dual Filtering scene blur. Repairs focused-search closing and exact Baritone coordinate editing. Adds behavior badges and functional packet/item-clutch NoFall modes. See [release notes](docs/releases/v0.17.0.md)."
+      ],
+      "evidence": [
+        "docs/releases/v0.17.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.17.1",
+      "title": "Previous layout and quieter buttons",
+      "tag": "v0.17.1",
+      "notes": "docs/releases/v0.17.1.md",
+      "changes": [
+        "Restore the original module tabs, Utilities menu, and scrolling Appearance layout, including HUD/map styling in Appearance. Add a saved Button Style option with Subtle dark buttons by default and Accent as an alternative. Retain per-page gears and all 0.17.0 rendering, input, animation, background, sound, module and NoFall fixes."
+      ],
+      "evidence": [
+        "docs/releases/v0.17.1.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.18.0",
+      "title": "Cosmetics and legacy cape physics",
+      "tag": "v0.18.0",
+      "notes": "docs/releases/v0.18.0.md",
+      "changes": [
+        "Add the Cosmetics wardrobe with previews, profile-owned outfits, offline items, downloadable companions and PNG cape imports. Add optional legacy cape physics. Clamp glow scissors to the screen for Minecraft 26.2, remove duplicate profile controls from Appearance and repair header/control alignment while preserving the restored interface structure and Button Style setting."
+      ],
+      "evidence": [
+        "docs/releases/v0.18.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.19.0",
+      "title": "Appearance and block highlights",
+      "tag": "v0.19.0",
+      "notes": "docs/releases/v0.19.0.md",
+      "changes": [
+        "Add smooth block-highlight switching, center-out pop animations and adjustable corner-only outlines. Add module-local appearance with Global inheritance, persistent collapsible settings sections, compact tab-sized themed buttons and held-press feedback. Reveal the resize handle on proximity and classify every NoFall mode as Blatant."
+      ],
+      "evidence": [
+        "docs/releases/v0.19.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.20.0",
+      "title": "Container themes and client settings",
+      "tag": "v0.20.0",
+      "notes": "docs/releases/v0.20.0.md",
+      "changes": [
+        "Restore complete container rendering and add Minecraft/risecode styles, with per-screen overrides. Separate particles from backgrounds and add None. Move Friends/Profiles into a bottom-left settings popup with sounds, client command suggestions, opt-in Discord activity setup, menu key capture and GUI scale.",
+        "Add explicit see-through block outlines and 32 px thickness. Restrict module Appearance to settings used by its output, match Appearance sections to module cards, animate menu buttons individually, and extend numeric ranges with precise slider adjustment and matching renderer limits.",
+        "Keep BlockOverlay fill and outlines visible with Iris shader packs, including see-through edges, custom thickness, translucent colors and corner gaps. Composite world overlays after shader processing while retaining scene depth testing."
+      ],
+      "evidence": [
+        "docs/releases/v0.20.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.21.0",
+      "title": "Placement motion and shader lighting",
+      "tag": "v0.21.0",
+      "notes": "docs/releases/v0.21.0.md",
+      "changes": [
+        "Add native placement animations, configurable transforms and synchronized oriented block highlights. Keep entrance pops for target acquisition by default, with optional Pop On Switch. Rename NoFall to Clutch with a Ghost badge and migrate existing profiles and bindings. Add optional Iris shader night vision to FullBright.",
+        "Render moving blocks through native world and shadow passes, retain shader material IDs, and hand geometry back to terrain only after mesh upload. Keep emissive blocks static with shaders, skip fluids and multipart blocks, and infer optional remote placements conservatively."
+      ],
+      "evidence": [
+        "docs/releases/v0.21.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.22.0",
+      "title": "Hitboxes and shared target highlighting",
+      "tag": "v0.22.0",
+      "notes": "docs/releases/v0.22.0.md",
+      "changes": [
+        "Add Hitboxes with Only When Looking and Always modes, entity filters, range, and independent style/animation overrides with BlockOverlay inheritance by default. Share one aimed highlight across blocks and entities, retaining displayed geometry during switches, matching entrance pops, smoothly blending appearance and fading block fill. Reset immediately when looking into empty space. Preserve normal targeting, actual entity bounds, placement-following outlines and shader-compatible rendering."
+      ],
+      "evidence": [
+        "docs/releases/v0.22.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.23.0",
+      "title": "Settings panels and complex block contours",
+      "tag": "v0.23.0",
+      "notes": "docs/releases/v0.23.0.md",
+      "changes": [
+        "Fix the footer popup background, embed Client Sounds/Discord Activity/GUI Scale inside ClickGUI, and bounce entire Appearance cards using shared Button Feedback. Render complex block selection unions without internal seams or overlapping fill faces, and advance interrupted shape transitions before retargeting. Audit every module's Appearance controls by its real output while preserving saved overrides."
+      ],
+      "evidence": [
+        "docs/releases/v0.23.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.24.0",
+      "title": "Performance modes and retained-work reductions",
+      "tag": "v0.24.0",
+      "notes": "docs/releases/v0.24.0.md",
+      "changes": [
+        "Add global Off, Conservative, Balanced, Strong and Custom performance controls in the settings popup. Cache HUD and nametag work, pack ESP geometry, batch silhouette draws and retire idle targets. Bound map, preview and cosmetic caches while protecting pending draws. Replace sampled allocation percentages with direct render-thread benchmark comparisons."
+      ],
+      "evidence": [
+        "docs/releases/v0.24.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.24.1",
+      "title": "Joining-camera FOV fix",
+      "tag": "v0.24.1",
+      "notes": "docs/releases/v0.24.1.md",
+      "changes": [
+        "Preserve native FOV when zoom is inactive and skip unready native camera values during zoom transitions. Add joining-camera and hold/release zoom regressions. The separate Bobby world-cache merge crash is documented with a reversible, user-approved workaround."
+      ],
+      "evidence": [
+        "docs/releases/v0.24.1.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.24.2",
+      "title": "GUI rendering",
+      "tag": "v0.24.2",
+      "notes": "docs/releases/v0.24.2.md",
+      "changes": [
+        "Batch Qraftys glyph runs and compatible GUI commands with overlap and native-draw barriers. Cache prepared Unicode fallback glyphs and repeated layout/elision work, skip settled collapsed control measurement and transparent text, and limit blur filtering to the complete sampling footprint of requested regions. Preserve font interpolation, effect settings, animation refresh and existing Performance modes."
+      ],
+      "evidence": [
+        "docs/releases/v0.24.2.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.25.0",
+      "title": "Rendering, typography and world resolution",
+      "tag": "v0.25.0",
+      "notes": "docs/releases/v0.25.0.md",
+      "changes": [
+        "Use acknowledged placement ownership for BBE geometry, start timing after transfer, and keep double chest halves on one transform. Guard all custom world submissions before shadow passes and publish ESP geometry/submissions together. Bundle Qraftys with attribution, retain Google Sans, and add draw-time Font Boldness plus right-click disclosure/details. Promote Performance to the sidebar with independent world resolution, Bilinear and AMD FSR1 EASU/RCAS. Compose world overlays before upscaling and native HUD/GUI blur; preserve requested settings on compatibility fallbacks and release targets on resize/reload/disable."
+      ],
+      "evidence": [
+        "docs/releases/v0.25.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.26.0",
+      "title": "Living Panorama",
+      "tag": "v0.26.0",
+      "notes": "docs/releases/v0.26.0.md",
+      "changes": [
+        "Add opt-in Living Panorama with a resource-pack-aware Minecraft forest and lake, six blended atmospheres, GPU foliage wind and cursor gusts, water ripples, discoveries, bounded look-around, and Take a breath recovery through F1, Escape or the return leaf. Share persistent controls between Appearance and the title gear; retain the prior background and existing menu music. Own and release scene meshes, targets and environmental audio, debounce/cancel rebuilds, reuse throttled scene textures, and provide Low, Balanced and Cinematic reflection settings."
+      ],
+      "evidence": [
+        "docs/releases/v0.26.0.md"
+      ],
+      "assets": []
+    },
+    {
+      "version": "0.27.0",
+      "title": "Glass",
+      "tag": "v0.27.0",
+      "notes": "docs/releases/v0.27.0.md",
+      "changes": [
+        "Add opt-in Glass with independent body, native arms, armor and held-item targets, optional other players, hand/slot filters and retained material overrides.",
+        "Add Crystal/Clear/Frosted/Violet presets, animated colors, frosting/refraction, view-dependent highlights, pixel edges, bloom, shimmer and texture/glint controls.",
+        "Add a themed material editor and isolated, rotatable equipment preview using the gameplay shader.",
+        "Add Blaze3D rendering for OpenGL/Vulkan, pinned Iris hand/final-pass support, native fallback, lifecycle cleanup and packaged renderer checks."
+      ],
+      "evidence": [
+        "docs/releases/v0.27.0.md"
+      ],
+      "assets": []
     }
-  ]
+  ],
+  "latest": "0.27.0",
+  "java": 25
 }

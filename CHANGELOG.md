@@ -1,13 +1,21 @@
 # Changelog
 
-## 0.27.0
+Every documented version, newest first.
+
+[Project home](README.md) · [Release index](docs/releases/README.md) · [User guide](docs/usage.md)
+
+Historical entries were recovered from retained source/JAR artifacts and development
+documentation. Their notes identify provenance and missing history; original dates
+and development commits are not invented.
+
+## [0.27.0](docs/releases/v0.27.0.md) — Glass
 
 - Add opt-in Glass with independent body, native arms, armor and held-item targets, optional other players, hand/slot filters and retained material overrides.
 - Add Crystal/Clear/Frosted/Violet presets, animated colors, frosting/refraction, view-dependent highlights, pixel edges, bloom, shimmer and texture/glint controls.
 - Add a themed material editor and isolated, rotatable equipment preview using the gameplay shader.
 - Add Blaze3D rendering for OpenGL/Vulkan, pinned Iris hand/final-pass support, native fallback, lifecycle cleanup and packaged renderer checks.
 
-## [0.26.0](docs/releases/v0.26.0.md)
+## [0.26.0](docs/releases/v0.26.0.md) — Living Panorama
 
 Add opt-in Living Panorama with a resource-pack-aware Minecraft forest and lake, six blended
 atmospheres, GPU foliage wind and cursor gusts, water ripples, discoveries, bounded look-around,
@@ -16,7 +24,7 @@ between Appearance and the title gear; retain the prior background and existing 
 Own and release scene meshes, targets and environmental audio, debounce/cancel rebuilds,
 reuse throttled scene textures, and provide Low, Balanced and Cinematic reflection settings.
 
-## [0.25.0](docs/releases/v0.25.0.md)
+## [0.25.0](docs/releases/v0.25.0.md) — Rendering, typography and world resolution
 
 Use acknowledged placement ownership for BBE geometry, start timing after transfer, and
 keep double chest halves on one transform. Guard all custom world submissions before shadow
@@ -26,7 +34,7 @@ Promote Performance to the sidebar with independent world resolution, Bilinear a
 FSR1 EASU/RCAS. Compose world overlays before upscaling and native HUD/GUI blur; preserve
 requested settings on compatibility fallbacks and release targets on resize/reload/disable.
 
-## [0.24.2](docs/releases/v0.24.2.md)
+## [0.24.2](docs/releases/v0.24.2.md) — GUI rendering
 
 Batch Qraftys glyph runs and compatible GUI commands with overlap and native-draw barriers.
 Cache prepared Unicode fallback glyphs and repeated layout/elision work, skip settled
@@ -34,29 +42,29 @@ collapsed control measurement and transparent text, and limit blur filtering to 
 sampling footprint of requested regions. Preserve font interpolation, effect settings,
 animation refresh and existing Performance modes.
 
-## [0.24.1](docs/releases/v0.24.1.md)
+## [0.24.1](docs/releases/v0.24.1.md) — Joining-camera FOV fix
 
 Preserve native FOV when zoom is inactive and skip unready native camera values during zoom transitions. Add joining-camera and hold/release zoom regressions. The separate Bobby world-cache merge crash is documented with a reversible, user-approved workaround.
 
-## [0.24.0](docs/releases/v0.24.0.md)
+## [0.24.0](docs/releases/v0.24.0.md) — Performance modes and retained-work reductions
 
 Add global Off, Conservative, Balanced, Strong and Custom performance controls in the settings popup. Cache HUD and nametag work, pack ESP geometry, batch silhouette draws and retire idle targets. Bound map, preview and cosmetic caches while protecting pending draws. Replace sampled allocation percentages with direct render-thread benchmark comparisons.
 
-## [0.23.0](docs/releases/v0.23.0.md)
+## [0.23.0](docs/releases/v0.23.0.md) — Settings panels and complex block contours
 
 Fix the footer popup background, embed Client Sounds/Discord Activity/GUI Scale inside ClickGUI, and bounce entire Appearance cards using shared Button Feedback. Render complex block selection unions without internal seams or overlapping fill faces, and advance interrupted shape transitions before retargeting. Audit every module's Appearance controls by its real output while preserving saved overrides.
 
-## [0.22.0](docs/releases/v0.22.0.md)
+## [0.22.0](docs/releases/v0.22.0.md) — Hitboxes and shared target highlighting
 
 Add Hitboxes with Only When Looking and Always modes, entity filters, range, and independent style/animation overrides with BlockOverlay inheritance by default. Share one aimed highlight across blocks and entities, retaining displayed geometry during switches, matching entrance pops, smoothly blending appearance and fading block fill. Reset immediately when looking into empty space. Preserve normal targeting, actual entity bounds, placement-following outlines and shader-compatible rendering.
 
-## [0.21.0](docs/releases/v0.21.0.md)
+## [0.21.0](docs/releases/v0.21.0.md) — Placement motion and shader lighting
 
 Add native placement animations, configurable transforms and synchronized oriented block highlights. Keep entrance pops for target acquisition by default, with optional Pop On Switch. Rename NoFall to Clutch with a Ghost badge and migrate existing profiles and bindings. Add optional Iris shader night vision to FullBright.
 
 Render moving blocks through native world and shadow passes, retain shader material IDs, and hand geometry back to terrain only after mesh upload. Keep emissive blocks static with shaders, skip fluids and multipart blocks, and infer optional remote placements conservatively.
 
-## [0.20.0](docs/releases/v0.20.0.md)
+## [0.20.0](docs/releases/v0.20.0.md) — Container themes and client settings
 
 Restore complete container rendering and add Minecraft/risecode styles, with per-screen overrides. Separate particles from backgrounds and add None. Move Friends/Profiles into a bottom-left settings popup with sounds, client command suggestions, opt-in Discord activity setup, menu key capture and GUI scale.
 
@@ -64,24 +72,21 @@ Add explicit see-through block outlines and 32 px thickness. Restrict module App
 
 Keep BlockOverlay fill and outlines visible with Iris shader packs, including see-through edges, custom thickness, translucent colors and corner gaps. Composite world overlays after shader processing while retaining scene depth testing.
 
-## [0.19.0](docs/releases/v0.19.0.md)
+## [0.19.0](docs/releases/v0.19.0.md) — Appearance and block highlights
 
 Add smooth block-highlight switching, center-out pop animations and adjustable corner-only outlines. Add module-local appearance with Global inheritance, persistent collapsible settings sections, compact tab-sized themed buttons and held-press feedback. Reveal the resize handle on proximity and classify every NoFall mode as Blatant.
 
-## [0.18.0](docs/releases/v0.18.0.md)
+## [0.18.0](docs/releases/v0.18.0.md) — Cosmetics and legacy cape physics
 
 Add the Cosmetics wardrobe with previews, profile-owned outfits, offline items, downloadable companions and PNG cape imports. Add optional legacy cape physics. Clamp glow scissors to the screen for Minecraft 26.2, remove duplicate profile controls from Appearance and repair header/control alignment while preserving the restored interface structure and Button Style setting.
 
-## [0.17.1](docs/releases/v0.17.1.md)
+## [0.17.1](docs/releases/v0.17.1.md) — Previous layout and quieter buttons
 
 Restore the original module tabs, Utilities menu, and scrolling Appearance layout, including HUD/map styling in Appearance. Add a saved Button Style option with Subtle dark buttons by default and Accent as an alternative. Retain per-page gears and all 0.17.0 rendering, input, animation, background, sound, module and NoFall fixes.
 
-## 0.17.0
+## [0.17.0](docs/releases/v0.17.0.md) — Interface polish and controls
 
 Interface polish: six-page navigation, focused Appearance sections, shared themed buttons and hover feedback, glow clipping repair, high-resolution branding, expanded animation controls and five click sounds. Adds independent per-page themes/backgrounds, procedural animation, particles and Dual Filtering scene blur. Repairs focused-search closing and exact Baritone coordinate editing. Adds behavior badges and functional packet/item-clutch NoFall modes. See [release notes](docs/releases/v0.17.0.md).
-
-Recovered from retained source/JAR artifacts and development documentation.
-Historical entries do not invent missing release dates or Git commit history.
 
 ## [0.16.1](docs/releases/v0.16.1.md) — UI motion repairs
 
@@ -109,7 +114,7 @@ Historical entries do not invent missing release dates or Git commit history.
 - Persist only client-observed surface terrain with texture/biome/water/height colors, bounded recording/work/caches and resource-reload recoloring; keep map data outside profiles.
 - Adapt the pinned MIT Simple Map page-layout and density helpers, retaining their license and attribution.
 
-## [0.14.0](docs/releases/v0.14.0.md) — Offline Resources and restored Ambience
+## [0.14.0](docs/releases/v0.14.0.md) — Resources and Ambience
 
 - Replace the old Styles catalog/import browser with the native Vanilla Tweaks Resources picker for Minecraft 26.2.
 - Cache all public resources, images and official combined assets; compose new selections offline with explicit priority, warnings and profile persistence.
@@ -123,7 +128,7 @@ Historical entries do not invent missing release dates or Git commit history.
 - Remove Agent-only build tasks, fixtures, tests and current feature documentation.
 - Preserve direct Baritone controls, shared settings/text editing, existing profiles and Styles; map saved AI/Agent tabs to Search and restore F12 bindings.
 
-## [0.13.0](docs/releases/v0.13.0.md) — Experimental Agent controllers
+## [0.13.0](docs/releases/v0.13.0.md) — Experimental controllers
 
 - Add reviewed, server-confirmed container transfers, unlocked recipe batches, equipment and bounded loadout preparation; stop on stale/rejected snapshots without replay or drops.
 - Add a bounded safe-food survival routine with authoritative hunger proof and immediate forced-use cleanup.
@@ -131,7 +136,7 @@ Historical entries do not invent missing release dates or Git commit history.
 - Keep idle work bounded and recognized reads local; cap pack metadata to reduce tokens and avoid repeated inventory serialization while waiting.
 - Verify disposable survival-world operations, optional integrations, existing GUI/controller regressions and renderer/performance compatibility.
 
-## [0.12.0](docs/releases/v0.12.0.md) — Agent tools, tasks and efficiency
+## [0.12.0](docs/releases/v0.12.0.md) — Agent
 
 - Rebrand the native AI page to Agent; route recognized commands locally with zero model tokens and select only relevant remote tool schemas.
 - Add bounded opt-in game observations, explicit vanilla options, version-gated Iris status/toggles, profile/binding tools and reviewed preferences/documentation.
@@ -177,7 +182,7 @@ Historical entries do not invent missing release dates or Git commit history.
 - Migrate existing saved chat, preserve Undo/audit when retention is disabled, and clear both visible chat and model context together.
 - Added restart, retention, migration, credential redaction and permission-isolation checks.
 
-## [0.11.0](docs/releases/v0.11.0.md) — AI configuration assistant
+## [0.11.0](docs/releases/v0.11.0.md) — Native AI configuration assistant
 
 - Added native AI conversation/settings, multiline Unicode editing, streaming compatible transport and connection/tool-format probes.
 - Added generic real module discovery/inspection, shared setting codecs, stable capability IDs, state revisions, targeted transactions and conflict-aware Undo.
@@ -185,7 +190,7 @@ Historical entries do not invent missing release dates or Git commit history.
 - Added session/environment credentials, opt-in chat persistence, bounded redacted audit/Undo retention, and F12 before focused input.
 - Added deterministic HTTP/provider checks and Minecraft input/mutation/Undo fixtures; preserved the Styles baseline.
 
-## [0.10.0](docs/releases/v0.10.0.md) — Styles browser
+## [0.10.0](docs/releases/v0.10.0.md) — Styles
 
 - Added an original Styles sidebar browser with local/cloud previews, category mixing, and one Apply action.
 - Added resource-pack imports with native model dependencies, per-entity EMF/ETF styles, and compatibility notices.
@@ -283,4 +288,3 @@ Historical entries do not invent missing release dates or Git commit history.
 - Java 25 / Minecraft 26.2 client foundation with settings, synchronous EventBus, module lifecycle, and retargetable animations.
 - Retained build includes the animated category/card ClickGUI, search, watermark/ArrayList HUD, and FullBright module.
 - This is the earliest surviving binary/source pair; the original development history predates Git and cannot be reconstructed fully.
-
