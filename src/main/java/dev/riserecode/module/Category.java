@@ -6,7 +6,8 @@ public enum Category {
     RENDER("Render"),
     PLAYER("Player"),
     WORLD("World"),
-    UTILITY("Utility");
+    UTILITY("Utility"),
+    HUD("HUD");
 
     private final String displayName;
 

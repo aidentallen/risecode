@@ -1,0 +1,7 @@
+Night lake and mountains by Jefferson Sees.
+Source: https://unsplash.com/photos/a-night-time-view-of-a-lake-and-mountains-A8zGDWwiA1U
+License: https://unsplash.com/license
+Downloaded 2026-10-07. Cropped and tinted at runtime; lossless PNG conversion of the downloaded JPEG.
+
+scenic.png, space.png, abstract.png: original procedural artwork for risecode, MIT.
+UI pop, soft_pop and blob: original synthesized tones for risecode, MIT.

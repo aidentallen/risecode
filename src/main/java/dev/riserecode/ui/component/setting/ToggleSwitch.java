@@ -11,42 +11,38 @@ import java.util.function.Consumer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
+/** The reference's compact inline indicator, with interpolated color and a soft pulse. */
 public final class ToggleSwitch extends UIComponent {
     private final String label;
     private final BooleanSupplier value;
     private final Consumer<Boolean> setter;
     private final Animation slide;
-
     public ToggleSwitch(BooleanSetting setting, Runnable changed) {
-        this(setting.getName(), setting::getValue, enabled -> { setting.setValue(enabled); changed.run(); });
+        this(setting.getName(), setting::getValue, next -> { setting.setValue(next); changed.run(); });
     }
-
     public ToggleSwitch(String label, BooleanSupplier value, Consumer<Boolean> setter) {
         this.label = label; this.value = value; this.setter = setter;
-        slide = new Animation(value.getAsBoolean() ? 1 : 0, 0.18, MathUtil.Easing.IN_OUT_CUBIC);
+        slide = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.TOGGLES, value.getAsBoolean() ? 1 : 0, 0.2, MathUtil.Easing.IN_OUT_CUBIC);
     }
-
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
         double hovered = updateHover(mouseX, mouseY, deltaSeconds);
         slide.animateTo(value.getAsBoolean() ? 1 : 0);
-        double progress = slide.update(deltaSeconds);
-        RenderUtil.drawText(graphics, font, RenderUtil.ellipsize(font, label, width - 40),
-                x + hovered * 2, y + height / 2 - 5, Theme.opacity(Theme.TEXT, opacity), false, false);
-        double left = x + width - 30;
-        double top = y + height / 2 - 7;
-        RenderUtil.drawRoundedRect(graphics, left, top, 30, 14, 7,
-                Theme.opacity(Theme.lerp(Theme.HOVER, Theme.BLUE, progress), opacity));
-        RenderUtil.drawRoundedBorder(graphics, left, top, 30, 14, 7, Theme.opacity(Theme.BORDER, opacity));
-        RenderUtil.drawRoundedRect(graphics, left + 2 + 16 * progress, top + 2, 10, 10, 5,
-                Theme.opacity(Theme.TEXT, opacity));
+        double active = slide.update(deltaSeconds);
+        String text = Theme.label(Theme.displayName(label));
+        double textScale = Math.min(0.88, (width - 24) / Math.max(1, RenderUtil.textWidth(font, text, false)));
+        RenderUtil.text(graphics, font, text, x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), y + (height - 9 * Theme.number("Font Scale", 1) * textScale) / 2, textScale,
+                Theme.opacity(Theme.blendPalette(Theme.TEXT, 0xFFFFFFFF, hovered), opacity));
+        double dotX = x + RenderUtil.textWidth(font, text, false) * textScale + 6 + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER);
+        double dotY = y + height / 2 - 2;
+        RenderUtil.drawGlow(graphics, dotX, dotY, 4, 4, 2, Theme.opacity(Theme.accent(), opacity * active));
+        RenderUtil.drawRoundedRect(graphics, dotX, dotY, 4, 4, 2,
+                Theme.opacity(Theme.blendPalette(Theme.MUTED, Theme.accent(), active), opacity));
     }
-
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || !contains(mouseX, mouseY)) { return false; }
-        setter.accept(!value.getAsBoolean());
-        return true;
+        dev.riserecode.ui.sound.UiSounds.play(); setter.accept(!value.getAsBoolean()); return true;
     }
 }

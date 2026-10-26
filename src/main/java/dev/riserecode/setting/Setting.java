@@ -7,6 +7,9 @@ import java.util.function.BooleanSupplier;
 public abstract class Setting<T> {
     private final String name;
     private final String description;
+    private String capabilityId;
+    private long revision;
+    private final java.util.List<Runnable> changeListeners = new java.util.ArrayList<>();
     private final T defaultValue;
     private T value;
     private BooleanSupplier visibleWhen = () -> true;
@@ -19,6 +22,7 @@ public abstract class Setting<T> {
         this.description = Objects.requireNonNull(description, "description");
         this.defaultValue = Objects.requireNonNull(defaultValue, "defaultValue");
         value = defaultValue;
+        capabilityId = dev.riserecode.config.CapabilityIds.segment(name);
     }
 
     public final String getName() {
@@ -39,9 +43,16 @@ public abstract class Setting<T> {
 
     /** Validation happens before assignment, leaving invalid changes unapplied. */
     public final void setValue(T value) {
-        this.value = Objects.requireNonNull(validate(Objects.requireNonNull(value, "value")),
-                "validated value");
+        T next = Objects.requireNonNull(validate(Objects.requireNonNull(value, "value")), "validated value");
+        if (!this.value.equals(next)) { this.value = next; changed(); }
     }
+
+    public final String capabilityId() { return capabilityId; }
+    /** Override before registering in a module; profile labels remain compatible. */
+    protected final void capabilityId(String id) { capabilityId = dev.riserecode.config.CapabilityIds.segment(id); }
+    public final long revision() { return revision; }
+    public final void onChange(Runnable listener) { changeListeners.add(Objects.requireNonNull(listener)); }
+    protected final void changed() { revision++; changeListeners.forEach(Runnable::run); }
 
     protected T validate(T value) {
         return value;
@@ -49,7 +60,10 @@ public abstract class Setting<T> {
 
     public final void reset() {
         setValue(defaultValue);
+        onReset();
     }
+
+    protected void onReset() { }
 
     public final void setVisibleWhen(BooleanSupplier predicate) {
         visibleWhen = Objects.requireNonNull(predicate, "predicate");
