@@ -8,17 +8,13 @@ public final class MathUtil {
     public enum Easing {
         OUT_QUART,
         IN_OUT_CUBIC,
-        OUT_ELASTIC,
-        LINEAR,
-        OUT_BOUNCE;
+        OUT_ELASTIC;
 
         public double apply(double progress) {
             return switch (this) {
                 case OUT_QUART -> easeOutQuart(progress);
                 case IN_OUT_CUBIC -> easeInOutCubic(progress);
                 case OUT_ELASTIC -> easeOutElastic(progress);
-                case LINEAR -> clamp01(progress);
-                case OUT_BOUNCE -> easeOutBounce(progress);
             };
         }
     }
@@ -54,15 +50,6 @@ public final class MathUtil {
         }
         double period = (2.0 * Math.PI) / 3.0;
         return Math.pow(2.0, -10.0 * t) * Math.sin((10.0 * t - 0.75) * period) + 1.0;
-    }
-
-    public static double easeOutBounce(double progress) {
-        double t = clamp01(progress);
-        double n = 7.5625, d = 2.75;
-        if (t < 1 / d) { return n * t * t; }
-        if (t < 2 / d) { t -= 1.5 / d; return n * t * t + 0.75; }
-        if (t < 2.5 / d) { t -= 2.25 / d; return n * t * t + 0.9375; }
-        t -= 2.625 / d; return n * t * t + 0.984375;
     }
 
     /** Unclamped interpolation: elastic easing needs values beyond [0, 1]. */

@@ -1,0 +1,8 @@
+{
+  "version": "0.1.0",
+  "binary_sha256": "df486d6f7ce132616919fd61e154c3457069627ec609d5d191a920372289a16d",
+  "source_sha256": "da0e8be93fc53247ab40d5203cef2371471a3c5eaa1863fe138fd595f52a7f40",
+  "binary_selection": "Previously verified historical release archive",
+  "source_recovery": "Retained production sources JAR",
+  "original_development_history_available": false
+}
