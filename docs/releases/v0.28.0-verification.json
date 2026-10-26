@@ -1,0 +1,49 @@
+{
+  "version": "0.28.0",
+  "minecraft": "26.2",
+  "java": 25,
+  "upstreamCommit": "b72a829f768967fa737a4f1f63b32e37b9619152",
+  "sha256": "8d8142d558fb1c552c31f6a0692d1d9cad39e884e63e5ecec9685f2b6844fedc",
+  "projectChecks": "passed",
+  "focusedAssertions": 71,
+  "rendererMatrix": {
+    "vanilla": {
+      "label": "vanilla",
+      "exitCode": 0,
+      "sha256": "8d8142d558fb1c552c31f6a0692d1d9cad39e884e63e5ecec9685f2b6844fedc",
+      "assertions": 880,
+      "fullNativePlacementRecovery": true,
+      "realGeneratedEndRecovery": true
+    },
+    "sodium": {
+      "label": "sodium",
+      "exitCode": 0,
+      "sha256": "8d8142d558fb1c552c31f6a0692d1d9cad39e884e63e5ecec9685f2b6844fedc",
+      "assertions": 865,
+      "fullNativePlacementRecovery": false,
+      "realGeneratedEndRecovery": false
+    },
+    "iris": {
+      "label": "iris",
+      "exitCode": 0,
+      "sha256": "8d8142d558fb1c552c31f6a0692d1d9cad39e884e63e5ecec9685f2b6844fedc",
+      "assertions": 866,
+      "fullNativePlacementRecovery": false,
+      "realGeneratedEndRecovery": false
+    },
+    "vulkan": {
+      "label": "vulkan",
+      "exitCode": 0,
+      "sha256": "8d8142d558fb1c552c31f6a0692d1d9cad39e884e63e5ecec9685f2b6844fedc",
+      "assertions": 865,
+      "fullNativePlacementRecovery": false,
+      "realGeneratedEndRecovery": false
+    }
+  },
+  "knownWorldSeed": -6024798231123456789,
+  "realEndObservations": "six generated End cities and all ten central pillars; full End reversal + hash confirmation passed",
+  "liftingRecovery": "native 26.2 placement fixtures; full 48-bit search + hash confirmation passed; added contradictory live data after Start did not affect the snapshot",
+  "databaseVerification": "local mock only; no real lookup/submission",
+  "outlineVerification": "native extraction, Off/Visible/Through Walls flags and renderer startup; no pixel-depth assertion",
+  "performance": "No FPS, GPU-time, isolated allocation, long-session or live multiplayer performance claim"
+}

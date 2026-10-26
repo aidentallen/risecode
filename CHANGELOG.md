@@ -8,6 +8,14 @@ Historical entries were recovered from retained source/JAR artifacts and develop
 documentation. Their notes identify provenance and missing history; original dates
 and development commits are not invented.
 
+## [0.28.0](docs/releases/v0.28.0.md) — SeedCracker
+
+- Integrate SeedCrackerX 2.16.1 under the Risecode namespace with checksum-pinned SeedFinding and LattiCG libraries and retained MIT notices.
+- Add disabled-by-default World → SeedCracker, individual modern finder switches, themed controls, local commands and visible/through-wall outlines.
+- Make cracking explicitly manual, with immutable input snapshots, bounded owned workers, cancellation and stale-session rejection.
+- Isolate observations and results by world, seed hash and generation profile; save atomically and restore only on request.
+- Add opt-in lookup and authenticated manual submission of hash-verified seeds. Database features send no requests by default.
+
 ## [0.27.0](docs/releases/v0.27.0.md) — Glass
 
 - Add opt-in Glass with independent body, native arms, armor and held-item targets, optional other players, hand/slot filters and retained material overrides.

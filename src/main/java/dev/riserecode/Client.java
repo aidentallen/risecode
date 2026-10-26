@@ -137,6 +137,7 @@ public enum Client {
         }));
         commandManager.register(new ProfileCommand(profileManager, commandManager));
         commandManager.register(new HelpCommand(commandManager));
+        commandManager.register(new dev.riserecode.command.commands.SeedCrackerCommand(moduleManager.getByClass(dev.riserecode.module.modules.SeedCrackerModule.class).orElseThrow(), commandManager));
         commandManager.register(new HudCommand());
         commandManager.register(new dev.riserecode.command.commands.BaritoneCommand(moduleManager.getByClass(dev.riserecode.module.modules.BaritoneModule.class).orElseThrow()));
         maps = new dev.riserecode.map.MapService(configManager.getDirectory(), eventBus, minecraft);

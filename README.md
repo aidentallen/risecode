@@ -1,5 +1,13 @@
 # risecode
 
+### 0.28.0 SeedCracker
+
+Built-in SeedCrackerX engine for native Minecraft 26.2. Enable **World → SeedCracker**
+to collect structure observations, then use **Start** for each cracking attempt.
+Stop keeps collection active; disabling releases the session. Includes scoped save/restore,
+local `.seedcracker` commands and optional database actions, both off by default.
+See the [SeedCracker guide](docs/seedcracker.md) and [release verification](docs/releases/v0.28.0.md).
+
 ### 0.27.0 Glass
 
 Opt-in Glass materials for your body, native first-person arms, armor and held items,
@@ -265,7 +273,7 @@ python3 scripts/fetch-dependencies.py
 The dependency script verifies pinned SHA-256 hashes and extracts Iris's
 nested glsl-transformer library. Optional dependency JARs are compile-only;
 they are not bundled in risecode. The build produces the installable JAR
-at `build/libs/riserecode-0.27.0.jar` and a separate sources JAR.
+at `build/libs/riserecode-0.28.0.jar` and a separate sources JAR.
 
 ```bash
 ./gradlew runClient

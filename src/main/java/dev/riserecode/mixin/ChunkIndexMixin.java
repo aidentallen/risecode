@@ -28,7 +28,7 @@ public abstract class ChunkIndexMixin {
     @Inject(method = "replaceWithPacketData", at = @At("RETURN"))
     private void riserecode$loaded(int x, int z, FriendlyByteBuf buffer, Map<Heightmap.Types, long[]> heights,
             Consumer<ClientboundLevelChunkPacketData.BlockEntityTagOutput> tags, CallbackInfoReturnable<LevelChunk> callback) {
-        if (Client.INSTANCE.isInitialized() && callback.getReturnValue() != null) { Client.INSTANCE.getBlockIndex().loaded(callback.getReturnValue()); }
+        if (Client.INSTANCE.isInitialized() && callback.getReturnValue() != null) { Client.INSTANCE.getBlockIndex().loaded(callback.getReturnValue()); Client.INSTANCE.getEventBus().post(new dev.riserecode.event.SeedChunkEvent(ChunkPos.pack(x,z))); }
         if (riserecode$newChunk && callback.getReturnValue() != null) { dev.riserecode.render.ChunkTerrainRenderer.loaded(x, z); }
     }
     @Inject(method = "drop", at = @At("HEAD"))

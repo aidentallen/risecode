@@ -2,13 +2,14 @@
 
 [Project home](../../README.md) · [Complete changelog](../../CHANGELOG.md) · [User guide](../usage.md)
 
-**42 documented versions · 0.1.0 → 0.27.0 · Minecraft 26.2 / Java 25**
+**43 documented versions · 0.1.0 → 0.28.0 · Minecraft 26.2 / Java 25**
 
 Browse the changes and verification notes for each version. The latest source
-version is **0.27.0 — Glass**.
+version is **0.28.0 — SeedCracker**.
 
 | Version | Highlights |
 | :--- | :--- |
+| [0.28.0](v0.28.0.md) | SeedCracker |
 | [0.27.0](v0.27.0.md) | Glass |
 | [0.26.0](v0.26.0.md) | Living Panorama |
 | [0.25.0](v0.25.0.md) | Rendering, typography and world resolution |

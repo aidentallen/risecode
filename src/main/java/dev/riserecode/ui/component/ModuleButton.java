@@ -40,6 +40,7 @@ public final class ModuleButton extends UIComponent {
 
     private final KeybindControl keybind;
     private final dev.riserecode.ui.animation.ButtonFeedback press=new dev.riserecode.ui.animation.ButtonFeedback();
+    private final SeedCrackerControls seedcracker;
     private final BaritoneControls baritone;
     private final ActionButton glassEditor;
     private final List<SettingControl> controls = new ArrayList<>();
@@ -64,6 +65,7 @@ public final class ModuleButton extends UIComponent {
 
         glassEditor=module instanceof dev.riserecode.module.modules.GlassModule glass?new ActionButton("Customize / Preview",()->{FocusedInput.commit();var mc=net.minecraft.client.Minecraft.getInstance();mc.gui.setScreen(new GlassEditorScreen(glass,mc.gui.screen()));}):null;
         baritone = module instanceof dev.riserecode.module.modules.BaritoneModule b ? new BaritoneControls(b) : null;
+        seedcracker = module instanceof dev.riserecode.module.modules.SeedCrackerModule seed ? new SeedCrackerControls(seed) : null;
         keybind = new KeybindControl(module, Client.INSTANCE.getKeybindManager());
         enabled = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.TOGGLES, module.isEnabled() ? 1 : 0, 0.2, MathUtil.Easing.IN_OUT_CUBIC);
         for (Setting<?> setting : module.getSettings()) {
@@ -101,7 +103,7 @@ public final class ModuleButton extends UIComponent {
     private void updateScoped(double deltaSeconds) {
         expansion.animateTo(expanded ? 1 : 0); expansion.update(deltaSeconds);
         if(!expanded&&!bodyHeight.isRunning()&&bodyHeight.getValue()==0){return;}
-        double result = (glassEditor==null?4:44) + appearance.preferredHeight(width-14) + SettingsSection.HEADER+bindings.bodyHeight(KeybindControl.HEIGHT) + (baritone == null ? 0 : 58)
+        double result = (glassEditor==null?4:44) + appearance.preferredHeight(width-14) + SettingsSection.HEADER+bindings.bodyHeight(KeybindControl.HEIGHT) + (baritone == null ? 0 : 58) + (seedcracker == null ? 0 : SeedCrackerControls.HEIGHT)
                 + (module instanceof dev.riserecode.module.modules.ChunkAnimationsModule ? 13 : 0);
         for (SettingControl control : controls) { if (control.setting().isVisible()) { result += controlHeight(control); } }
         bodyHeight.animateTo(expanded ? result : 0); bodyHeight.update(deltaSeconds);
@@ -162,6 +164,7 @@ public final class ModuleButton extends UIComponent {
         RenderUtil.scissorPush(graphics, x + 3, y + HEADER_HEIGHT, width - 6, height - HEADER_HEIGHT - 2);
         try {
             double top = 0;
+            if (seedcracker != null) { seedcracker.setBounds(x+7,y+HEADER_HEIGHT,width-14,SeedCrackerControls.HEIGHT); seedcracker.render(graphics,font,mouseX,mouseY,seconds,opacity*expansion.getValue()); top+=SeedCrackerControls.HEIGHT; }
             if(glassEditor!=null){glassEditor.setBounds(x+7,y+HEADER_HEIGHT,width-14,26);glassEditor.render(graphics,font,mouseX,mouseY,seconds,opacity*expansion.getValue());RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,((dev.riserecode.module.modules.GlassModule)module).status(),(width-14)/.6),x+7,y+HEADER_HEIGHT+29,.6,Theme.opacity(Theme.SECONDARY,opacity*expansion.getValue()));top+=40;}
             for (SettingControl control : controls) {
                 if (!control.setting().isVisible()) { continue; }
@@ -200,6 +203,7 @@ public final class ModuleButton extends UIComponent {
             return true;
         }
         if (!expanded) { return true; }
+        if(seedcracker!=null&&mouseY>=y+HEADER_HEIGHT&&mouseY<Math.min(y+height,y+HEADER_HEIGHT+SeedCrackerControls.HEIGHT)&&seedcracker.mouseClicked(mouseX,mouseY,button)){return true;}
         if(glassEditor!=null&&glassEditor.mouseClicked(mouseX,mouseY,button)){captured=glassEditor;return true;}
         for (SettingControl control : controls) {
             // Partially revealed rows must not accept input outside the animated card's clip.
@@ -224,6 +228,7 @@ public final class ModuleButton extends UIComponent {
         boolean consumed = captured.mouseReleased(localX(mouseX),localY(mouseY),button); captured = null; return consumed;
     }
     private static String details(Module module) {
+        if(module instanceof dev.riserecode.module.modules.SeedCrackerModule seed)return seed.statusLines().get(0);
         if(module instanceof dev.riserecode.module.modules.NoFallModule clutch)return clutch.status();
         if(module instanceof dev.riserecode.module.modules.BlockAnimationsModule blocks)return blocks.status();
         if(module instanceof dev.riserecode.module.modules.FullBrightModule full&&full.getMode().getValue()==dev.riserecode.module.modules.FullBrightModule.Mode.SHADER_NIGHT_VISION)return full.shaderStatus();

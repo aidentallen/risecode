@@ -1,2 +1,6 @@
 Credits:
 Vanilla Tweaks: https://vanillatweaks.net/
+
+SeedCrackerX 2.16.1: KaptainWutax, 19MisterX98 and contributors (MIT).
+SeedFinding: KaptainWutax, Neil, Matthew Bolan and contributors (MIT).
+LattiCG 1.07: mjtb49 and contributors (MIT). Full notices: licenses/seedcracker/.

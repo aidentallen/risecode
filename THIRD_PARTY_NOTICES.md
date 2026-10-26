@@ -100,3 +100,25 @@ Original bitmap by Qraftys, bundled with the redistribution permission confirmed
 ### AMD FidelityFX Super Resolution 1
 
 AMD EASU and RCAS reference shaders, MIT license, pinned to `a21ffb8f6c13233ba336352bdff293894c706575` from https://github.com/GPUOpen-Effects/FidelityFX-FSR. Original headers and checksums in `shaders/include/fsr1`; integration wrappers by RiseRecode. See `licenses/FSR1-MIT.txt`.
+
+## SeedCracker integration (0.28.0)
+
+The structure finder patterns and reversal algorithms in
+`src/main/java/dev/riserecode/seedcracker/` derive from
+[SeedCrackerX 2.16.1](https://github.com/19MisterX98/SeedcrackerX/tree/b72a829f768967fa737a4f1f63b32e37b9619152),
+commit `b72a829f768967fa737a4f1f63b32e37b9619152`. Copyright (c) 2020
+KaptainWutax; SeedCrackerX is maintained by 19MisterX98 and contributors.
+Distributed under MIT; complete notice: `licenses/seedcracker/SeedCrackerX-MIT.txt`.
+Shipwreck recognition retains upstream's reference to skyrising's casual-mod.
+
+SeedFinding libraries retain their upstream packages and pinned versions listed in
+`dependencies/manifest.json` and upstream `gradle.properties`. Their MIT notices
+are in `licenses/seedcracker/mc_*.txt`. LattiCG 1.07 is MIT, copyright (c) 2020
+mjtb49, with its notice in `licenses/seedcracker/LattiCG.txt`. These notices are
+included in source, the production JAR, sources JAR and release license bundle.
+
+Risecode replaces upstream initialization, global biome override, automatic
+cracking/submission, raw-world background finders, global executors, configuration
+screen and storage. Modern structure matching is local to the engine and leaves
+the game's biomes untouched. Unreliable legacy decorators and biome cracking are
+unavailable. See `docs/seedcracker.md` for the integration boundaries.

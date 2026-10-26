@@ -139,7 +139,10 @@
     "GlassFrameMixin",
     "GlassPreviewMixin",
     "GlassWingsLayerMixin",
-    "GlassCustomHeadLayerMixin"
+    "GlassCustomHeadLayerMixin",
+    "SeedWorldMixin",
+    "SeedBiomeAccessor",
+    "SeedLevelDataAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

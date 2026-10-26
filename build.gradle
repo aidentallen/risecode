@@ -13,6 +13,7 @@ repositories {
         forRepository { flatDir { dirs 'dependencies' } }
         filter {
             includeGroup 'de.javagl'
+            includeGroup 'com.seedfinding'
             includeGroup 'com.fasterxml.jackson.core'
         }
     }
@@ -35,6 +36,13 @@ dependencies {
         implementation(library) { transitive = false }
         include(library) { transitive = false }
     }
+    def seedLibraries = new groovy.json.JsonSlurper().parse(file('dependencies/manifest.json')).dependencies.findAll { it.file.startsWith('mc_') || it.file.startsWith('latticg-') }
+    seedLibraries.each { entry ->
+        def split = entry.file.substring(0, entry.file.length()-4).lastIndexOf('-')
+        def coordinate = "com.seedfinding:${entry.file.substring(0, split)}:${entry.file.substring(split+1, entry.file.length()-4)}"
+        implementation(coordinate) { transitive = false }
+        include(coordinate) { transitive = false }
+    }
     compileOnly files('dependencies/bbe-fabric-1.3.9+mc26.2-mod.jar')
     compileOnly files('dependencies/baritone-api-fabric-1.19.0.jar')
     // Optional renderer adapters target the installed versions; these are not bundled.
@@ -46,6 +54,7 @@ dependencies {
 processResources {
     from('LICENSE') { into 'licenses'; rename { 'risecode-MIT.txt' } }
     from('THIRD_PARTY_NOTICES.md') { into 'licenses' }
+    from('licenses') { into 'licenses' }
     from('credits.txt') { into 'licenses' }
     inputs.property 'version', project.version
     filesMatching('fabric.mod.json') { expand version: project.version }
@@ -200,6 +209,8 @@ loom.runs.clientGameTest {
     if (providers.gradleProperty('release019Only').isPresent()) { vmArg '-Driserecode.release019Only=true' }
     if (providers.gradleProperty('skipPlacementBenchmark').isPresent()) { vmArg '-Driserecode.skipPlacementBenchmark=true' }
     if (providers.gradleProperty('font025Reference').isPresent()) { vmArg '-Driserecode.font025Reference=true' }
+    if (providers.gradleProperty('seedCrackerOnly').isPresent()) { vmArg '-Driserecode.seedCrackerOnly=true' }
+    if (providers.gradleProperty('seedCrackerRecovery').isPresent()) { vmArg '-Driserecode.seedCrackerRecovery=true' }
     if (providers.gradleProperty('glassOnly').isPresent()) { vmArg '-Driserecode.glassOnly=true' }
     if (providers.gradleProperty('panoramaOnly').isPresent()) { vmArg '-Driserecode.panoramaOnly=true' }
     if (providers.gradleProperty('release025Only').isPresent()) { vmArg '-Driserecode.release025Only=true' }
@@ -277,3 +288,8 @@ tasks.named("check"){dependsOn "panoramaCheck"}
 
 tasks.register('glassCheck',JavaExec){dependsOn testClasses;classpath=sourceSets.test.runtimeClasspath;mainClass='dev.riserecode.GlassChecks'}
 tasks.named('check'){dependsOn 'glassCheck'}
+
+tasks.register('seedCrackerCheck',JavaExec){dependsOn testClasses;classpath=sourceSets.test.runtimeClasspath;mainClass='dev.riserecode.SeedCrackerChecks'}
+tasks.named('check'){dependsOn 'seedCrackerCheck'}
+
+tasks.named('sourcesJar') { from('licenses') { into 'licenses' }; from('THIRD_PARTY_NOTICES.md'); from('credits.txt'); from('LICENSE') }

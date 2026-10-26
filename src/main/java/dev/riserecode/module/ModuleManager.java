@@ -74,6 +74,7 @@ public final class ModuleManager {
         register(new dev.riserecode.module.modules.ChunkAnimationsModule(eventBus));
         register(new dev.riserecode.module.modules.CapePhysicsModule(eventBus));
         register(new dev.riserecode.module.modules.BaritoneModule(eventBus));
+        register(new dev.riserecode.module.modules.SeedCrackerModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.hud.WatermarkModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.hud.ArrayListModule(eventBus, minecraft));
         register(new FullBrightModule(eventBus, minecraft));

@@ -936,8 +936,27 @@
         "docs/releases/v0.27.0.md"
       ],
       "assets": []
+    },
+    {
+      "version": "0.28.0",
+      "title": "SeedCracker",
+      "tag": "0.28.0",
+      "notes": "docs/releases/v0.28.0.md",
+      "changes": [
+        "Built-in manual SeedCracker engine, modern finders, scoped archives, local commands and opt-in database actions."
+      ],
+      "evidence": [
+        "docs/releases/v0.28.0.md"
+      ],
+      "assets": [
+        "riserecode-0.28.0.jar",
+        "riserecode-0.28.0-sources.jar",
+        "riserecode-0.28.0-source.zip",
+        "riserecode-0.28.0-licenses.zip",
+        "SHA256SUMS"
+      ]
     }
   ],
-  "latest": "0.27.0",
+  "latest": "0.28.0",
   "java": 25
 }
