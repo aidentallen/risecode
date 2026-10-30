@@ -29,8 +29,7 @@ public final class TracersModule extends Module {
         if (minecraft.player == null) { return; }
         var context = event.getContext();
         float partialTick = context.deltaTracker().getGameTimeDeltaPartialTick(false);
-        var forward = context.camera().forwardVector();
-        Vec3 start = context.camera().position().add(forward.x() * 0.3, forward.y() * 0.3, forward.z() * 0.3);
+        Vec3 start = dev.riserecode.render.TracerOrigin.of(event);
         for (var player : context.level().players()) {
             if (player == minecraft.player || !player.isAlive() || player.isRemoved() || player.isSpectator() || player.isInvisible()) { continue; }
             boolean friend = friends.isFriend(player.getUUID(), player.getGameProfile().name());

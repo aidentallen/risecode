@@ -23,6 +23,32 @@ public final class BlockListSetting extends Setting<List<String>> {
         }
         return normalize(values);
     }
+    private java.util.function.Supplier<List<String>> candidates;
+    /** Restricts what the picker offers (e.g. only storage blocks); already selected ids always stay visible. */
+    public BlockListSetting candidates(java.util.function.Supplier<List<String>> supplier) { candidates = supplier; return this; }
+    public List<String> candidates() { return candidates == null ? null : candidates.get(); }
+    private StringSetting colors;
+    /** Per-block colors live in a companion text setting ("id=AARRGGBB,..."), so profiles keep them. */
+    public BlockListSetting colors(StringSetting setting) { colors = setting; return this; }
+    public boolean hasColors() { return colors != null; }
+    public java.util.Map<String, Integer> colorMap() {
+        var result = new java.util.HashMap<String, Integer>();
+        if (colors == null) { return result; }
+        for (String entry : colors.getValue().split(",")) {
+            int eq = entry.indexOf('=');
+            if (eq < 1) { continue; }
+            try { result.put(entry.substring(0, eq).strip(), ColorSetting.parseHex(entry.substring(eq + 1))); } catch (RuntimeException ignored) { }
+        }
+        return result;
+    }
+    public void setColor(String id, Integer argb) {
+        if (colors == null) { return; }
+        var map = new java.util.TreeMap<>(colorMap());
+        if (argb == null) { map.remove(id); } else { map.put(id, argb); }
+        var text = new StringBuilder();
+        map.forEach((key, value) -> { if (text.length() > 0) { text.append(','); } text.append(key).append('=').append(ColorSetting.hex(value)); });
+        if (text.length() <= colors.maximum()) { colors.setValue(text.toString()); }
+    }
     public void toggle(String id) {
         var values = new java.util.ArrayList<>(getValue());
         if (!values.remove(id)) { values.add(id); }
