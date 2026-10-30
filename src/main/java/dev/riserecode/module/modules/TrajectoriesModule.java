@@ -77,7 +77,9 @@ public final class TrajectoriesModule extends Module {
     }
     private static boolean supported(ItemStack s){return s.is(Items.BOW)||s.is(Items.CROSSBOW)||s.is(Items.TRIDENT)||s.is(Items.SNOWBALL)||s.is(Items.EGG)||s.is(Items.ENDER_PEARL)||s.is(Items.EXPERIENCE_BOTTLE)||s.is(Items.SPLASH_POTION)||s.is(Items.LINGERING_POTION)||s.is(Items.WIND_CHARGE);}
     public List<Projectile> launch(ItemStack stack){return launch(stack,1);}
-    public List<Projectile> launch(ItemStack stack,float partial){
+    public List<Projectile> launch(ItemStack stack,float partial){return launch(stack,partial,mc.player.getXRot(),mc.player.getYRot());}
+    /** Same launch as the held item would make, but as if the player looked in the given direction. */
+    public List<Projectile> launch(ItemStack stack,float partial,float xRot,float yRot){
         var player=mc.player;EntityType<?> type;float speed=1.5f,pitch=0;boolean crossbow=stack.is(Items.CROSSBOW);
         if(stack.is(Items.BOW)){float charge=player.isUsingItem()?BowItem.getPowerForTime(player.getTicksUsingItem()):1;if(charge<0.1){return List.of();}speed=charge*3;type=EntityTypes.ARROW;}
         else if(crossbow){if(!CrossbowItem.isCharged(stack)){return List.of();}type=EntityTypes.ARROW;speed=3.15f;}
@@ -94,8 +96,8 @@ public final class TrajectoriesModule extends Module {
             Entity created=type==EntityTypes.FIREWORK_ROCKET
                 ?new FireworkRocketEntity(mc.level,stack.get(DataComponents.CHARGED_PROJECTILES).items().getFirst().create(),player,player.getX(),player.getEyeY()-0.1,player.getZ(),true)
                 :type.create(mc.level,EntitySpawnReason.COMMAND);if(!(created instanceof Projectile p)){continue;}p.setOwner(player);var from=player.getPosition(partial);p.setPos(from.x,from.y+player.getEyeHeight()-0.1,from.z);
-            if(crossbow){var up=player.getUpVector(1);var direction=player.getViewVector(1).toVector3f().rotate(new org.joml.Quaternionf().setAngleAxis(Math.toRadians(shots==1?0:(i-1)*10),up.x,up.y,up.z));p.shoot(direction.x,direction.y,direction.z,speed,0);}
-            else{p.shootFromRotation(player,player.getXRot(),player.getYRot(),pitch,speed,0);}
+            if(crossbow){var up=player.getUpVector(1);var direction=net.minecraft.world.phys.Vec3.directionFromRotation(xRot,yRot).toVector3f().rotate(new org.joml.Quaternionf().setAngleAxis(Math.toRadians(shots==1?0:(i-1)*10),up.x,up.y,up.z));p.shoot(direction.x,direction.y,direction.z,speed,0);}
+            else{p.shootFromRotation(player,xRot,yRot,pitch,speed,0);}
             result.add(p);
         }return List.copyOf(result);
     }

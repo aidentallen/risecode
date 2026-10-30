@@ -63,6 +63,7 @@ public final class ModuleManager {
         register(new dev.riserecode.module.modules.AutoToolModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.FastBreakModule(eventBus));
         register(new dev.riserecode.module.modules.hud.MinimapModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.WorldMapModule(eventBus));
         register(new dev.riserecode.module.modules.ZoomModule(eventBus, camera));
         register(new dev.riserecode.module.modules.CrosshairModule(eventBus));
         register(new dev.riserecode.module.modules.ViewModelModule(eventBus));
@@ -80,7 +81,7 @@ public final class ModuleManager {
         register(new FullBrightModule(eventBus, minecraft));
         register(new SprintModule(eventBus, minecraft));
         register(new KillAuraModule(eventBus, minecraft, friends, rotations, attacks));
-        register(new dev.riserecode.module.modules.AutoBowModule(eventBus, minecraft, friends, trajectories));
+        register(new dev.riserecode.module.modules.AutoBowModule(eventBus, minecraft, friends, trajectories, rotations));
         register(new TracersModule(eventBus, minecraft, friends));
         register(new NoFallModule(eventBus, minecraft));
         register(new FpsModule(eventBus, minecraft)); register(new PingModule(eventBus, minecraft));

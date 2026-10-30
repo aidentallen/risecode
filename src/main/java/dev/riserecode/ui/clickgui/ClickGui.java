@@ -50,6 +50,7 @@ public final class ClickGui extends Screen {
     private final ActionButton editHud = new ActionButton("Edit HUD", () -> Client.INSTANCE.openHudEditor());
     private final Runnable saveChanges;
     private final List<ActionButton> actions = new ArrayList<>();
+    private net.minecraft.client.KeyMapping listeningKey;
     private final Animation opening = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.OPENING, 0, 0.26, MathUtil.Easing.OUT_QUART);
     private final Animation canvasZoom = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.NAVIGATION, 1, 0.24, MathUtil.Easing.OUT_QUART);
     private final Animation pageFade = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.NAVIGATION, 1, 0.18, MathUtil.Easing.OUT_QUART);
@@ -338,7 +339,13 @@ public final class ClickGui extends Screen {
             actions.add(new ActionButton("Waypoints", () -> selectPage(Page.WAYPOINTS)));
             actions.add(new ActionButton("Map settings", () -> selectPage(Page.MAP_SETTINGS)));
         } else if (page == Page.WAYPOINTS) {
-            actions.add(new ActionButton("Manage waypoints", () -> minecraft.gui.setScreen(new dev.riserecode.map.WaypointScreen(this, Client.INSTANCE.getMaps()))));
+            actions.add(new ActionButton("Manage waypoints", () -> minecraft.gui.setScreen(new dev.riserecode.map.WaypointManagerScreen(this, Client.INSTANCE.getMaps()))));
+            // waypoint hotkeys are changed right here: click one, then press the new key (Backspace clears, Escape cancels)
+            for (var mapping : dev.riserecode.RiseRecodeClient.waypointKeys()) {
+                String name = net.minecraft.network.chat.Component.translatable(mapping.getName()).getString();
+                actions.add(new ActionButton(() -> listeningKey == mapping ? name + ": press a key..." : name + ": " + (mapping.isUnbound() ? "None" : mapping.getTranslatedKeyMessage().getString()),
+                    () -> listeningKey = listeningKey == mapping ? null : mapping));
+            }
             actions.add(new ActionButton("Open world map", () -> minecraft.gui.setScreen(new dev.riserecode.map.WorldMapScreen(this, Client.INSTANCE.getMaps()))));
         } else if (page == Page.MAP_SETTINGS) {
             var maps = Client.INSTANCE.getMaps();
@@ -519,6 +526,14 @@ public final class ClickGui extends Screen {
     }
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (dev.riserecode.ui.component.setting.KeyControl.capture(event, () -> { })) { return true; }
+        if (listeningKey != null) {
+            if (event.key() != 256) {
+                listeningKey.setKey(event.key() == 259 ? com.mojang.blaze3d.platform.InputConstants.UNKNOWN : com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(event.key()));
+                net.minecraft.client.KeyMapping.resetMapping(); minecraft.options.save();
+            }
+            listeningKey = null; return true;
+        }
         if(settingsPopup.keyPressed(event)){return true;}
         if (page == Page.COSMETICS && cosmeticsEditor.keyPressed(event)) { return true; }
         if (page == Page.RESOURCES && resourcesEditor.keyPressed(event)) { return true; }
@@ -559,7 +574,7 @@ public final class ClickGui extends Screen {
         dev.riserecode.ui.animation.ButtonFeedback.cancelAll();releaseCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); closing = true; field.setFocused(false); opening.animateTo(0); persistPreferences(); saveChanges.run();
     }
     @Override
-    public void removed() { dev.riserecode.ui.animation.ButtonFeedback.cancelAll(); dev.riserecode.ui.component.FocusedInput.commit(); Client.INSTANCE.getKeybindManager().cancelCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); releaseCapture(); persistPreferences(); saveChanges.run(); }
+    public void removed() { listeningKey = null; dev.riserecode.ui.component.setting.KeyControl.cancelCapture(); dev.riserecode.ui.animation.ButtonFeedback.cancelAll(); dev.riserecode.ui.component.FocusedInput.commit(); Client.INSTANCE.getKeybindManager().cancelCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); releaseCapture(); persistPreferences(); saveChanges.run(); }
     @Override
     public boolean isPauseScreen() { return false; }
 }

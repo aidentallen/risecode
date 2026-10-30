@@ -80,6 +80,7 @@ public final class ModuleButton extends UIComponent {
             }
             else if (setting instanceof DoubleSetting number) { component = new Slider(number, changed, module instanceof dev.riserecode.module.modules.CapePhysicsModule cape && number == cape.strength() ? 0.01 : 0); controlHeight = 24; }
             else if (setting instanceof EnumSetting<?> option) { component = enumControl(option, changed); controlHeight = 15; }
+            else if (setting instanceof dev.riserecode.setting.KeySetting key) { component = new dev.riserecode.ui.component.setting.KeyControl(key, changed); controlHeight = dev.riserecode.ui.component.setting.KeyControl.HEIGHT; }
             else if (setting instanceof dev.riserecode.setting.BlockListSetting blocks) { component = new dev.riserecode.ui.component.setting.BlockListControl(blocks, changed); controlHeight = 20; }
             else if (setting instanceof ColorSetting color) { component = new ColorPicker(color, changed, true); controlHeight = 22; }
             else { throw new IllegalArgumentException("No UI adapter for " + setting.getClass().getName()); }

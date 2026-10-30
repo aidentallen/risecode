@@ -13,6 +13,8 @@ package dev.riserecode.map;
 public final class MapLodPolicy {
     public static final int LEAF_WORLD_SIZE = 64;
     public static final int MAX_BRANCH_LEVEL = 7;
+    /** Most tiles one frame may ask for; the map caches must stay above this or tiles get evicted while on screen. */
+    public static final int VIEWPORT_BUDGET = 900;
 
     private MapLodPolicy() {
     }
@@ -69,7 +71,7 @@ public final class MapLodPolicy {
             double tilePixels = (16 << level) * Math.max(0.0001, logicalPixelsPerBlock);
             long columns = (long) Math.ceil(width / tilePixels) + 2;
             long rows = (long) Math.ceil(height / tilePixels) + 2;
-            if (columns * rows <= 384) { break; }
+            if (columns * rows <= VIEWPORT_BUDGET) { break; }
             level += 2;
         }
         return level;

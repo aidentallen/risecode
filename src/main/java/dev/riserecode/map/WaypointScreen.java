@@ -40,7 +40,7 @@ public final class WaypointScreen extends Screen {
             rows.add(new ActionButton("Delete",()->maps.waypoints().remove(p.id())).enabled(()->page<0));
         }revision=maps.waypoints().revision();
     }
-    @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta){dev.riserecode.ui.menu.MenuBackdrop.draw(g);}
+    @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta){g.fill(0,0,width,height,0xB30F1115);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
         if(revision!=maps.waypoints().revision()){rebuild();}long now=System.nanoTime();double dt=last==0?.016:Math.min(.1,(now-last)*1e-9);last=now;
         maximum=Math.max(0,rows.size()/4*54-(height-78));if(scroll.getValue()>maximum){scroll.reset(maximum);}scroll.animateTo(Math.clamp(scroll.getTarget(),0,maximum));double offset=scroll.update(dt);

@@ -15,7 +15,7 @@ public final class UtilitiesChecks {
             int page=MapPageLayout.globalPageFromBlock(block);check(page*64<=block&&block<page*64+64,"Negative page coordinates");check(MapPageLayout.localPage(page)>=0&&MapPageLayout.localPage(page)<8,"Local page bounds");
         }
         check(MapLodPolicy.branchLevel(1)==0&&MapLodPolicy.branchLevel(0.25f)==2,"Physical density selection");check(MapLodPolicy.stabilizeBranchLevel(2,1,0.249f)==1,"Density hysteresis");
-        for(float zoom:new float[]{0.03125f,0.125f,0.25f,1,8}){int lod=MapLodPolicy.viewportLevel(zoom,1920,1080);double span=(16<<lod)*zoom;check((Math.ceil(1920/span)+2)*(Math.ceil(1080/span)+2)<=384,"Wide map viewport stays within residency budget");}
+        for(float zoom:new float[]{0.03125f,0.125f,0.25f,1,8}){int lod=MapLodPolicy.viewportLevel(zoom,1920,1080);double span=(16<<lod)*zoom;check((Math.ceil(1920/span)+2)*(Math.ceil(1080/span)+2)<=MapLodPolicy.VIEWPORT_BUDGET,"Wide map viewport stays within residency budget");}
         var store=new WaypointStore();var p=store.add("Home",-401,72,-1,"minecraft:overworld");store.put(p.tracked(true));check(store.all().getFirst().tracked(),"Waypoint tracking");
         store.death(-12,64,-4,"minecraft:overworld");store.death(-30,64,-9,"minecraft:overworld");store.death(1,70,1,"minecraft:the_nether");check(store.all().stream().filter(WaypointStore.Waypoint::death).count()==3,"All deaths retained");
         store.reached(-30,64,-9,"minecraft:the_nether");check(store.all().size()==4,"Death dimension isolation");store.reached(-30,64,-9,"minecraft:overworld");check(store.all().size()==4&&store.all().stream().filter(WaypointStore.Waypoint::reached).count()==1,"Reached death marked without deletion");

@@ -137,7 +137,7 @@ public final class HudRenderer implements AutoCloseable {
     }
     private static boolean container(Module module) { return module instanceof dev.riserecode.module.modules.hud.WatermarkModule || module instanceof dev.riserecode.module.modules.hud.ArrayListModule; }
     private boolean listed(Module module) {
-        return container(module) ? array != null && array.containers.getValue() : !(module instanceof HudModule) || array != null && array.hud.getValue();
+        return container(module) ? array != null && array.containers.getValue() : !(module instanceof HudModule || module instanceof dev.riserecode.module.modules.WorldMapModule) || array != null && array.hud.getValue();
     }
     private void update() {
         dev.riserecode.ui.theme.ModuleAppearance.with(dev.riserecode.ui.theme.ModuleAppearance.id(array),this::updateScoped);
