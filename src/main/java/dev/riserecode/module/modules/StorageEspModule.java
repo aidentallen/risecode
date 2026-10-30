@@ -35,7 +35,7 @@ public final class StorageEspModule extends Module {
     private final BooleanSetting tracers = register(new BooleanSetting("Tracers", "Lines from the crosshair to each container", false));
     private final DoubleSetting tracerWidth = register(DoubleSetting.extended("TracerWidth", "Tracer line pixels", 1.5, 0.5, 4));
     private final StringSetting typeColors = register(new StringSetting("TypeColors", "Per-container colors, set by right-clicking in the picker", "", 4096));
-    private final BlockListSetting types = register(new BlockListSetting("Containers", "Only these container types (none selected = all)", java.util.List.of()).colors(typeColors).candidates(StorageEspModule::containerIds));
+    private final BlockListSetting types = register(new BlockListSetting("Containers", "Only these container types are shown (none selected = nothing)", java.util.List.of()).colors(typeColors).candidates(StorageEspModule::containerIds));
     private final Minecraft mc;
     /** Work blocks that are not containers; found through the shared block index instead of the container list. */
     private static final List<String> WORKSTATIONS = List.of("minecraft:crafting_table", "minecraft:smithing_table", "minecraft:fletching_table",
@@ -106,7 +106,7 @@ public final class StorageEspModule extends Module {
             var block = mc.level.getBlockState(pos); var shape = block.getShape(mc.level, pos);
             if (shape.isEmpty()) { continue; }
             String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block.getBlock()).toString();
-            if (!only.isEmpty() && !only.contains(id)) { continue; }
+            if (!only.contains(id)) { continue; }
             Integer custom = overrides.get(id); if (custom == null && autoColors.getValue()) { custom = typeColor(id); }
             int argb = custom != null ? custom : color.getValue();
             var bounds = shape.bounds().move(pos);

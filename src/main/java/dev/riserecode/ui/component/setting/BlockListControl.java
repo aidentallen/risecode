@@ -14,7 +14,7 @@ public final class BlockListControl extends UIComponent {
     public BlockListControl(BlockListSetting setting, Runnable changed) { this.setting = setting; this.changed = changed; }
     @Override public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY, double seconds, double opacity) {
         double amount = updateHover(mouseX, mouseY, seconds);
-        RenderUtil.text(graphics, font, "Blocks: " + setting.getValue().size() + " selected  ›", x + amount, y + 4, 0.88, Theme.opacity(Theme.TEXT, opacity));
+        RenderUtil.text(graphics, font, setting.getName() + ": " + setting.getValue().size() + " selected  ›", x + amount, y + 4, 0.88, Theme.opacity(Theme.TEXT, opacity));
     }
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || !contains(mouseX, mouseY)) { return false; }

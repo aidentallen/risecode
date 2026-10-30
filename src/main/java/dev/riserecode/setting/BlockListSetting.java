@@ -23,6 +23,11 @@ public final class BlockListSetting extends Setting<List<String>> {
         }
         return normalize(values);
     }
+    public enum Kind { BLOCK, ENTITY }
+    private Kind kind = Kind.BLOCK;
+    /** Lets the same picker choose entity types instead of blocks. */
+    public BlockListSetting kind(Kind value) { kind = value; return this; }
+    public Kind kind() { return kind; }
     private java.util.function.Supplier<List<String>> candidates;
     /** Restricts what the picker offers (e.g. only storage blocks); already selected ids always stay visible. */
     public BlockListSetting candidates(java.util.function.Supplier<List<String>> supplier) { candidates = supplier; return this; }

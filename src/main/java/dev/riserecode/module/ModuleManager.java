@@ -55,7 +55,7 @@ public final class ModuleManager {
     }
 
     public void initDefaults(Minecraft minecraft, FriendManager friends, RotationManager rotations, AttackManager attacks, dev.riserecode.util.CameraEffectsManager camera, dev.riserecode.render.LoadedBlockIndex blocks) {
-        register(new dev.riserecode.module.modules.TrajectoriesModule(eventBus, minecraft));
+        var trajectories = register(new dev.riserecode.module.modules.TrajectoriesModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.BetterChatModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.BetterTabModule(eventBus));
         register(new dev.riserecode.module.modules.NametagsModule(eventBus, minecraft));
@@ -80,6 +80,7 @@ public final class ModuleManager {
         register(new FullBrightModule(eventBus, minecraft));
         register(new SprintModule(eventBus, minecraft));
         register(new KillAuraModule(eventBus, minecraft, friends, rotations, attacks));
+        register(new dev.riserecode.module.modules.AutoBowModule(eventBus, minecraft, friends, trajectories));
         register(new TracersModule(eventBus, minecraft, friends));
         register(new NoFallModule(eventBus, minecraft));
         register(new FpsModule(eventBus, minecraft)); register(new PingModule(eventBus, minecraft));
