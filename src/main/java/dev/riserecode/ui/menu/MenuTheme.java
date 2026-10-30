@@ -100,6 +100,8 @@ public final class MenuTheme {
     }
     public static boolean enabled() { return enabled(Minecraft.getInstance().gui.screen()); }
     public static boolean photo(Screen screen) {
+        // Inventories and other containers open over the running world; the menu photo would hide it.
+        if(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>){return false;}
         if(dev.riserecode.ui.panorama.LivingPanorama.active()&&dev.riserecode.ui.panorama.LivingPanorama.renderer().texture()!=null&&(Theme.manager().choice("Background",dev.riserecode.ui.theme.ThemeManager.Background.class)!=dev.riserecode.ui.theme.ThemeManager.Background.NONE||dev.riserecode.ui.panorama.LivingPanorama.settled()))return true;
         if(!Client.INSTANCE.isInitialized()||!Client.INSTANCE.resourcesReady()||family(screen)==null||Theme.manager().choice("Background",dev.riserecode.ui.theme.ThemeManager.Background.class)==dev.riserecode.ui.theme.ThemeManager.Background.NONE){return false;}String family=family(screen);var page=Theme.manager().pages().get(pageId(screen));
         boolean inherited=Theme.bool(family+" Background",true);return page==null?inherited:page.backgroundEnabled(inherited||!page.inherit.getValue());

@@ -91,6 +91,7 @@ public final class HudRenderer implements AutoCloseable {
         double top = 0.055;
         for (Module module : modules.getModules()) {
             if (module instanceof dev.riserecode.module.modules.hud.MinimapModule mini) { register(new HudElement("Minimap", "Minimap", mini, 0.76, 0.62)); continue; }
+            if (module instanceof dev.riserecode.module.modules.hud.ArmorHudModule armor) { register(new HudElement(module.getName(), Theme.displayName(module.getName()), armor, 0.91, 0.36)); continue; }
             if (module instanceof HudModule hud && !container(module)) { register(new HudElement(module.getName(), Theme.displayName(module.getName()), hud, 0.008, top)); top += 0.048; }
         }
         subscription = bus.subscribe(Render2DEvent.class, this::render);
@@ -102,6 +103,17 @@ public final class HudRenderer implements AutoCloseable {
     public List<Box> getBoxes() { return boxes; }
     public BooleanSetting getSnap() { return snap; }
     public DoubleSetting getGridSize() { return gridSize; }
+    /** The topmost HUD element under the pointer, or null. Boxes are in GUI pixels of the last drawn frame. */
+    public Box boxAt(double x, double y) {
+        for (int i = boxes.size() - 1; i >= 0; i--) { if (boxes.get(i).contains(x, y)) { return boxes.get(i); } }
+        return null;
+    }
+    /** Moves the element so its top-left corner is at (x, y): snapped to the grid like the editor and kept on screen. */
+    public void dragTo(Box box, double x, double y, double screenWidth, double screenHeight) {
+        if (snap.getValue()) { double grid = gridSize.getValue() * screenHeight / 576.0; x = Math.rint(x / grid) * grid; y = Math.rint(y / grid) * grid; }
+        x = Math.clamp(x, 0, Math.max(0, screenWidth - box.width())); y = Math.clamp(y, 0, Math.max(0, screenHeight - box.height()));
+        box.element().layout().position(x / screenWidth, y / screenHeight);
+    }
     public boolean isEnabled() { return themes == null ? enabled : themes.bool("HUD Visible"); }
     public void setEnabled(boolean value) { enabled = value; if (themes != null) { ((BooleanSetting) themes.getSetting("HUD Visible")).setValue(value); themes.changed(); } }
     public List<EntryState> getEntries() { return entries.values().stream().map(e -> new EntryState(e.module, e.slide.getValue(), e.y.getValue())).toList(); }
@@ -250,6 +262,7 @@ public final class HudRenderer implements AutoCloseable {
         }
     }
     private void background(GuiGraphicsExtractor g, HudElement element, double x, double y, double w, double h, double opacity) {
+        if (element.module() instanceof dev.riserecode.module.modules.hud.ArmorHudModule armor && !armor.showBackground()) { return; }
         HudLayout.Background kind = element.layout().background.getValue();
         if (kind == HudLayout.Background.INHERIT) { kind = switch (themes == null ? ThemeManager.HudBackground.SOLID_BOX : themes.choice("HUD Background", ThemeManager.HudBackground.class)) {
             case NONE -> HudLayout.Background.NONE; case SOLID_BOX -> HudLayout.Background.SOLID; case BLUR_BOX -> HudLayout.Background.BLUR; }; }

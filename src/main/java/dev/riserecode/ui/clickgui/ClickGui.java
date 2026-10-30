@@ -81,6 +81,10 @@ public final class ClickGui extends Screen {
     private boolean closing;
     private boolean dragging;
     private double dragX;
+    private final HudRenderer hud;
+    /** HUD element being moved straight from the menu, with the pointer offset inside it. */
+    private HudRenderer.Box hudDrag;
+    private double hudDragX, hudDragY;
     private double dragY;
     private double offsetX;
     private double offsetY;
@@ -97,6 +101,7 @@ public final class ClickGui extends Screen {
 
     public ClickGui(ModuleManager modules, HudRenderer hud, Runnable saveChanges) {
         super(Component.literal(Client.NAME));
+        this.hud = hud;
         this.saveChanges = saveChanges;
         themes = Client.INSTANCE.getThemeManager();
         opening.timing(()->dev.riserecode.ui.animation.PopIn.windowDuration("Client"));
@@ -275,6 +280,7 @@ public final class ClickGui extends Screen {
         windowX = positionX.update(seconds); windowY = positionY.update(seconds); layout();
         double pointerX = pointerX(mouseX); double pointerY = pointerY(mouseY);
         double scale = windowScale();
+        drawHudHandles(graphics, mouseX, mouseY, alpha);
         graphics.pose().pushMatrix();
         graphics.pose().scale((float) canvasScale, (float) canvasScale);
         graphics.pose().translate((float) (windowX + windowWidth / 2), (float) (windowY + windowHeight / 2));
@@ -407,6 +413,10 @@ public final class ClickGui extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (closing || opening.getValue() < 0.5) { return true; }
+        if (event.button() == 0 && !overWindow(event.x(), event.y())) {
+            HudRenderer.Box box = hud.boxAt(event.x(), event.y());
+            if (box != null) { hudDrag = box; hudDragX = event.x() - box.x(); hudDragY = event.y() - box.y(); return true; }
+        }
         double x = pointerX(event.x()); double y = pointerY(event.y());
         if(settingsPopup.mouseClicked(x,y,event.button())){return true;}
         if(pageGear.mouseClicked(x,y,event.button())){return true;}
@@ -436,6 +446,10 @@ public final class ClickGui extends Screen {
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
         if (closing) { return true; }
+        if (hudDrag != null && event.button() == 0) {
+            hud.dragTo(hudDrag, event.x() - hudDragX, event.y() - hudDragY, width, height);
+            return true;
+        }
         if (resizing && event.button()==0) {
             ((dev.riserecode.setting.DoubleSetting)themes.getSetting("Window Width")).setValue(Math.clamp(resizeWidth+(event.x()/canvasScale-resizeStartX)*2,360,900));
             ((dev.riserecode.setting.DoubleSetting)themes.getSetting("Window Height")).setValue(Math.clamp(resizeHeight+(event.y()/canvasScale-resizeStartY)*2,240,700)); themes.changed();return true;
@@ -448,6 +462,7 @@ public final class ClickGui extends Screen {
     }
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
+        if (hudDrag != null) { hudDrag = null; saveChanges.run(); return true; }
         settingsPopup.mouseReleased(pointerX(event.x()),pointerY(event.y()),event.button());
         if(event.button()==0||event.button()==1){dev.riserecode.ui.animation.ButtonFeedback.releaseAll();sidebar.mouseReleased(pointerX(event.x()),pointerY(event.y()),0);}
         boolean result = resizing || dragging || captured != null; resizing=false;
@@ -455,7 +470,30 @@ public final class ClickGui extends Screen {
         if (dragging) { persistPreferences(); }
         dragging = false; captured = null; return result;
     }
-    private void releaseCapture() { resizing=false; dragging = false; if (captured != null) { captured.mouseReleased(0, 0, 0); captured = null; } }
+    /** True when the pointer (GUI pixels) is over the menu window, which takes the click instead of HUD elements. */
+    private boolean overWindow(double mouseX, double mouseY) {
+        var b = getDisplayedWindowBounds(); double x = mouseX / canvasScale, y = mouseY / canvasScale;
+        return x >= b.x() && x <= b.x() + b.width() && y >= b.y() && y <= b.y() + b.height();
+    }
+    /** Outlines every HUD element while the menu is open so it is clear they can be dragged; grid while moving. */
+    private void drawHudHandles(GuiGraphicsExtractor graphics, int mouseX, int mouseY, double alpha) {
+        if (hudDrag != null && hud.getSnap().getValue()) {
+            double step = hud.getGridSize().getValue() * height / 576.0;
+            for (double x = 0; x < width; x += step) { RenderUtil.line(graphics, x, 0, x, height, 0.4, Theme.opacity(0x10FFFFFF, alpha)); }
+            for (double y = 0; y < height; y += step) { RenderUtil.line(graphics, 0, y, width, y, 0.4, Theme.opacity(0x10FFFFFF, alpha)); }
+        }
+        HudRenderer.Box hovered = hudDrag != null ? null : overWindow(mouseX, mouseY) ? null : hud.boxAt(mouseX, mouseY);
+        for (HudRenderer.Box box : hud.getBoxes()) {
+            boolean active = hudDrag != null && hudDrag.element() == box.element() || hovered != null && hovered.element() == box.element();
+            int color = active ? Theme.accent() : Theme.opacity(Theme.SECONDARY, 0.45);
+            RenderUtil.drawRoundedBorder(graphics, box.x() - 2, box.y() - 2, box.width() + 4, box.height() + 4, 2, Theme.opacity(color, alpha), 0.8);
+            if (active) {
+                double labelY = box.y() >= 12 ? box.y() - 10 : box.y() + box.height() + 3;
+                RenderUtil.text(graphics, font, box.element().label(), box.x(), Math.min(height - 9, labelY), 0.8, Theme.opacity(color, alpha));
+            }
+        }
+    }
+    private void releaseCapture() { hudDrag = null; resizing=false; dragging = false; if (captured != null) { captured.mouseReleased(0, 0, 0); captured = null; } }
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (closing) { return true; }

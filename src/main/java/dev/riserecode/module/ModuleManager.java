@@ -85,6 +85,7 @@ public final class ModuleManager {
         register(new FpsModule(eventBus, minecraft)); register(new PingModule(eventBus, minecraft));
         register(new CoordinatesModule(eventBus, minecraft)); register(new PotionEffectsModule(eventBus, minecraft));
         register(new MemoryUsageModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.hud.ArmorHudModule(eventBus, minecraft));
         register(new FreeLookModule(eventBus, minecraft)); register(new FreeCamModule(eventBus, minecraft));
         register(new EnchantEffectModule(eventBus)); register(new dev.riserecode.module.modules.GlassModule(eventBus)); register(new ItemPhysicsModule(eventBus));
         register(new WeatherChangerModule(eventBus));
