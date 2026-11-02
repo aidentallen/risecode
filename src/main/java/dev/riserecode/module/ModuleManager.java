@@ -66,6 +66,7 @@ public final class ModuleManager {
         register(new dev.riserecode.module.modules.ZoomModule(eventBus, camera));
         register(new dev.riserecode.module.modules.CrosshairModule(eventBus));
         register(new dev.riserecode.module.modules.ViewModelModule(eventBus));
+        register(new dev.riserecode.module.modules.BaseFinderModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.StorageEspModule(eventBus, minecraft, blocks));
         register(new dev.riserecode.module.modules.PlayerEspModule(eventBus, minecraft, friends));
         register(new dev.riserecode.module.modules.BlockEspModule(eventBus, minecraft, blocks));

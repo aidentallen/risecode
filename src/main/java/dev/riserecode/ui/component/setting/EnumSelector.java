@@ -31,6 +31,8 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
                 case OUT_BOUNCE -> "Bounce";
             };
         }
+        if(displayed instanceof dev.riserecode.scanner.ChunkHeuristics.Mode mode){return switch(mode){case CLASSIC->"Classic";case ANBS_PLUS->"ANBS+";case ACTIVITY_CLUES->"Activity Clues";};}
+        if(displayed instanceof dev.riserecode.scanner.ChunkHeuristics.Method method){return switch(method){case BYPASS->"Bypass";case LIGHT->"Light";case ANBS_PLUS_SCAN->"ANBS+ Scan";};}
         return Theme.displayName(displayed.name());
     }
     @Override

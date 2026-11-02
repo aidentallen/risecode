@@ -142,7 +142,9 @@
     "GlassCustomHeadLayerMixin",
     "SeedWorldMixin",
     "SeedBiomeAccessor",
-    "SeedLevelDataAccessor"
+    "SeedLevelDataAccessor",
+    "ScannerPacketMixin",
+    "ScannerSectionAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

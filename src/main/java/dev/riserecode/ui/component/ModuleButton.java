@@ -105,7 +105,8 @@ public final class ModuleButton extends UIComponent {
         if(!expanded&&!bodyHeight.isRunning()&&bodyHeight.getValue()==0){return;}
         double result = (glassEditor==null?4:44) + appearance.preferredHeight(width-14) + SettingsSection.HEADER+bindings.bodyHeight(KeybindControl.HEIGHT) + (baritone == null ? 0 : 58) + (seedcracker == null ? 0 : SeedCrackerControls.HEIGHT)
                 + (module instanceof dev.riserecode.module.modules.ChunkAnimationsModule ? 13 : 0);
-        for (SettingControl control : controls) { if (control.setting().isVisible()) { result += controlHeight(control); } }
+        String previousGroup="";
+        for (SettingControl control : controls) { if (control.setting().isVisible()) { String group=module.settingGroup(control.setting()); if(!group.isEmpty()&&!group.equals(previousGroup)){result+=16;} previousGroup=group; result += controlHeight(control); } }
         bodyHeight.animateTo(expanded ? result : 0); bodyHeight.update(deltaSeconds);
         // Visibility changes release a captured slider before it can edit a hidden setting.
         if (captured != null && controls.stream().anyMatch(c -> c.component() == captured && !c.setting().isVisible())) {
@@ -166,8 +167,12 @@ public final class ModuleButton extends UIComponent {
             double top = 0;
             if (seedcracker != null) { seedcracker.setBounds(x+7,y+HEADER_HEIGHT,width-14,SeedCrackerControls.HEIGHT); seedcracker.render(graphics,font,mouseX,mouseY,seconds,opacity*expansion.getValue()); top+=SeedCrackerControls.HEIGHT; }
             if(glassEditor!=null){glassEditor.setBounds(x+7,y+HEADER_HEIGHT,width-14,26);glassEditor.render(graphics,font,mouseX,mouseY,seconds,opacity*expansion.getValue());RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,((dev.riserecode.module.modules.GlassModule)module).status(),(width-14)/.6),x+7,y+HEADER_HEIGHT+29,.6,Theme.opacity(Theme.SECONDARY,opacity*expansion.getValue()));top+=40;}
+            String previousGroup="";
             for (SettingControl control : controls) {
                 if (!control.setting().isVisible()) { continue; }
+                String group=module.settingGroup(control.setting());
+                if(!group.isEmpty()&&!group.equals(previousGroup)){RenderUtil.text(graphics,font,group,x+7,y+HEADER_HEIGHT+top+4,.65,Theme.opacity(Theme.SECONDARY,opacity*expansion.getValue()));top+=16;}
+                previousGroup=group;
                 Animation position = positions.get(control.component()); position.animateTo(top);
                 control.component().setBounds(x + 7, y + HEADER_HEIGHT + position.update(seconds), width - 14, controlHeight(control));
                 control.component().render(graphics, font, mouseX, mouseY, seconds, opacity * expansion.getValue());

@@ -1,5 +1,13 @@
 # risecode
 
+### 0.29.0 Base Finder
+
+Loaded chunk scanning combines Classic, ANBS+ and weighted Activity Clues with
+amethyst/light clues, block and chunk outlines, tracers, and frosted discovery
+cards. Processing uses a bounded background worker and unload-safe tickets.
+Enable **BaseFinder** under Render; **P** pins and **Delete** clears cards.
+See the [Base Finder guide](docs/base-finder.md) for controls and detection limits.
+
 ### 0.28.0 SeedCracker
 
 Built-in SeedCrackerX engine for native Minecraft 26.2. Enable **World → SeedCracker**
@@ -273,7 +281,7 @@ python3 scripts/fetch-dependencies.py
 The dependency script verifies pinned SHA-256 hashes and extracts Iris's
 nested glsl-transformer library. Optional dependency JARs are compile-only;
 they are not bundled in risecode. The build produces the installable JAR
-at `build/libs/riserecode-0.28.0.jar` and a separate sources JAR.
+at `build/libs/riserecode-0.29.0.jar` and a separate sources JAR.
 
 ```bash
 ./gradlew runClient

@@ -113,6 +113,9 @@ public abstract class Module {
     public boolean bindingActivatesEffect() { return false; }
     public void activateBinding(boolean active) { }
 
+    /** Optional logical headings for module controls. */
+    public String settingGroup(Setting<?> setting) { return ""; }
+
     public final List<Setting<?>> getSettings() {
         return settingsView;
     }

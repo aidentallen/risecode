@@ -1,0 +1,80 @@
+{
+  "version": "0.29.0",
+  "minecraft": "26.2",
+  "java": 25,
+  "modId": "riserecode",
+  "verificationDate": "2026-11-02",
+  "dependencyChecksumsVerified": true,
+  "checkBuild": "passed",
+  "deterministicScannerAssertions": 33,
+  "nativeAssertions": 24,
+  "rendererRuns": [
+    {
+      "renderer": "OpenGL",
+      "stack": "vanilla",
+      "nativeAssertions": 15,
+      "stage": "initial implementation"
+    },
+    {
+      "renderer": "Vulkan",
+      "stack": "vanilla",
+      "nativeAssertions": 18,
+      "stage": "expanded input tests"
+    },
+    {
+      "renderer": "OpenGL",
+      "stack": "Sodium/Iris",
+      "nativeAssertions": 24,
+      "stage": "production packaged JAR"
+    },
+    {
+      "renderer": "Vulkan",
+      "stack": "Sodium",
+      "nativeAssertions": 24,
+      "stage": "final source"
+    }
+  ],
+  "boundedLimits": {
+    "queuedJobs": 16,
+    "decodedChunks": 32,
+    "trackedChunks": 256,
+    "discoveries": 256,
+    "targetsPerDiscovery": 128,
+    "renderedChunks": 32,
+    "renderedBlocks": 256
+  },
+  "installation": {
+    "version": "0.29.0",
+    "sha256": "1c03c97d29f02e2a6061f6a113631ede76845d77b18ac04281fb3e44ab983584",
+    "matchingMods": 1,
+    "previousVersion": "0.28.0",
+    "backupVerified": true,
+    "unrelatedJarsPreserved": 50,
+    "restartRequired": true
+  },
+  "artifacts": [
+    {
+      "name": "riserecode-0.29.0.jar",
+      "bytes": 9872151,
+      "sha256": "1c03c97d29f02e2a6061f6a113631ede76845d77b18ac04281fb3e44ab983584"
+    },
+    {
+      "name": "riserecode-0.29.0-sources.jar",
+      "bytes": 5120706,
+      "sha256": "4a5ce2dad414e301f6f79eb6db3bb64ca1840010bae428bf923abab805e5cc2a"
+    }
+  ],
+  "unverified": [
+    "remote Paper/Purpur Engine 1/2 detection effectiveness",
+    "pixel-accurate depth and antialias quality",
+    "arbitrary shader packs",
+    "long-session soak",
+    "FPS improvement"
+  ],
+  "limitations": [
+    "heuristics operate only on received server data",
+    "geode connectivity and neighbor tests are bounded to each chunk",
+    "light-five maxima and geodes do not establish player activity"
+  ],
+  "scannerSource": "original implementation; no external scanner code imported"
+}

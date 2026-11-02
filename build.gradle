@@ -293,3 +293,8 @@ tasks.register('seedCrackerCheck',JavaExec){dependsOn testClasses;classpath=sour
 tasks.named('check'){dependsOn 'seedCrackerCheck'}
 
 tasks.named('sourcesJar') { from('licenses') { into 'licenses' }; from('THIRD_PARTY_NOTICES.md'); from('credits.txt'); from('LICENSE') }
+
+// Packet-derived scanner heuristics run without a live world.
+tasks.register('baseFinderCheck',JavaExec){dependsOn testClasses;classpath=sourceSets.test.runtimeClasspath;mainClass='dev.riserecode.BaseFinderChecks'}
+tasks.named('check'){dependsOn 'baseFinderCheck'}
+if (providers.gradleProperty('baseFinderOnly').isPresent()) { loom.runs.clientGameTest.vmArg '-Driserecode.baseFinderOnly=true' }

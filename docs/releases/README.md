@@ -2,13 +2,14 @@
 
 [Project home](../../README.md) · [Complete changelog](../../CHANGELOG.md) · [User guide](../usage.md)
 
-**43 documented versions · 0.1.0 → 0.28.0 · Minecraft 26.2 / Java 25**
+**44 documented versions · 0.1.0 → 0.29.0 · Minecraft 26.2 / Java 25**
 
 Browse the changes and verification notes for each version. The latest source
-version is **0.28.0 — SeedCracker**.
+version is **0.29.0 — Base Finder**.
 
 | Version | Highlights |
 | :--- | :--- |
+| [0.29.0](v0.29.0.md) | Base Finder and suspicious chunk scanning |
 | [0.28.0](v0.28.0.md) | SeedCracker |
 | [0.27.0](v0.27.0.md) | Glass |
 | [0.26.0](v0.26.0.md) | Living Panorama |

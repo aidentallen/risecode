@@ -8,6 +8,19 @@ Historical entries were recovered from retained source/JAR artifacts and develop
 documentation. Their notes identify provenance and missing history; original dates
 and development commits are not invented.
 
+## [0.29.0](docs/releases/v0.29.0.md) — Base Finder
+
+- Add opt-in BaseFinder with Classic, ANBS+, and weighted Activity Clues.
+- Decode chunk palettes, block deltas and sparse light updates on a bounded worker;
+  cap queues, decoded states and discoveries, and reject stale unload/session work.
+- Add geode flood fill, minimum-cell noise filtering, exposed amethyst/light clues,
+  mature growth and local vanilla structure combination suppression.
+- Integrate category-colored block/chunk outlines, surface grids, corners, translucent
+  fills and centroid tracers with the native rendering path.
+- Add grouped settings and animated frosted discovery cards with live distance,
+  clue counts, three tints, timeout, pin and clear controls.
+- Document heuristic limits and add deterministic and native client regression tests.
+
 ## [0.28.0](docs/releases/v0.28.0.md) — SeedCracker
 
 - Integrate SeedCrackerX 2.16.1 under the Risecode namespace with checksum-pinned SeedFinding and LattiCG libraries and retained MIT notices.
