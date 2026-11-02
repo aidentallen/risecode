@@ -1,5 +1,13 @@
 # risecode
 
+### 0.30.0-beta.3 Tactile click sounds
+
+Eight original click sounds add low keyboard thocks, creamy taps, marble and ceramic
+impacts, bubbles, rubber pops, crisp snaps, and a light chime. Open **Client settings →
+Sounds → Click Sound** and use **Preview Sound** to compare them. Existing sound
+selections, volume, pitch, and mute controls are preserved.
+[Release notes](docs/releases/v0.30.0-beta.3.md)
+
 ### 0.30.0-beta.2 KillAura rewrite
 
 KillAura now has weapon families, shield handling, click/look conditions, bounded

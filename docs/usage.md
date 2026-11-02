@@ -38,7 +38,12 @@ store visual preferences independently of module profiles.
 
 The bottom-left settings popup contains profile/friend controls and client
 settings such as sounds, command suggestions, Discord Activity, the menu key,
-and GUI scale. Discord Activity is opt-in and uses your public application ID.
+and GUI scale. In **Sounds**, choose **Click Sound**, then use **Preview Sound**.
+Thock and Creamy give short keyboard feedback; Marble and Ceramic add resonant
+impacts; Bubble and Rubber add rounded pops; Snap is crisp; Chime rings softly.
+Click Volume and Click Pitch adjust every choice, and the master Sounds toggle
+mutes interface feedback. Existing choices and local OGG imports remain available.
+Discord Activity is opt-in and uses your public application ID.
 
 Fonts, local overrides, and their licenses are described in
 [font sources](../FONT_SOURCES.md).
