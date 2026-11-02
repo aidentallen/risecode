@@ -190,6 +190,7 @@ loom.runs.clientGameTest {
     vmArg '-Xmx1536m'
     vmArg '-XX:ActiveProcessorCount=4'
     programArgs '--graphicsBackend', providers.gradleProperty('graphicsBackend').getOrElse('OPENGL')
+    if(providers.gradleProperty('combatOnly').isPresent()) { vmArg '-Driserecode.combatOnly=true' }
     if(providers.gradleProperty('remediationOnly').isPresent()) { vmArg '-Driserecode.remediationOnly=true';vmArg '-Driserecode.remediationEvidence='+file(providers.gradleProperty('remediationEvidence').getOrElse('upgrade-evidence/remediation')).absolutePath }
     for (key in ['lifetimeCycles','soakSeconds','performanceValidationOnly']) { if(providers.gradleProperty(key).isPresent()) { vmArg '-Driserecode.'+key+'='+providers.gradleProperty(key).get() } }
     if(providers.gradleProperty('remediationBaseline').isPresent()) { vmArg '-Driserecode.remediationBaseline=true' }

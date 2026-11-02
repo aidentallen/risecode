@@ -1,5 +1,12 @@
 # risecode
 
+### 0.30.0-beta.2 KillAura rewrite
+
+KillAura now has weapon families, shield handling, click/look conditions, bounded
+multi-target attacks, hitbox and wall ranges, mob filters, and cooldown/custom tick
+timing. This review build includes the Liquid Glass UI from beta.1. See the
+[KillAura guide](docs/killaura.md) and [verification](docs/releases/v0.30.0-beta.2.md).
+
 ### 0.30.0-beta.1 Liquid Glass interface — pull request review build
 
 The shared interface material adds curved glass edges, adaptive frost and directional
@@ -290,7 +297,7 @@ python3 scripts/fetch-dependencies.py
 The dependency script verifies pinned SHA-256 hashes and extracts Iris's
 nested glsl-transformer library. Optional dependency JARs are compile-only;
 they are not bundled in risecode. The build produces the installable JAR
-at `build/libs/riserecode-0.30.0-beta.1.jar` and a separate sources JAR.
+at `build/libs/riserecode-0.30.0-beta.2.jar` and a separate sources JAR.
 
 ```bash
 ./gradlew runClient
