@@ -212,6 +212,8 @@ loom.runs.clientGameTest {
     if (providers.gradleProperty('seedCrackerOnly').isPresent()) { vmArg '-Driserecode.seedCrackerOnly=true' }
     if (providers.gradleProperty('seedCrackerRecovery').isPresent()) { vmArg '-Driserecode.seedCrackerRecovery=true' }
     if (providers.gradleProperty('glassOnly').isPresent()) { vmArg '-Driserecode.glassOnly=true' }
+    if (providers.gradleProperty('flyOnly').isPresent()) { vmArg '-Driserecode.flyOnly=true' }
+    if (providers.gradleProperty('hotbarOnly').isPresent()) { vmArg '-Driserecode.hotbarOnly=true' }
     if (providers.gradleProperty('panoramaOnly').isPresent()) { vmArg '-Driserecode.panoramaOnly=true' }
     if (providers.gradleProperty('release025Only').isPresent()) { vmArg '-Driserecode.release025Only=true' }
     if (providers.gradleProperty('release023Only').isPresent()) { vmArg '-Driserecode.release023Only=true' }

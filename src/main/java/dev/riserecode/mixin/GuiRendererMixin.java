@@ -18,4 +18,9 @@ public abstract class GuiRendererMixin {
         dev.riserecode.render.SilhouetteOutlineRenderer.composite(Minecraft.getInstance().gameRenderer.mainRenderTarget());
         BlurUtil.renderBeforeGui(Minecraft.getInstance().gameRenderer.mainRenderTarget());
     }
+
+    @Inject(method = "render", at = @At("TAIL"))
+    private void riserecode$hotbarPrivacy(CallbackInfo callback) {
+        dev.riserecode.render.HotbarPrivacy.composite();
+    }
 }

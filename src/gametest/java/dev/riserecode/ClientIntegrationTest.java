@@ -50,6 +50,8 @@ public final class ClientIntegrationTest implements FabricClientGameTest {
         if(Boolean.getBoolean("riserecode.baseFinderOnly")){BaseFinderIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.seedCrackerOnly")){SeedCrackerIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.glassOnly")){GlassIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.flyOnly")){FlyIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.hotbarOnly")){HotbarPrivacyIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.panoramaOnly")){PanoramaIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.font025Reference")){Release025FontReference.run(context);return;}
         if(Boolean.getBoolean("riserecode.release025Only")){Release025IntegrationTest.run(context);return;}
