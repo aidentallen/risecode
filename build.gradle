@@ -298,3 +298,4 @@ tasks.named('sourcesJar') { from('licenses') { into 'licenses' }; from('THIRD_PA
 tasks.register('baseFinderCheck',JavaExec){dependsOn testClasses;classpath=sourceSets.test.runtimeClasspath;mainClass='dev.riserecode.BaseFinderChecks'}
 tasks.named('check'){dependsOn 'baseFinderCheck'}
 if (providers.gradleProperty('baseFinderOnly').isPresent()) { loom.runs.clientGameTest.vmArg '-Driserecode.baseFinderOnly=true' }
+if (providers.gradleProperty('liquidGlassOnly').isPresent()) { loom.runs.clientGameTest.vmArg '-Driserecode.liquidGlassOnly=true' }

@@ -14,6 +14,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import dev.riserecode.ui.render.UiMesh;
+import dev.riserecode.ui.render.LiquidGlass;
 import dev.riserecode.ui.theme.Theme;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -117,10 +118,10 @@ public final class MenuBackdrop {
             try { draw(graphics,opacity); } finally { dev.riserecode.util.RenderUtil.scissorPop(graphics); } return;
         }
         opacity *= Theme.number("Background Opacity",1); ensure();
-        UiMesh.quad(graphics, Pipelines.BOX, TextureSetup.singleTexture(blurred.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),
+        UiMesh.quad(graphics, LiquidGlass.backdrop(Pipelines.BOX), TextureSetup.singleTexture(blurred.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),
                 x - 1, y - 1, width + 2, height + 2, (float) (-width / 2 - 1), (float) (-height / 2 - 1), (float) (width / 2 + 1), (float) (height / 2 + 1),
-                Theme.opacity(Theme.manager().color("Background Tint"), opacity), Theme.opacity(Theme.manager().color("Background Tint"), opacity), (int) Math.round(width * 16), (int) Math.round(height * 16), (int) Math.round(Theme.radius(corner) * 256), 0);
-        dev.riserecode.util.RenderUtil.drawPaintRect(graphics, x, y, width, height, corner, Theme.paint("Background Color"), Theme.number("Background Darkness", 0.42) * opacity);
+                Theme.opacity(Theme.manager().color("Background Tint"), opacity), Theme.opacity(Theme.manager().color("Background Tint"), opacity), (int) Math.round(width * 16), (int) Math.round(height * 16), (int) Math.round(Math.min(Theme.radius(corner),Math.min(width,height)/2) * 256), LiquidGlass.backdropParameters());
+        dev.riserecode.util.RenderUtil.drawPaintRect(graphics, x, y, width, height, corner, Theme.paint("Background Color"), Theme.number("Background Darkness", 0.42) * opacity * (LiquidGlass.enabled() ? .4 : 1));
     }
     public static long builds() { return builds; }
     private static void destroy() { if (scene != null) { scene.destroyBuffers(); blurred.destroyBuffers(); scene = blurred = null; } source = null; }

@@ -1,5 +1,14 @@
 # risecode
 
+### 0.30.0-beta.1 Liquid Glass interface — pull request review build
+
+The shared interface material adds curved glass edges, adaptive frost and directional
+highlights to the ClickGUI and menus, with floating navigation, capsule switches and
+pill slider handles. Existing colors, fonts, layouts and enabled modules are retained.
+Use **Appearance → Glass Material** to adjust refraction/highlights or select **Classic**.
+The **Liquid Glass** appearance preset adds coordinated colors and bundled Inter with
+Undo. [Material guide](docs/liquid-glass.md) · [Review build notes](docs/releases/v0.30.0-beta.1.md)
+
 ### 0.29.0 Base Finder
 
 Loaded chunk scanning combines Classic, ANBS+ and weighted Activity Clues with
@@ -281,7 +290,7 @@ python3 scripts/fetch-dependencies.py
 The dependency script verifies pinned SHA-256 hashes and extracts Iris's
 nested glsl-transformer library. Optional dependency JARs are compile-only;
 they are not bundled in risecode. The build produces the installable JAR
-at `build/libs/riserecode-0.29.0.jar` and a separate sources JAR.
+at `build/libs/riserecode-0.30.0-beta.1.jar` and a separate sources JAR.
 
 ```bash
 ./gradlew runClient

@@ -8,6 +8,7 @@ import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import dev.riserecode.ui.render.UiMesh;
+import dev.riserecode.ui.render.LiquidGlass;
 import dev.riserecode.ui.theme.Theme;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -58,10 +59,11 @@ public final class BlurUtil {
         var clip=g.scissorStack.peek();if(clip!=null){bounds=bounds.intersection(clip);}
         if(bounds!=null){
             var mc=Minecraft.getInstance();double pixel=mc.getWindow().getGuiScale(),sw=mc.getWindow().getScreenWidth(),sh=mc.getWindow().getScreenHeight();
-            var region=new BlurRegion(Math.max(0,(bounds.left()*pixel-2)/sw),Math.max(0,1-(bounds.bottom()*pixel+2)/sh),Math.min(1,(bounds.right()*pixel+2)/sw),Math.min(1,1-(bounds.top()*pixel-2)/sh));
+            double reach = LiquidGlass.enabled() ? LiquidGlass.MAX_DISPLACEMENT * Math.hypot(g.pose().m00(), g.pose().m01()) * pixel + 3 : 2;
+            var region=new BlurRegion(Math.max(0,(bounds.left()*pixel-reach)/sw),Math.max(0,1-(bounds.bottom()*pixel+reach)/sh),Math.min(1,(bounds.right()*pixel+reach)/sw),Math.min(1,1-(bounds.top()*pixel-reach)/sh));
             guiRegion=guiRegion==null?region:guiRegion.union(region);
         }
-        UiMesh.quad(g,Pipelines.BOX,TextureSetup.singleTexture(gui.getColorTextureView(),RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),x-1,y-1,w+2,h+2,(float)(-w/2-1),(float)(-h/2-1),(float)(w/2+1),(float)(h/2+1),color,color,(int)Math.round(w*16),(int)Math.round(h*16),(int)Math.round(Math.min(Theme.radius(corner),Math.min(w,h)/2)*256),0);
+        LiquidGlass.quad(g,LiquidGlass.backdrop(Pipelines.BOX),TextureSetup.singleTexture(gui.getColorTextureView(),RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)),x,y,w,h,corner,color,LiquidGlass.backdropParameters());
     }
     public static void renderBeforeGui(RenderTarget main){
         if((!guiRequested&&!worldRequested)||snapshot==null){return;}long start=System.nanoTime();

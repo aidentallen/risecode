@@ -259,6 +259,7 @@ public final class HudRenderer implements AutoCloseable {
         if(local!=null&&!local.global.getValue()){dev.riserecode.ui.theme.ModuleBackground.draw(g,x,y,w,h,opacity);}
         ColorSetting.Paint paint = element.layout().backgroundColor.getMode() == ColorSetting.Mode.THEME ? Theme.paint("HUD Background Color") : element.layout().backgroundColor.paint();
         RenderUtil.drawPaintRect(g, x, y, w, h, 3, paint, opacity * (kind == HudLayout.Background.BLUR ? 0.3 : 0.8));
+        dev.riserecode.ui.render.LiquidGlass.sheen(g,x,y,w,h,3,opacity*.65);
         if (element.layout().border.getValue() == HudLayout.Border.ON
                 || element.layout().border.getValue() == HudLayout.Border.INHERIT && Theme.bool("HUD Border", false)) {
             RenderUtil.drawRoundedBorder(g, x, y, w, h, 3, Theme.opacity(0xFFFFFFFF, opacity * Theme.number("Border Opacity", 0.08)));

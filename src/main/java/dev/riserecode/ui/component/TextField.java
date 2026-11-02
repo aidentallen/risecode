@@ -50,6 +50,10 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY, double seconds, double opacity) {
         renderedFont = font; time += seconds;
         double hovered = updateHover(mouseX, mouseY, seconds);
+        if(dev.riserecode.ui.render.LiquidGlass.enabled()){
+            RenderUtil.drawSurfaceTransition(graphics,x,y,width,height,Math.min(9,height/2),hovered*.5,opacity);
+            if(focused){RenderUtil.drawRoundedBorder(graphics,x,y,width,height,Math.min(9,height/2),Theme.opacity(Theme.accent(),opacity*.7),.65);}
+        }
         String text = edit.value().isEmpty() ? placeholder.get() : displayed();
         double left = edit.value().isEmpty() ? x + (width - RenderUtil.textWidth(font, text, false)) / 2 : left(font);
         double textHeight = 9 * Theme.number("Font Scale", 1);

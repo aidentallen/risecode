@@ -1,0 +1,75 @@
+{
+  "version": "0.30.0-beta.1",
+  "status": "unmerged pull request review build",
+  "branch": "feat/liquid-glass-ui",
+  "baseCommit": "3db3f020426c31f72f4fd722f81790df7034d324",
+  "minecraft": "26.2",
+  "java": 25,
+  "artifact": {
+    "file": "riserecode-0.30.0-beta.1.jar",
+    "bytes": 9879242,
+    "sha256": "f73ee6035de66ac3453b0651601f88e84d72db8e3f3936e7e733e620c801b16c"
+  },
+  "dependencyChecksumsVerified": true,
+  "checkBuildPassed": true,
+  "nativeRuns": [
+    {
+      "renderer": "iris",
+      "assertions": 13,
+      "passed": true,
+      "packagedArtifact": true,
+      "sha256": "f73ee6035de66ac3453b0651601f88e84d72db8e3f3936e7e733e620c801b16c"
+    },
+    {
+      "renderer": "vanilla",
+      "assertions": 12,
+      "passed": true,
+      "packagedArtifact": true,
+      "sha256": "f73ee6035de66ac3453b0651601f88e84d72db8e3f3936e7e733e620c801b16c"
+    },
+    {
+      "renderer": "vulkan",
+      "assertions": 12,
+      "passed": true,
+      "packagedArtifact": true,
+      "sha256": "f73ee6035de66ac3453b0651601f88e84d72db8e3f3936e7e733e620c801b16c"
+    },
+    {
+      "renderer": "sodium",
+      "assertions": 12,
+      "passed": true,
+      "packagedArtifact": true,
+      "sha256": "f73ee6035de66ac3453b0651601f88e84d72db8e3f3936e7e733e620c801b16c"
+    }
+  ],
+  "irisShaderPack": "ComplementaryUnbound_r5.9.3.zip",
+  "screenshotsInspected": [
+    "ClickGUI",
+    "controls",
+    "popup",
+    "Living Panorama",
+    "bright snow",
+    "Iris shaders",
+    "blur disabled"
+  ],
+  "opticsEnabledDisabledCaptureDifference": true,
+  "limitations": [
+    "No GPU timing or FPS improvement claim",
+    "No long-session soak",
+    "No arbitrary shader-pack guarantee",
+    "No formal contrast audit or Apple pixel-parity claim",
+    "Popup/control surfaces do not refract other GUI layers"
+  ],
+  "installation": {
+    "matchingMods": 1,
+    "unrelatedModFilesPreserved": 57,
+    "configurationFilesUnchanged": 50972,
+    "previousVersion": "0.29.0",
+    "previousJarBackedUp": true,
+    "restartRequired": true
+  },
+  "sourcesArtifact": {
+    "file": "riserecode-0.30.0-beta.1-sources.jar",
+    "sha256": "c8b904582314b7d32dce3545caa8630d2a720ce3bf03c945439b48ec1053f7fb"
+  }
+}

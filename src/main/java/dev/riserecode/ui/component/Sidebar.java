@@ -4,6 +4,7 @@ import dev.riserecode.Client;
 import dev.riserecode.ui.animation.Animation;
 import dev.riserecode.ui.theme.Theme;
 import dev.riserecode.ui.theme.ThemeManager;
+import dev.riserecode.ui.render.LiquidGlass;
 import dev.riserecode.util.MathUtil;
 import dev.riserecode.util.RenderUtil;
 import java.util.List;
@@ -43,7 +44,7 @@ public final class Sidebar extends UIComponent {
     public boolean isExpanded(){return expanded;}
     public void toggleExpanded(){arrowPress.activate();expanded=!expanded;expansion.animateTo(expanded?1:0);dev.riserecode.ui.sound.UiSounds.play();}
     public Bounds getArrowBounds(){return new Bounds(x+10,y+43+PRIMARY*ROW-scroll.getValue(),Math.min(width-20,ButtonMetrics.width(net.minecraft.client.Minecraft.getInstance()==null?null:net.minecraft.client.Minecraft.getInstance().font,"Utilities")),ButtonMetrics.HEIGHT);}
-    public Bounds getItemBounds(int index){return new Bounds(x+10,y+43+(index+(index>=PRIMARY?1:0))*ROW-scroll.getValue(),Math.min(width-20,ButtonMetrics.width(net.minecraft.client.Minecraft.getInstance()==null?null:net.minecraft.client.Minecraft.getInstance().font,items.get(index).label())),ButtonMetrics.HEIGHT);}
+    public Bounds getItemBounds(int index){return new Bounds(x+10,y+43+(index+(index>=PRIMARY?1:0))*ROW-scroll.getValue(),LiquidGlass.enabled()?width-20:Math.min(width-20,ButtonMetrics.width(net.minecraft.client.Minecraft.getInstance()==null?null:net.minecraft.client.Minecraft.getInstance().font,items.get(index).label())),ButtonMetrics.HEIGHT);}
     public List<Integer> keyboardItems(){return java.util.stream.IntStream.range(0,expanded?items.size():Math.min(PRIMARY,items.size())).boxed().toList();}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
         double logoScale=Math.min(1.65,(width-37)/Math.max(1,RenderUtil.textWidth(font,Client.INSTANCE.getName(),false)));
@@ -60,15 +61,20 @@ public final class Sidebar extends UIComponent {
         selectedY.animateTo(targetY);
         double pillY = y + 43 + targetY + (selectedY.update(dt) - targetY) * Animation.movement(ThemeManager.Channel.NAVIGATION) - scroll.getValue();
         String selectedLabel = selected<0?"":Theme.label(items.get(selected).label());
-        selectedWidth.animateTo(Math.min(width - 20, ButtonMetrics.width(font,selectedLabel)));
+        selectedWidth.animateTo(LiquidGlass.enabled()?width-20:Math.min(width - 20, ButtonMetrics.width(font,selectedLabel)));
         double pillWidth = selectedWidth.update(dt);
         RenderUtil.scissorPush(g,x+4,y+40,width-8,available+3);
         try{
             double selectedPress = selected<0?1:presses.get(selected).scale();
             g.pose().pushMatrix();
             g.pose().translate((float)(x+10+pillWidth/2),(float)(pillY+8.5));g.pose().scale((float)selectedPress,(float)selectedPress);g.pose().translate((float)(-x-10-pillWidth/2),(float)(-pillY-8.5));
-            RenderUtil.drawGlow(g,x+10,pillY,pillWidth,17,4,Theme.opacity(Theme.accent(),selected<0?0:alpha));
-            RenderUtil.drawAccentRoundedRect(g,x+10,pillY,pillWidth,17,4,selected<0?0:alpha);
+            if(LiquidGlass.enabled()){
+                RenderUtil.drawSurfaceTransition(g,x+10,pillY,pillWidth,17,8.5,1,selected<0?0:alpha);
+                RenderUtil.drawAccentRoundedRect(g,x+10,pillY,pillWidth,17,8.5,selected<0?0:alpha*.23);
+            }else{
+                RenderUtil.drawGlow(g,x+10,pillY,pillWidth,17,4,Theme.opacity(Theme.accent(),selected<0?0:alpha));
+                RenderUtil.drawAccentRoundedRect(g,x+10,pillY,pillWidth,17,4,selected<0?0:alpha);
+            }
             g.pose().popMatrix();
             for(int i=0;i<items.size();i++){
                 if(i>=PRIMARY&&expandedAmount<.001){break;}Bounds b=getItemBounds(i);
@@ -78,7 +84,7 @@ public final class Sidebar extends UIComponent {
                 hovers.get(i).animateTo(over?1:0); double hovered=hovers.get(i).update(dt);
                 double press=presses.get(i).scale();g.pose().pushMatrix();
                 g.pose().translate((float)b.centerX(),(float)b.centerY());g.pose().scale((float)press,(float)press);g.pose().translate((float)-b.centerX(),(float)-b.centerY());
-                if(i!=selected){RenderUtil.drawRoundedRect(g,b.x(),b.y(),Math.min(b.width(),ButtonMetrics.width(font,items.get(i).label())),17,4,Theme.opacity(Theme.HOVER,alpha*hovered*.4));}
+                if(i!=selected){RenderUtil.drawRoundedRect(g,b.x(),b.y(),b.width(),17,LiquidGlass.enabled()?8.5:4,Theme.opacity(Theme.HOVER,alpha*hovered*.4));}
                 double rowAlpha=alpha*(i>=PRIMARY?expandedAmount:1),shift=hovered*.65*Animation.movement(ThemeManager.Channel.HOVER);
                 int color=Theme.opacity(i==selected?Theme.manager().colorSetting("Selected Tab Color").sample(b.x(),b.y()):Theme.blendPalette(Theme.SECONDARY,Theme.TEXT,hovered),rowAlpha);
                 items.get(i).icon().draw(g,b.x()+4+shift,b.y()+3,color);

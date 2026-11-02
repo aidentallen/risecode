@@ -8,6 +8,14 @@ Historical entries were recovered from retained source/JAR artifacts and develop
 documentation. Their notes identify provenance and missing history; original dates
 and development commits are not invented.
 
+## [0.30.0-beta.1](docs/releases/v0.30.0-beta.1.md) — Liquid Glass interface (review build)
+
+- Add a shared refractive interface material with adaptive frost and directional highlights.
+- Add floating navigation, capsule switches, pill slider handles and grouped headers.
+- Carry matching surfaces through menus, text fields, popups, tooltips and HUD panels.
+- Add material/optics controls, Classic fallback and an Inter-based preset with Undo.
+- Preserve existing palettes, fonts, layouts, HUD choices and enabled modules.
+
 ## [0.29.0](docs/releases/v0.29.0.md) — Base Finder
 
 - Add opt-in BaseFinder with Classic, ANBS+, and weighted Activity Clues.
