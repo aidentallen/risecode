@@ -1,0 +1,91 @@
+{
+  "version": "0.30.0",
+  "status": "final merged release",
+  "minecraft": "26.2",
+  "java": 25,
+  "modId": "riserecode",
+  "verificationDate": "2026-11-05",
+  "dependencyChecksumsVerified": true,
+  "checkBuild": "passed",
+  "branch": "main",
+  "integratedBranches": [
+    "feat/liquid-glass-ui (95e76b1, PR #2)",
+    "feat/donut-fly-hotbar (4d465f4, PR #3)",
+    "feat/meteor-inspired-killaura (19f66eb, PR #4)",
+    "feat/satisfying-click-sounds (913a884, PR #5)"
+  ],
+  "nativeSuites": [
+    {
+      "suite": "UI sounds",
+      "property": "uiSoundsOnly",
+      "renderer": "vanilla OpenGL",
+      "packagedArtifact": true,
+      "assertions": 19
+    },
+    {
+      "suite": "Liquid Glass",
+      "property": "liquidGlassOnly",
+      "renderer": "vanilla OpenGL",
+      "packagedArtifact": true,
+      "assertions": 12
+    },
+    {
+      "suite": "KillAura rewrite / combat",
+      "property": "combatOnly",
+      "renderer": "vanilla OpenGL",
+      "packagedArtifact": true,
+      "assertions": 39
+    },
+    {
+      "suite": "Fly",
+      "property": "flyOnly",
+      "renderer": "vanilla OpenGL",
+      "packagedArtifact": true,
+      "assertions": 8
+    },
+    {
+      "suite": "Hotbar privacy",
+      "property": "hotbarOnly",
+      "renderer": "vanilla OpenGL",
+      "packagedArtifact": true,
+      "assertions": 7
+    }
+  ],
+  "priorBetaVerification": {
+    "beta.1": "Liquid Glass verified on vanilla OpenGL, native Vulkan, Sodium OpenGL and Sodium/Iris with Complementary Unbound r5.9.3",
+    "beta.2": "KillAura rewrite verified on vanilla OpenGL and Vulkan packaged runs",
+    "beta.3": "Sound assets decoded from the production JAR; mono 44.1 kHz, peaks below 0.64 full scale"
+  },
+  "installation": {
+    "version": "0.30.0",
+    "sha256": "21af90c5e895b1a0a0a5ab1b39f08ebaec850332f4dd05f1c291be86f0916872",
+    "matchingMods": 1,
+    "previousVersion": "0.30.0-beta.3",
+    "backupVerified": true,
+    "unrelatedJarsPreserved": 57,
+    "restartRequired": true
+  },
+  "artifacts": [
+    {
+      "name": "riserecode-0.30.0.jar",
+      "bytes": 9944845,
+      "sha256": "21af90c5e895b1a0a0a5ab1b39f08ebaec850332f4dd05f1c291be86f0916872"
+    },
+    {
+      "name": "riserecode-0.30.0-sources.jar",
+      "bytes": 5170601,
+      "sha256": "6807c8f634d584d2a392007f9acd75cd3fefef2bdc8821cfc31de08f160794c4"
+    }
+  ],
+  "unverified": [
+    "Vulkan and Sodium/Iris rendering on the merged final source (verified on the beta branches separately)",
+    "remote-server flight acceptance",
+    "long-session soak",
+    "subjective listening quality of the click sounds"
+  ],
+  "limitations": [
+    "Fly depends on local server authority on hosted worlds; remote vanilla servers keep their own authority",
+    "Hotbar privacy is a local visual filter; inventory and use packets keep the real items",
+    "click sounds are synthesized originals; no third-party samples"
+  ]
+}

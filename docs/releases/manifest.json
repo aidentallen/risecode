@@ -955,6 +955,25 @@
         "riserecode-0.28.0-licenses.zip",
         "SHA256SUMS"
       ]
+    },
+    {
+      "version": "0.30.0",
+      "title": "Liquid Glass, native combat, tactile sounds and privacy modules",
+      "tag": "0.30.0",
+      "notes": "docs/releases/v0.30.0.md",
+      "changes": [
+        "Merge all four 0.30.0 feature branches: Liquid Glass interface material and floating controls, Meteor-inspired native combat controls, eight original tactile click sounds, and Fly plus Hotbar privacy modules ported from donut-client (MIT)."
+      ],
+      "evidence": [
+        "docs/releases/v0.30.0.md",
+        "docs/releases/v0.30.0-verification.json"
+      ],
+      "assets": [
+        "riserecode-0.30.0.jar",
+        "riserecode-0.30.0-sources.jar",
+        "riserecode-0.30.0-licenses.zip",
+        "SHA256SUMS"
+      ]
     }
   ],
   "latest": "0.28.0",
