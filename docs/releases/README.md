@@ -2,13 +2,15 @@
 
 [Project home](../../README.md) · [Complete changelog](../../CHANGELOG.md) · [User guide](../usage.md)
 
-**44 documented versions · 0.1.0 → 0.29.0 · Minecraft 26.2 / Java 25**
+**46 documented versions · 0.1.0 → 0.30.0-beta.2 · Minecraft 26.2 / Java 25**
 
 Browse the changes and verification notes for each version. The latest source
-version is **0.29.0 — Base Finder**.
+version on this feature branch is **0.30.0-beta.2 — KillAura rewrite**.
 
 | Version | Highlights |
 | :--- | :--- |
+| [0.30.0-beta.2](v0.30.0-beta.2.md) | KillAura rewrite and retained Liquid Glass UI |
+| [0.30.0-beta.1](v0.30.0-beta.1.md) | Liquid Glass interface review build |
 | [0.29.0](v0.29.0.md) | Base Finder and suspicious chunk scanning |
 | [0.28.0](v0.28.0.md) | SeedCracker |
 | [0.27.0](v0.27.0.md) | Glass |

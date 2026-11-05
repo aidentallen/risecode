@@ -4,6 +4,7 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import dev.riserecode.setting.ColorSetting;
 import dev.riserecode.ui.font.CustomTextRenderer;
 import dev.riserecode.ui.render.UiMesh;
+import dev.riserecode.ui.render.LiquidGlass;
 import dev.riserecode.ui.theme.Theme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -16,11 +17,24 @@ public final class RenderUtil {
     private RenderUtil() { }
     /** Floating panels have one paint; the main window's sidebar is not part of this surface. */
     public static void drawPopup(GuiGraphicsExtractor graphics,double x,double y,double width,double height,double opacity){
+        if(LiquidGlass.enabled()){
+            drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1)*.94);
+            LiquidGlass.sheen(graphics,x,y,width,height,10,opacity);
+            return;
+        }
         drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1));
         drawRoundedBorder(graphics,x,y,width,height,10,Theme.opacity(-1,opacity*Theme.number("Border Opacity",.08)));
     }
     public static void drawWindow(GuiGraphicsExtractor graphics,double x,double y,double opacity){drawWindow(graphics,x,y,428,320,opacity);}
     public static void drawWindow(GuiGraphicsExtractor graphics,double x,double y,double width,double height,double opacity){
+        if(LiquidGlass.enabled()){
+            double density=dev.riserecode.performance.PerformancePolicy.frame().blur()||Theme.number("GUI Blur Radius",12)<=0||Theme.number("GUI Blur Opacity",.8)<=0?.95:.5;
+            drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1)*density);
+            drawPaintRect(graphics,x+5,y+5,97,height-10,8,Theme.paint("Sidebar Color"),opacity*Theme.number("Panel Opacity",1)*.42);
+            LiquidGlass.sheen(graphics,x+5,y+5,97,height-10,8,opacity*.7);
+            LiquidGlass.sheen(graphics,x,y,width,height,10,opacity);
+            return;
+        }
         if(Theme.manager()!=null&&(!Theme.manager().colorSetting("Background Color").paint().equals(Theme.manager().colorSetting("Background Color").defaultPaint())
                 ||!Theme.manager().colorSetting("Sidebar Color").paint().equals(Theme.manager().colorSetting("Sidebar Color").defaultPaint()))){
             drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1));
@@ -42,6 +56,7 @@ public final class RenderUtil {
         if (paint == null) { shape(graphics, SHAPE, x, y, width, height, Theme.radius(radius), color, color, 0); }
         else { drawPaintShape(graphics, x, y, width, height, Theme.radius(radius), paint, 0); }
         if (surface) {
+            LiquidGlass.sheen(graphics,x,y,width,height,radius,(color>>>24)/255.0);
             drawRoundedBorder(graphics, x, y, width, height, radius,
                     Theme.opacity(0xFFFFFFFF, (color >>> 24) / 255.0 * Theme.number("Border Opacity", 0.08)));
         }
@@ -91,7 +106,7 @@ public final class RenderUtil {
     }
     public static void drawSurfaceTransition(GuiGraphicsExtractor graphics, double x, double y, double width,
             double height, double radius, double hover, double opacity) {
-        double alpha = opacity * Theme.number("Panel Opacity", 1);
+        double alpha = opacity * Theme.number("Panel Opacity", 1) * (LiquidGlass.enabled() ? .7 : 1);
         if (Theme.manager() == null) {
             drawRoundedRect(graphics, x, y, width, height, radius, Theme.opacity(Theme.lerp(Theme.SURFACE, Theme.HOVER, hover), opacity));
             return;
@@ -99,14 +114,16 @@ public final class RenderUtil {
         drawPaintShape(graphics, x, y, width, height, Theme.radius(radius), Theme.paint("Surface Color").opacity(alpha),
                 Theme.paint("Hover Color").opacity(alpha), hover, 0);
         drawRoundedBorder(graphics, x, y, width, height, radius, Theme.opacity(0xFFFFFFFF, alpha * Theme.number("Border Opacity", 0.08)));
+        LiquidGlass.sheen(graphics,x,y,width,height,radius,opacity*(.55+.45*hover));
     }
     public static void drawButton(GuiGraphicsExtractor g,double x,double y,double w,double h,double hover,double alpha) {
         if(dev.riserecode.ui.theme.PageAppearance.plain()){drawRoundedRect(g,x,y,w,h,0,Theme.opacity(Theme.lerp(0xFF555555,0xFF888888,hover),alpha));drawRoundedBorder(g,x,y,w,h,0,Theme.opacity(0xFFAAAAAA,alpha),1);return;}
-        drawSurfaceTransition(g,x,y,w,h,4,hover,alpha);
+        double radius=LiquidGlass.enabled()?Math.min(h/2,10):4;
+        drawSurfaceTransition(g,x,y,w,h,radius,hover,alpha);
         if (Theme.manager() != null && Theme.manager().choice("Button Style", dev.riserecode.ui.theme.ThemeManager.ButtonStyle.class)
                 == dev.riserecode.ui.theme.ThemeManager.ButtonStyle.ACCENT) {
-            drawGlow(g,x,y,w,h,4,Theme.opacity(Theme.accent(),alpha*(.2+.8*hover)));
-            drawAccentRoundedRect(g,x,y,w,h,4,alpha*(.35+.5*hover));
+            drawGlow(g,x,y,w,h,radius,Theme.opacity(Theme.accent(),alpha*(.2+.8*hover)));
+            drawAccentRoundedRect(g,x,y,w,h,radius,alpha*(.35+.5*hover));
         }
     }
     private static void drawPaintShape(GuiGraphicsExtractor graphics, double x, double y, double width, double height,

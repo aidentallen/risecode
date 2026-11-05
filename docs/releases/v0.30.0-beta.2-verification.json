@@ -1,0 +1,80 @@
+{
+  "version": "0.30.0-beta.2",
+  "status": "unmerged pull request review build",
+  "branch": "feat/meteor-inspired-killaura",
+  "baseBranch": "feat/liquid-glass-ui",
+  "baseCommit": "95e76b193401466daad451c44b86090e09eb0fb3",
+  "meteorReference": "e3a2e77967629d216e127b5ceecf71fb15f9d2e5",
+  "minecraft": "26.2",
+  "java": 25,
+  "dependencyChecksumsVerified": true,
+  "checkBuildPassed": true,
+  "deterministicCombatAssertions": 74,
+  "artifact": {
+    "file": "riserecode-0.30.0-beta.2.jar",
+    "bytes": 9897107,
+    "sha256": "0533e3055c119b66c0a7ffd4df7247a3d1330a012e786d0a9764bdeb63f66d92"
+  },
+  "sources": {
+    "file": "riserecode-0.30.0-beta.2-sources.jar",
+    "sha256": "b7175649e0420095b9cac047c7b69a3cef7dbea844594abcab9f02f5a37e4e13"
+  },
+  "nativeRuns": [
+    {
+      "renderer": "vanilla",
+      "passed": true,
+      "packagedArtifact": true,
+      "sha256": "0533e3055c119b66c0a7ffd4df7247a3d1330a012e786d0a9764bdeb63f66d92",
+      "killAuraAssertions": 39,
+      "existingEngineAndCombatSuite": true,
+      "baritoneLoaded": false,
+      "activeShaderPack": false
+    },
+    {
+      "renderer": "vulkan",
+      "passed": true,
+      "packagedArtifact": true,
+      "sha256": "0533e3055c119b66c0a7ffd4df7247a3d1330a012e786d0a9764bdeb63f66d92",
+      "killAuraAssertions": 39,
+      "existingEngineAndCombatSuite": true,
+      "baritoneLoaded": false,
+      "activeShaderPack": false
+    },
+    {
+      "renderer": "sodium",
+      "passed": true,
+      "packagedArtifact": true,
+      "sha256": "0533e3055c119b66c0a7ffd4df7247a3d1330a012e786d0a9764bdeb63f66d92",
+      "killAuraAssertions": 39,
+      "existingEngineAndCombatSuite": true,
+      "baritoneLoaded": false,
+      "activeShaderPack": false
+    },
+    {
+      "renderer": "iris",
+      "passed": true,
+      "packagedArtifact": true,
+      "sha256": "0533e3055c119b66c0a7ffd4df7247a3d1330a012e786d0a9764bdeb63f66d92",
+      "killAuraAssertions": 39,
+      "existingEngineAndCombatSuite": true,
+      "baritoneLoaded": false,
+      "activeShaderPack": false
+    }
+  ],
+  "limits": [
+    "No remote multiplayer or anticheat validation",
+    "No performance or long-session soak claims",
+    "No active Baritone task pause/resume validation",
+    "Baritone-loaded combat run passed assertions but failed the post-main shutdown watchdog with live Baritone workers",
+    "TPS and lag boundaries tested with a deterministic clock",
+    "Batch rotation follows the primary target; only living entities are supported"
+  ],
+  "optionalBaritoneRun": {
+    "version": "1.19.0",
+    "killAuraAssertionsPassed": 39,
+    "existingEngineAndCombatSuitePassed": true,
+    "cleanShutdown": false,
+    "nativeExitCode": 248,
+    "blockingThreads": "baritone.o worker threads in post-main watchdog report"
+  }
+}

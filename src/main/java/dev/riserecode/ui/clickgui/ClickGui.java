@@ -290,6 +290,10 @@ public final class ClickGui extends Screen {
             if(minecraft.level!=null&&!customImage){BlurUtil.drawBox(graphics,windowX,windowY,windowWidth,windowHeight,10,alpha*Theme.number("GUI Blur Opacity",.8));}
             else {dev.riserecode.ui.menu.MenuBackdrop.drawBlur(graphics,windowX,windowY,windowWidth,windowHeight,10,alpha*Theme.number("GUI Blur Opacity",.8));}
             RenderUtil.drawWindow(graphics, windowX, windowY, windowWidth,windowHeight,alpha*.82);
+            if(dev.riserecode.ui.render.LiquidGlass.enabled()){
+                var label=header.label();
+                RenderUtil.drawSurfaceTransition(graphics,label.x()-3,label.y()-3,windowX+windowWidth-themes.number("Content Padding")-label.x()+6,label.height()+6,10,0,alpha*.8);
+            }
             double cornerDistance=Math.hypot(pointerX-(windowX+windowWidth-6),pointerY-(windowY+windowHeight-6));
             resizeHint.animateTo(resizing?1:Math.clamp((24-cornerDistance)/12,0,1));double hint=resizeHint.update(seconds);
             if(hint>.001){RenderUtil.line(graphics,windowX+windowWidth-10,windowY+windowHeight-4,windowX+windowWidth-4,windowY+windowHeight-10,1,Theme.opacity(Theme.SECONDARY,alpha*hint));}

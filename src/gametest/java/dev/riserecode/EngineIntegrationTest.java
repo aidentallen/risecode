@@ -137,6 +137,7 @@ public final class EngineIntegrationTest {
                     actors[i].setOldPosAndRot(); minecraft.level.addEntity(actors[i]);
                 }
                 aura.getTargets().setValue(KillAuraModule.Targets.PLAYERS);
+                aura.getAttackWhenHolding().setValue(KillAuraModule.AttackItems.ALL);
                 aura.getRange().setValue(3.0);
             });
             command(context, ".friend add FriendNPC");
@@ -199,6 +200,8 @@ public final class EngineIntegrationTest {
             context.runOnClient(minecraft -> check(client.getProfileManager().loadProfile("Engine"), "profile loads while GUI open"));
             check(context.computeOnClient(minecraft -> client.getClickGui().getPanels().stream()
                     .flatMap(panel -> panel.getModuleButtons().stream()).anyMatch(button -> button.getModule() == tracers && button.getModule().isEnabled())), "open GUI reflects profile state");
+            // This focused combat run may open on Search, whose first Escape belongs to its text field.
+            context.runOnClient(minecraft -> client.getClickGui().selectCategory(dev.riserecode.module.Category.COMBAT));
             context.takeScreenshot("riserecode-phase5-gui");
             context.getInput().pressKey(InputConstants.KEY_ESCAPE);
             context.waitFor(minecraft -> minecraft.gui.screen() == null);

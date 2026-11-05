@@ -16,7 +16,7 @@ import net.minecraft.world.phys.Vec3;
 /** Client-thread entity queries. Selection does not change any entity or game state. */
 public final class TargetUtil {
     public enum EntityGroup { PLAYERS, MOBS, BOTH }
-    public enum SortMode { DISTANCE, HEALTH, ANGLE }
+    public enum SortMode { DISTANCE, HEALTH, ANGLE, FARTHEST, HIGHEST_HEALTH }
 
     public record Options(double range, EntityGroup group, SortMode sortMode,
             boolean includePassive, boolean ignoreFriends, boolean ignoreInvisible,
@@ -37,6 +37,8 @@ public final class TargetUtil {
             case DISTANCE -> Comparator.comparingDouble(Candidate::distance);
             case HEALTH -> Comparator.comparingDouble(Candidate::health);
             case ANGLE -> Comparator.comparingDouble(Candidate::angle);
+            case FARTHEST -> Comparator.comparingDouble(Candidate::distance).reversed();
+            case HIGHEST_HEALTH -> Comparator.comparingDouble(Candidate::health).reversed();
         };
         // Stable tie breakers keep equal-score targets from flickering between frames.
         order = order.thenComparingDouble(Candidate::distance).thenComparingInt(candidate -> candidate.entity().getId());

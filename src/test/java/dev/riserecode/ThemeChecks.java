@@ -54,6 +54,13 @@ public final class ThemeChecks {
             JsonObject partial = new JsonObject(); partial.addProperty("Font Scale", 1.1); partial.addProperty("Future Setting", true);
             loaded.apply(new ThemeProfile(1, partial));
             check(loaded.number("Font Scale") == 1.1 && loaded.number("Panel Opacity") == 0.87, "new/missing fields receive defaults; unknown fields ignored");
+            var beforeGlass = loaded.snapshot();
+            loaded.applyPreset(ThemeManager.Preset.LIQUID_GLASS);
+            check(loaded.choice("Interface Material", ThemeManager.InterfaceMaterial.class) == ThemeManager.InterfaceMaterial.LIQUID_GLASS
+                    && loaded.choice("Font Selection", ThemeManager.Typeface.class) == ThemeManager.Typeface.INTER, "glass preset selects material and typography together");
+            check(loaded.undoPreset() && loaded.snapshot().settings().equals(beforeGlass.settings()), "glass preset undo restores every changed setting");
+            loaded.applyPreset(ThemeManager.Preset.CLASSIC_RISECODE);
+            check(loaded.choice("Interface Material", ThemeManager.InterfaceMaterial.class) == ThemeManager.InterfaceMaterial.CLASSIC, "classic preset restores classic material");
             check(ColorPicker.hsv(0, 1, 1) == 0xFFFF0000 && ColorPicker.hsv(1.0 / 3, 1, 1) == 0xFF00FF00, "HSV primaries");
             check(ColorPicker.hsv(1, 1, 1) == 0xFFFF0000 && ColorPicker.hsv(0.8, 0, 0.5) == 0xFF808080, "HSV wraps hue and handles gray");
             AtomicReference<MathUtil.Easing> curve = new AtomicReference<>(MathUtil.Easing.LINEAR);

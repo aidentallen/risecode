@@ -32,7 +32,8 @@ import org.slf4j.Logger;
 
 /** Visual settings are independent of module configs and module profiles. Client-thread only. */
 public final class ThemeManager implements AutoCloseable {
-    public enum Preset { CLASSIC_RISECODE, OCEAN, AURORA, AMETHYST, ROSE, EMBER, MONOCHROME }
+    public enum Preset { CLASSIC_RISECODE, OCEAN, AURORA, AMETHYST, ROSE, EMBER, MONOCHROME, LIQUID_GLASS }
+    public enum InterfaceMaterial { CLASSIC, LIQUID_GLASS }
     public enum LogoPlacement { LEFT, RIGHT, ABOVE }
     public enum Channel { OPENING, NAVIGATION, HOVER, PRESS, TOGGLES, EXPANSION, SCROLLING, DRAGGING, HUD_ENTRANCE, HUD_EXIT, HUD_REORDERING }
     private JsonObject presetUndo;
@@ -86,7 +87,10 @@ public final class ThemeManager implements AutoCloseable {
     public ThemeManager(Path directory, Logger logger) {
         this.directory = directory; this.logger = logger;
         panorama=new dev.riserecode.ui.panorama.PanoramaPreferences((setting,step)->add("Living Panorama",setting,step));
-        add("Presets", new EnumSetting<>("Appearance Preset", "Apply a palette without changing your layout", Preset.CLASSIC_RISECODE));
+        add("Presets", new EnumSetting<>("Appearance Preset", "Apply a coordinated appearance with Undo", Preset.CLASSIC_RISECODE));
+        add("Glass Material", new EnumSetting<>("Interface Material", "Shared surfaces for menus, controls and HUD", InterfaceMaterial.LIQUID_GLASS));
+        number("Glass Material", "Glass Refraction", 1, 0, 2, .02);
+        number("Glass Material", "Glass Highlights", .65, 0, 1, .01);
         add("Branding", new dev.riserecode.setting.StringSetting("Display Name", "Interface name", "risecode", 64));
         add("Branding", new dev.riserecode.setting.StringSetting("Interface Tagline", "Title screen tagline", "make it yours", 96));
         add("Branding", new dev.riserecode.setting.StringSetting("Watermark Text", "Independent HUD text", "risecode", 96));
@@ -223,6 +227,7 @@ public final class ThemeManager implements AutoCloseable {
         case ROSE -> new int[] {0xFFF49FBA, 0xFFD96499, 0xFF2A1B25};
         case EMBER -> new int[] {0xFFF3AB57, 0xFFED6861, 0xFF2A211C};
         case MONOCHROME -> new int[] {0xFFE4E7EC, 0xFF9BA4B3, 0xFF1E2126};
+        case LIQUID_GLASS -> new int[] {0xFF72DED0, 0xFF91B8FF, 0xFF17212C};
     }; }
     public void applyPreset(Preset preset) {
         JsonObject values = new JsonObject(); int[] colors = palette(preset);
@@ -236,6 +241,15 @@ public final class ThemeManager implements AutoCloseable {
         values.addProperty("Glow Intensity", preset == Preset.MONOCHROME ? 0.12 : 0.2);
         values.addProperty("Background Darkness", preset == Preset.EMBER ? 0.48 : 0.42);
         values.addProperty("Appearance Preset", preset.name());
+        values.addProperty("Interface Material", preset == Preset.CLASSIC_RISECODE ? "CLASSIC" : "LIQUID_GLASS");
+        if (preset == Preset.LIQUID_GLASS) {
+            values.addProperty("Font Selection", "INTER");
+            values.addProperty("Global Glow", false);
+            values.addProperty("Corner Radius", 14);
+            values.addProperty("Content Padding", 10);
+            values.addProperty("Glass Refraction", 1);
+            values.addProperty("Glass Highlights", .65);
+        }
         presetUndo = new JsonObject(); JsonObject before = snapshot().settings();
         values.keySet().forEach(key -> presetUndo.add(key, before.get(key).deepCopy()));
         values.entrySet().forEach(entry -> assign(getSetting(entry.getKey()), decode(getSetting(entry.getKey()), entry.getValue()))); changed();

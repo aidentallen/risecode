@@ -4,6 +4,7 @@ import dev.riserecode.setting.BooleanSetting;
 import dev.riserecode.ui.animation.Animation;
 import dev.riserecode.ui.component.UIComponent;
 import dev.riserecode.ui.theme.Theme;
+import dev.riserecode.ui.render.LiquidGlass;
 import dev.riserecode.util.MathUtil;
 import dev.riserecode.util.RenderUtil;
 import java.util.function.BooleanSupplier;
@@ -31,9 +32,20 @@ public final class ToggleSwitch extends UIComponent {
         slide.animateTo(value.getAsBoolean() ? 1 : 0);
         double active = slide.update(deltaSeconds);
         String text = Theme.label(Theme.displayName(label));
-        double textScale = Math.min(0.88, (width - 24) / Math.max(1, RenderUtil.textWidth(font, text, false)));
+        double textScale = Math.max(.01,Math.min(0.88, (width - (LiquidGlass.enabled()?30:24)) / Math.max(1, RenderUtil.textWidth(font, text, false))));
         RenderUtil.text(graphics, font, text, x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), y + (height - 9 * Theme.number("Font Scale", 1) * textScale) / 2, textScale,
                 Theme.opacity(Theme.blendPalette(Theme.TEXT, 0xFFFFFFFF, hovered), opacity));
+        if(LiquidGlass.enabled()){
+            double trackX=x+width-23,trackY=y+(height-11)/2;
+            RenderUtil.drawRoundedRect(graphics,trackX,trackY,23,11,5.5,
+                    Theme.opacity(Theme.blendPalette(Theme.HOVER,Theme.accent(),active),opacity*(.6+.3*active)));
+            LiquidGlass.sheen(graphics,trackX,trackY,23,11,5.5,opacity);
+            double knobX=trackX+1+active*12;
+            RenderUtil.drawDropShadow(graphics,knobX,trackY+1,9,9,4.5,Theme.opacity(Theme.SHADOW,opacity*.35));
+            RenderUtil.drawRoundedRect(graphics,knobX,trackY+1,9,9,4.5,Theme.opacity(0xFFF1F7FC,opacity));
+            LiquidGlass.sheen(graphics,knobX,trackY+1,9,9,4.5,opacity);
+            return;
+        }
         double dotX = x + RenderUtil.textWidth(font, text, false) * textScale + 6 + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER);
         double dotY = y + height / 2 - 2;
         RenderUtil.drawGlow(graphics, dotX, dotY, 4, 4, 2, Theme.opacity(Theme.accent(), opacity * active));

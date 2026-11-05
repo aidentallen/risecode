@@ -47,6 +47,16 @@ public final class ClientIntegrationTest implements FabricClientGameTest {
         context.restoreDefaultGameOptions();
         context.getInput().resizeWindow(2048, 1152);
         context.runOnClient(minecraft -> minecraft.options.guiScale().set(2));
+        if(Boolean.getBoolean("riserecode.liquidGlassOnly")){LiquidGlassIntegrationTest.run(context);return;}
+        if (Boolean.getBoolean("riserecode.combatOnly")) {
+            try (var world = context.worldBuilder().create()) {
+                world.getConnection().waitForChunksRender();
+                EngineIntegrationTest.verify(context, world);
+                CombatIntegrationTest.verify(context, world);
+                KillAuraIntegrationTest.verify(context, world);
+            }
+            return;
+        }
         if(Boolean.getBoolean("riserecode.baseFinderOnly")){BaseFinderIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.seedCrackerOnly")){SeedCrackerIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.glassOnly")){GlassIntegrationTest.run(context);return;}

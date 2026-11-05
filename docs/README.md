@@ -6,6 +6,7 @@
 | :--- | :--- |
 | [Using risecode](usage.md) | Interface, shortcuts, profiles, maps, Resources, rendering, and local commands. |
 | [Glass](glass.md) | Player/equipment materials, presets, target filters, and preview controls. |
+| [Liquid Glass interface](liquid-glass.md) | Shared UI material, optics, coordinated preset, and Classic fallback. |
 | [Living Panorama](living-panorama.md) | Resource-pack-aware title scenery, atmospheres, interaction, and sound. |
 | [Cosmetics](cosmetics.md) | Wardrobe, capes, wings, companions, effects, and imports. |
 | [Legacy cape physics](legacy-cape-physics.md) | Motion behavior, reference implementation, and verification. |

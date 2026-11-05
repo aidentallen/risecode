@@ -28,7 +28,7 @@ public final class UiMesh {
     public static void effect(Runnable draw) { effectDepth++;try { draw.run(); } finally { effectDepth--; } }
     private UiMesh() { }
     public static RenderPipeline pipeline(String name, String fragment) {
-        return RenderPipelines.register(RenderPipeline.builder(fragment.equals("shape") || fragment.equals("window") || fragment.equals("hsv") ? RenderPipelines.GUI_SNIPPET : RenderPipelines.GUI_TEXTURED_SNIPPET)
+        return RenderPipelines.register(RenderPipeline.builder(fragment.equals("shape") || fragment.equals("window") || fragment.equals("hsv") || fragment.equals("glass_sheen") ? RenderPipelines.GUI_SNIPPET : RenderPipelines.GUI_TEXTURED_SNIPPET)
                 .withLocation(id("pipeline/" + name)).withVertexShader(id("core/ui"))
                 .withFragmentShader(id("core/" + fragment)).withVertexBinding(0, FORMAT)
                 .withPrimitiveTopology(PrimitiveTopology.QUADS).build());

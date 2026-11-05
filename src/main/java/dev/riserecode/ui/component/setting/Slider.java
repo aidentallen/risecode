@@ -4,6 +4,7 @@ import dev.riserecode.setting.DoubleSetting;
 import dev.riserecode.ui.animation.Animation;
 import dev.riserecode.ui.component.UIComponent;
 import dev.riserecode.ui.theme.Theme;
+import dev.riserecode.ui.render.LiquidGlass;
 import dev.riserecode.util.MathUtil;
 import dev.riserecode.util.RenderUtil;
 import java.util.Locale;
@@ -82,6 +83,13 @@ public final class Slider extends UIComponent {
                     Theme.opacity(Theme.accent(), opacity * 0.8));
         }
         double thumb = trackX + trackWidth * progress;
+        if(LiquidGlass.enabled()){
+            double knobWidth=11+(dragging?2:hovered),knobHeight=7;
+            RenderUtil.drawDropShadow(graphics,thumb-knobWidth/2,trackY-2.75,knobWidth,knobHeight,3.5,Theme.opacity(Theme.SHADOW,opacity*.35));
+            RenderUtil.drawRoundedRect(graphics,thumb-knobWidth/2,trackY-2.75,knobWidth,knobHeight,3.5,Theme.opacity(0xFFDDEAF3,opacity));
+            LiquidGlass.sheen(graphics,thumb-knobWidth/2,trackY-2.75,knobWidth,knobHeight,3.5,opacity);
+            return;
+        }
         double size = 4 + hovered + (dragging ? 0.5 : 0);
         RenderUtil.drawGlow(graphics, thumb - size / 2, trackY - size / 2 + 0.75, size, size, size / 2,
                 Theme.opacity(Theme.accent(), opacity * (0.6 + hovered * 0.4)));

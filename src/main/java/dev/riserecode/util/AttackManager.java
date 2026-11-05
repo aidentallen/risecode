@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 import java.util.random.RandomGenerator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -16,7 +17,7 @@ import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 
-/** Shared vanilla attack dispatch plus independent owner timing and one managed attack per tick. */
+/** Shared vanilla attack dispatch plus independent owner timing and one managed attack batch per tick. */
 public final class AttackManager implements AutoCloseable {
     public enum SwingMode { NONE, CLIENT, SERVER, BOTH }
     public record Policy(double minCps, double maxCps, boolean cooldownAware) {
@@ -55,20 +56,42 @@ public final class AttackManager implements AutoCloseable {
         public OptionalInt bestWeapon() { return minecraft.player == null ? OptionalInt.empty() : ItemUtil.bestHotbarWeapon(minecraft.player); }
         public void reset() { timer.reset(); }
         public boolean attack(LivingEntity target, Policy policy, SwingMode swing) {
-            Objects.requireNonNull(target); Objects.requireNonNull(swing);
-            if (!shouldAttackThisTick(policy) || !validForAttack(target)) { return false; }
+            return attackBatch(List.of(target), policy, swing, entity -> true) > 0;
+        }
+        /** A bounded, deduplicated multi-target action shares one cooldown and the global tick reservation. */
+        public int attackBatch(List<LivingEntity> targets, Policy policy, SwingMode swing,
+                Predicate<LivingEntity> stillEligible) {
+            Objects.requireNonNull(targets); Objects.requireNonNull(swing); Objects.requireNonNull(stillEligible);
+            if (targets.size() > 5) { throw new IllegalArgumentException("At most five targets per batch"); }
+            if (!shouldAttackThisTick(policy)) { return 0; }
             LocalPlayer player = minecraft.player;
-            AttackEvent intent;
+            long batchTick = tick;
+            int count = 0;
             dispatching = true;
-            try { intent = bus.post(new AttackEvent(player, target)); }
-            finally { dispatching = false; }
-            // A listener may disable the module, replace the player, or issue another managed attack.
-            if (intent.isCancelled() || minecraft.player != player || !shouldAttackThisTick(policy) || !validForAttack(target)) { return false; }
-            lastAttackTick = tick;
-            minecraft.gameMode.attack(player, target);
-            swing(player, InteractionHand.MAIN_HAND, swing);
-            timer.recordAttack(policy);
-            return true;
+            try {
+                for (LivingEntity target : targets.stream().distinct().toList()) {
+                    if (!batchActive(player, batchTick)) { break; }
+                    if (!validForAttack(target) || !stillEligible.test(target) || !batchActive(player, batchTick)) { continue; }
+                    AttackEvent intent = bus.post(new AttackEvent(player, target));
+                    // Intent listeners may disable an owner, change a filter, or replace the world.
+                    if (intent.isCancelled() || !batchActive(player, batchTick)) { continue; }
+                    if (count == 0 && (!timer.isReady() || (policy.cooldownAware() && player.getAttackStrengthScale(0) < 1))) { continue; }
+                    if (!validForAttack(target) || !stillEligible.test(target) || !batchActive(player, batchTick)) { continue; }
+                    lastAttackTick = batchTick;
+                    minecraft.gameMode.attack(player, target);
+                    swing(player, InteractionHand.MAIN_HAND, swing);
+                    count++;
+                }
+            } finally {
+                dispatching = false;
+                if (count > 0 && !closed) { timer.recordAttack(policy); }
+            }
+            return count;
+        }
+        private boolean batchActive(LocalPlayer player, long batchTick) {
+            return !closed && !AttackManager.this.closed && minecraft.player == player && tick == batchTick
+                    && minecraft.level == player.level() && minecraft.gameMode != null && minecraft.getConnection() != null
+                    && player.isAlive() && !player.isRemoved() && !player.isSpectator();
         }
         private boolean validForAttack(LivingEntity target) {
             LocalPlayer player = minecraft.player;
