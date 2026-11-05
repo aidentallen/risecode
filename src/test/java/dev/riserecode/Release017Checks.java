@@ -45,7 +45,24 @@ public final class Release017Checks {
         check(manager.loadProfile("subtle")&&manager.choice("Button Style",ThemeManager.ButtonStyle.class)==ThemeManager.ButtonStyle.SUBTLE,"switching profiles restores subtle choice");
         var legacy=manager.snapshot().settings();legacy.remove("Button Style");ThemeManager.assign(manager.getSetting("Button Style"),ThemeManager.ButtonStyle.ACCENT);
         manager.apply(new ThemeProfile(1,legacy));check(manager.choice("Button Style",ThemeManager.ButtonStyle.class)==ThemeManager.ButtonStyle.SUBTLE,"profiles without button style reset to subtle");
-        check(ThemeManager.Background.values().length==11,"animated backgrounds registered");check(ThemeManager.ClickSound.values().length==11,"all sound presets registered");
+        check(ThemeManager.Background.values().length==11,"animated backgrounds registered");
+        try(var input=Release017Checks.class.getResourceAsStream("/assets/riserecode/sounds.json")){
+            var sounds=JsonParser.parseReader(new java.io.InputStreamReader(input,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            for(var sound:ThemeManager.ClickSound.values()){
+                ThemeManager.assign(manager.getSetting("Click Sound"),sound);
+                target.apply(manager.snapshot());
+                check(target.choice("Click Sound",ThemeManager.ClickSound.class)==sound,"sound choice round-trips: "+sound);
+                if(sound==ThemeManager.ClickSound.VANILLA||sound==ThemeManager.ClickSound.MUTED||sound==ThemeManager.ClickSound.LOCAL_OGG){continue;}
+                String name=sound.name().toLowerCase(java.util.Locale.ROOT);
+                check(sounds.has("ui."+name),"sound event registered: "+name);
+                for(var entry:sounds.getAsJsonObject("ui."+name).getAsJsonArray("sounds")){
+                    String resource=entry.getAsString().replace("riserecode:","/assets/riserecode/sounds/")+".ogg";
+                    try(var audio=Release017Checks.class.getResourceAsStream(resource)){
+                        check(audio!=null&&new String(audio.readNBytes(4),java.nio.charset.StandardCharsets.US_ASCII).equals("OggS"),"bundled OGG exists: "+name);
+                    }
+                }
+            }
+        }
         // Numeric text uses the existing numeric persistence contract.
         DoubleSetting coordinate=new DoubleSetting("Destination X","",0,-30_000_000,30_000_000);SettingCodecs.apply(coordinate,new JsonPrimitive(-29_999_999));check(coordinate.getValue()==-29_999_999,"large negative coordinates round-trip exactly");
         System.out.println("Release 0.17 checks passed ("+checks+" assertions).");

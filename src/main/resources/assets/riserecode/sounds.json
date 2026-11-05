@@ -38,5 +38,45 @@
     "sounds": [
       "riserecode:ui/glass"
     ]
+  },
+  "ui.thock": {
+    "sounds": [
+      "riserecode:ui/thock"
+    ]
+  },
+  "ui.creamy": {
+    "sounds": [
+      "riserecode:ui/creamy"
+    ]
+  },
+  "ui.marble": {
+    "sounds": [
+      "riserecode:ui/marble"
+    ]
+  },
+  "ui.bubble": {
+    "sounds": [
+      "riserecode:ui/bubble"
+    ]
+  },
+  "ui.snap": {
+    "sounds": [
+      "riserecode:ui/snap"
+    ]
+  },
+  "ui.ceramic": {
+    "sounds": [
+      "riserecode:ui/ceramic"
+    ]
+  },
+  "ui.rubber": {
+    "sounds": [
+      "riserecode:ui/rubber"
+    ]
+  },
+  "ui.chime": {
+    "sounds": [
+      "riserecode:ui/chime"
+    ]
   }
 }
