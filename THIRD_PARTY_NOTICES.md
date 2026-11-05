@@ -122,3 +122,11 @@ cracking/submission, raw-world background finders, global executors, configurati
 screen and storage. Modern structure matching is local to the engine and leaves
 the game's biomes untouched. Unreliable legacy decorators and biome cracking are
 unavailable. See `docs/seedcracker.md` for the integration boundaries.
+
+## Meteor KillAura behavioral reference
+
+The KillAura rewrite was informed by inspection of Meteor Development's
+[KillAura and target helpers at revision e3a2e77967629d216e127b5ceecf71fb15f9d2e5](https://github.com/MeteorDevelopment/meteor-client/tree/e3a2e77967629d216e127b5ceecf71fb15f9d2e5).
+Meteor Client is GPL-3.0. No Meteor source or binary is distributed here. The
+implementation uses RiseCode's own combat managers and settings; the
+[guide](docs/killaura.md) records the inspected features and intentional differences.

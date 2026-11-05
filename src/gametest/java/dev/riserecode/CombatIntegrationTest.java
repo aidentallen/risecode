@@ -161,10 +161,11 @@ public final class CombatIntegrationTest {
             try {
                 context.runOnClient(minecraft -> {
                     minecraft.player.setYRot(0); minecraft.player.setXRot(0);
+                    aura.getAttackWhenHolding().setValue(KillAuraModule.AttackItems.WEAPONS);
                     aura.getTargets().setValue(KillAuraModule.Targets.MOBS); aura.getRange().setValue(4.0);
                     aura.getRotate().setValue(RotationManager.Mode.SMOOTH); aura.getRotationSpeed().setValue(90.0);
                     aura.getTargetMode().setValue(TargetUtil.SortMode.DISTANCE); aura.getAutoSwitch().setValue(true);
-                    aura.getMinCps().setValue(6.0); aura.getMaxCps().setValue(10.0); aura.getSwing().setValue(true);
+                    aura.getSwing().setValue(true);
                     client.getModuleManager().setEnabled(aura, true);
                 });
                 context.waitFor(minecraft -> minecraft.player.getInventory().getSelectedSlot() == 2);

@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
+import java.util.function.Predicate;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
@@ -66,11 +67,14 @@ public final class ItemUtil {
     }
     /** Rank single-hit damage first, speed second, and retain the current slot on an exact tie. */
     public static OptionalInt bestHotbarWeapon(Player player) {
+        return bestHotbarWeapon(player, ItemUtil::isWeapon);
+    }
+    public static OptionalInt bestHotbarWeapon(Player player, Predicate<ItemStack> acceptable) {
         int selected = player.getInventory().getSelectedSlot();
         int best = -1; double bestDamage = Double.NEGATIVE_INFINITY; double bestSpeed = Double.NEGATIVE_INFINITY;
         for (int slot = 0; slot < 9; slot++) {
             ItemStack stack = player.getInventory().getItem(slot);
-            if (!isWeapon(stack)) { continue; }
+            if (!acceptable.test(stack)) { continue; }
             double damage = attackDamage(player, stack); double speed = attackSpeed(player, stack);
             if (best < 0 || damage > bestDamage || (Double.compare(damage, bestDamage) == 0
                     && (speed > bestSpeed || (Double.compare(speed, bestSpeed) == 0 && slot == selected)))) {

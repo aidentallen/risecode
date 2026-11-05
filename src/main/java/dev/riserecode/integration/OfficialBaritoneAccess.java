@@ -4,11 +4,13 @@ import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
 import baritone.api.pathing.goals.GoalBlock;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.world.entity.player.Player;
 
 /** Uses the official public API only; no bundled Baritone implementation. */
 final class OfficialBaritoneAccess implements BaritoneAccess {
     private boolean paused;
+    private long revision;
     private IBaritone api() { return BaritoneAPI.getProvider().getPrimaryBaritone(); }
     public boolean available() { return true; }
     public String status() {
@@ -28,6 +30,8 @@ final class OfficialBaritoneAccess implements BaritoneAccess {
     }
     public boolean command(String input) {
         boolean result = api().getCommandManager().execute(input);
+        String verb = input.strip().toLowerCase(java.util.Locale.ROOT).split("\\s+", 2)[0];
+        if (result && !java.util.Set.of("help", "status", "version", "commands").contains(verb)) { revision++; }
         if (result && input.strip().equalsIgnoreCase("pause")) { paused = true; api().getInputOverrideHandler().clearAllKeys(); }
         if (result && (input.strip().equalsIgnoreCase("resume") || input.strip().equalsIgnoreCase("cancel"))) { paused = false; }
         return result;
@@ -38,7 +42,14 @@ final class OfficialBaritoneAccess implements BaritoneAccess {
                 ? new baritone.api.command.helpers.TabCompleteHelper().addCommands(manager).filterPrefix(command).sortAlphabetically().stream()
                 : manager.tabComplete(command)).limit(100).toList();
     }
+    public Optional<Runnable> pauseForCombat() {
+        if (paused || !api().getPathingBehavior().isPathing() || !command("pause")) { return Optional.empty(); }
+        long owned = revision;
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        return Optional.of(() -> { if (paused && revision == owned && net.minecraft.client.Minecraft.getInstance().level == level) { command("resume"); } });
+    }
     public void stop() {
+        revision++;
         if (paused) { api().getCommandManager().execute("cancel"); }
         api().getPathingBehavior().cancelEverything();api().getPathingBehavior().forceCancel();api().getInputOverrideHandler().clearAllKeys();paused=false;
     }

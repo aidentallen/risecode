@@ -1,6 +1,7 @@
 package dev.riserecode.integration;
 
 import java.util.List;
+import java.util.Optional;
 import net.fabricmc.loader.api.FabricLoader;
 
 /** The optional dependency is linked only when Fabric reports it installed. */
@@ -13,6 +14,8 @@ public interface BaritoneAccess {
     boolean command(String input);
     List<String> complete(String input);
     void stop();
+    /** Release only a pause owned by this combat session. */
+    default Optional<Runnable> pauseForCombat() { return Optional.empty(); }
     static BaritoneAccess create() {
         if (FabricLoader.getInstance().isModLoaded("baritone")) {
             try { return new OfficialBaritoneAccess(); }

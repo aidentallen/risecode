@@ -8,6 +8,14 @@ Historical entries were recovered from retained source/JAR artifacts and develop
 documentation. Their notes identify provenance and missing history; original dates
 and development commits are not invented.
 
+## [0.30.0-beta.2](docs/releases/v0.30.0-beta.2.md) — KillAura rewrite
+
+- Replace the old randomized-CPS KillAura with an original implementation informed by Meteor's combat behavior.
+- Add weapon families, shield handling, click/look conditions, named/tamed/age filters, entity IDs, wall range and five target priorities.
+- Add bounded multi-target attack windows, vanilla/custom tick delays, slot delays, TPS estimation and lag pause.
+- Retain visible rotation arbitration, friends, GUI safeguards, reversible slot ownership and compatible profile keys; add owned Baritone pausing.
+- Include Liquid Glass beta.1 and add deterministic/native combat regression coverage.
+
 ## [0.30.0-beta.1](docs/releases/v0.30.0-beta.1.md) — Liquid Glass interface (review build)
 
 - Add a shared refractive interface material with adaptive frost and directional highlights.
