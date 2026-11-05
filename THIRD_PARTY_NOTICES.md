@@ -14,6 +14,7 @@ files retain their own licenses; they are not relicensed by the root license.
 | Menu photograph | `textures/gui/` background image | Jefferson Sees, [original photograph](https://unsplash.com/photos/a-night-time-view-of-a-lake-and-mountains-A8zGDWwiA1U), [Unsplash License](https://unsplash.com/license). [Credits](src/main/resources/assets/riserecode/textures/gui/CREDITS.txt). |
 | Minecraft shader interfaces | `shaders/core/water_vanilla.*` | Minecraft is copyright Mojang AB; these adapters require Minecraft. [Shader notices](src/main/resources/licenses/SHADER-NOTICES.txt). No Minecraft executable is redistributed. |
 | Gradle wrapper | `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar` | Gradle contributors, Apache License 2.0; upstream notices in wrapper scripts. [Upstream license](https://github.com/gradle/gradle/blob/master/LICENSE). |
+| Donut-client Fly and hotbar privacy | `module/modules/FlyModule.java`, `render/HotbarPrivacy.java`, and the `FlyPlayerSaveMixin`, `HudHotbarPrivacyMixin`, `HeldItemPrivacyMixin`, `AvatarItemPrivacyMixin` mixins | [MIT License](licenses/donut-client-MIT.txt), Donut Client contributors. [Upstream](https://github.com/NotRaindoots/donut-client). Adapted to the risecode module, EventBus and blur infrastructure. |
 
 Font paths in this table are relative to
 `src/main/resources/assets/riserecode/`. [FONT_SOURCES.md](FONT_SOURCES.md)

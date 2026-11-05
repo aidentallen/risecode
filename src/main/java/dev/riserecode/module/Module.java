@@ -74,7 +74,7 @@ public abstract class Module {
 
     public ModuleClassification classification() {
         return switch (getName()) {
-            case "KillAura" -> ModuleClassification.BLATANT;
+            case "KillAura", "Fly" -> ModuleClassification.BLATANT;
             case "FastBreak" -> this instanceof dev.riserecode.module.modules.FastBreakModule f && f.multiplier.getValue() > 1 ? ModuleClassification.BLATANT : ModuleClassification.GHOST;
             case "Sprint" -> this instanceof dev.riserecode.module.modules.SprintModule s && s.getOmniSprint().getValue() ? ModuleClassification.BLATANT : ModuleClassification.GHOST;
             case "AutoTool", "Baritone", "Clutch" -> ModuleClassification.GHOST;

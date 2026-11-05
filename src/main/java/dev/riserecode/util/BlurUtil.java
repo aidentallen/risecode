@@ -26,8 +26,8 @@ public final class BlurUtil {
         static final RenderPipeline BOX=UiMesh.pipeline("blur_box","blur_box");
     }
     private static TextureTarget snapshot,gui,world;
-    private static final GpuBuffer[] PARAMETERS=new GpuBuffer[2];
-    private static final int[][] PARAMETER_BITS=new int[2][];
+    private static final GpuBuffer[] PARAMETERS=new GpuBuffer[3];
+    private static final int[][] PARAMETER_BITS=new int[3][];
     private static boolean guiRequested,worldRequested;
     private static BlurRegion guiRegion;
     private static double guiRadius,worldRadius,worldOpacity,lastSubmitMilliseconds;
@@ -76,6 +76,37 @@ public final class BlurUtil {
             }
             frames++;
         }finally{guiRequested=worldRequested=false;guiRegion=null;lastSubmitMilliseconds=(System.nanoTime()-start)/1e6;}
+    }
+    /** Blurs an already drawn HUD region in place, after the GUI pass completed. */
+    public static void renderPrivacyRegion(RenderTarget main,BlurRegion region,double radius){
+        if(region==null||region.empty()){return;}
+        ensureTargets();
+        long start=System.nanoTime();
+        try{
+            copy(main,snapshot,0,1,0);
+            DualBlur.apply(snapshot,world,radius,region);
+            composite(world,main,region);
+            frames++;
+        }finally{lastSubmitMilliseconds=(System.nanoTime()-start)/1e6;}
+    }
+    /** Full-opacity blurred copy, scissored to the region so stale pixels stay off screen. */
+    private static void composite(RenderTarget source,RenderTarget target,BlurRegion region){
+        int slot=2;
+        if(PARAMETERS[slot]==null){PARAMETERS[slot]=RenderSystem.getDevice().createBuffer(()->"risecode scene copy parameters",GpuBuffer.USAGE_UNIFORM|GpuBuffer.USAGE_COPY_DST,16);}
+        int bits=Float.floatToIntBits(1f);int[] previous=PARAMETER_BITS[slot];
+        if(previous==null||previous[0]!=2||previous[1]!=bits){
+            try(MemoryStack stack=MemoryStack.stackPush()){
+                var data=Std140Builder.onStack(stack,16).putVec4(0,0,2,1).get();RenderSystem.getDevice().createCommandEncoder().writeToBuffer(PARAMETERS[slot].slice(),data);
+            }
+            PARAMETER_BITS[slot]=new int[]{2,bits};
+        }
+        try(var pass=RenderSystem.getDevice().createCommandEncoder().createRenderPass(()->"risecode region composite",target.getColorTextureView(),Optional.empty())){
+            pass.setPipeline(Pipelines.COPY);pass.setUniform("BlurParams",PARAMETERS[slot]);pass.bindTexture("Sampler0",source.getColorTextureView(),RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+            int x=(int)Math.round(region.left()*target.width),y=(int)Math.round(region.bottom()*target.height);
+            int right=(int)Math.round(region.right()*target.width),top=(int)Math.round(region.top()*target.height);
+            pass.enableScissor(x,y,right-x,top-y);
+            pass.draw(3,1,0,0);
+        }
     }
     private static void copy(RenderTarget source,RenderTarget target,int mode,double opacity,int slot){
         if(PARAMETERS[slot]==null){PARAMETERS[slot]=RenderSystem.getDevice().createBuffer(()->"risecode scene copy parameters",GpuBuffer.USAGE_UNIFORM|GpuBuffer.USAGE_COPY_DST,16);}
