@@ -47,7 +47,7 @@ public final class ThemeManager implements AutoCloseable {
     public enum ButtonStyle { SUBTLE, ACCENT }
     public enum ImageMotion { NONE, PAN, ZOOM, PAN_AND_ZOOM }
     public enum ImageFit { COVER, CONTAIN, STRETCH }
-    public enum ClickSound { POP, SOFT_POP, BLOB, VANILLA, MUTED, LOCAL_OGG, TICK, TAP, MECHANICAL, WOOD, GLASS }
+    public enum ClickSound { POP, SOFT_POP, BLOB, VANILLA, MUTED, LOCAL_OGG, TICK, TAP, MECHANICAL, WOOD, GLASS, THOCK, CREAMY, MARBLE, BUBBLE, SNAP, CERAMIC, RUBBER, CHIME }
     public record Control(String group, Setting<?> setting, double step) { }
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private final Path directory;

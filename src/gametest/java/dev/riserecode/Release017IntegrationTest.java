@@ -36,7 +36,13 @@ public final class Release017IntegrationTest {
         c.takeScreenshot("0171-button-subtle-hover");
         c.runOnClient(mc->option("Button Style",ThemeManager.ButtonStyle.ACCENT));c.waitTicks(8);c.takeScreenshot("0171-button-accent-hover");
         c.runOnClient(mc->option("Button Style",ThemeManager.ButtonStyle.SUBTLE));
-        c.runOnClient(mc->{for(var sound:new ThemeManager.ClickSound[]{ThemeManager.ClickSound.TICK,ThemeManager.ClickSound.TAP,ThemeManager.ClickSound.MECHANICAL,ThemeManager.ClickSound.WOOD,ThemeManager.ClickSound.GLASS}){option("Click Sound",sound);check(dev.riserecode.ui.sound.UiSounds.play()!=net.minecraft.client.sounds.SoundEngine.PlayResult.NOT_STARTED,"sound asset plays: "+sound);}option("Click Sound",ThemeManager.ClickSound.SOFT_POP);});
+        for(var sound:ThemeManager.ClickSound.values()){
+            if(sound==ThemeManager.ClickSound.VANILLA||sound==ThemeManager.ClickSound.MUTED||sound==ThemeManager.ClickSound.LOCAL_OGG){continue;}
+            c.runOnClient(mc->{option("Click Sound",sound);check(dev.riserecode.ui.sound.UiSounds.play()!=net.minecraft.client.sounds.SoundEngine.PlayResult.NOT_STARTED,"sound asset plays: "+sound);});
+            c.waitTicks(5);
+        }
+        c.runOnClient(mc->option("Click Sound",ThemeManager.ClickSound.SOFT_POP));
+        if(Boolean.getBoolean("riserecode.uiSoundsOnly")){c.setScreen(TitleScreen::new);c.waitTicks(5);Client.INSTANCE.getLogger().info("Native UI sound checks passed ({} assertions).",checks);return;}
         c.setScreen(TitleScreen::new);c.waitTicks(25);c.takeScreenshot("0171-title-subtle");
         c.runOnClient(mc->option("Button Style",ThemeManager.ButtonStyle.ACCENT));c.waitTicks(8);c.takeScreenshot("0171-title-accent");
         c.runOnClient(mc->option("Button Style",ThemeManager.ButtonStyle.SUBTLE));

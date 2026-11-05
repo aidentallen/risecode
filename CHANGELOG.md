@@ -8,6 +8,12 @@ Historical entries were recovered from retained source/JAR artifacts and develop
 documentation. Their notes identify provenance and missing history; original dates
 and development commits are not invented.
 
+## [0.30.0-beta.3](docs/releases/v0.30.0-beta.3.md) — Tactile click sounds
+
+- Add eight original synthesized choices: Thock, Creamy, Marble, Bubble, Snap, Ceramic, Rubber, and Chime.
+- Shape short attacks, layered bodies and quiet tails; verify decoded assets are not clipped.
+- Preserve existing selections, original sounds, volume, pitch, mute, and local OGG support.
+
 ## [0.30.0-beta.2](docs/releases/v0.30.0-beta.2.md) — KillAura rewrite
 
 - Replace the old randomized-CPS KillAura with an original implementation informed by Meteor's combat behavior.

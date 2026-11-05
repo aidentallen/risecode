@@ -2,13 +2,14 @@
 
 [Project home](../../README.md) · [Complete changelog](../../CHANGELOG.md) · [User guide](../usage.md)
 
-**46 documented versions · 0.1.0 → 0.30.0-beta.2 · Minecraft 26.2 / Java 25**
+**47 documented versions · 0.1.0 → 0.30.0-beta.3 · Minecraft 26.2 / Java 25**
 
 Browse the changes and verification notes for each version. The latest source
-version on this feature branch is **0.30.0-beta.2 — KillAura rewrite**.
+version on this feature branch is **0.30.0-beta.3 — Tactile click sounds**.
 
 | Version | Highlights |
 | :--- | :--- |
+| [0.30.0-beta.3](v0.30.0-beta.3.md) | Eight original tactile click sounds |
 | [0.30.0-beta.2](v0.30.0-beta.2.md) | KillAura rewrite and retained Liquid Glass UI |
 | [0.30.0-beta.1](v0.30.0-beta.1.md) | Liquid Glass interface review build |
 | [0.29.0](v0.29.0.md) | Base Finder and suspicious chunk scanning |

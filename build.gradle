@@ -225,6 +225,7 @@ loom.runs.clientGameTest {
     if (providers.gradleProperty('baselineSmoke').isPresent()) { vmArg '-Driserecode.baselineSmoke=true' }
     if(providers.gradleProperty('blur017Only').isPresent()){vmArg '-Driserecode.release017Only=true';vmArg '-Driserecode.blur017Only=true';vmArg '-Driserecode.benchmarkLabel='+providers.gradleProperty('benchmarkLabel').getOrElse('vanilla')}
     if(providers.gradleProperty('release017Only').isPresent()){vmArg '-Driserecode.release017Only=true'}
+    if(providers.gradleProperty('uiSoundsOnly').isPresent()){vmArg '-Driserecode.release017Only=true';vmArg '-Driserecode.uiSoundsOnly=true'}
     if(providers.gradleProperty('ui017Only').isPresent()){vmArg '-Driserecode.release017Only=true';vmArg '-Driserecode.ui017Only=true'}
     if (providers.gradleProperty('uiRepairOnly').isPresent()) { vmArg '-Driserecode.uiRepairOnly=true' }
     if (providers.gradleProperty('release016Only').isPresent()) { vmArg '-Driserecode.release016Only=true' }
