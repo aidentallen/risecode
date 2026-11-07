@@ -34,6 +34,7 @@ public final class SettingsSection extends UIComponent {
     public double bodyHeight(double content){body.animateTo(expanded?content:0);return Math.max(0,body.getValue());}
     public double amount(double content){return content<=0?0:Math.clamp(bodyHeight(content)/content,0,1);}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
+        keyboard(g, alpha, () -> label + ", section, " + (expanded ? "expanded" : "collapsed"), () -> setExpanded(!expanded), null);
         double h=updateHover(mx,my,dt);body.update(dt);
         disclosure.animateTo(expanded?1:0);disclosure.update(dt);
         if(card){

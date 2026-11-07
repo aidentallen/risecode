@@ -169,10 +169,14 @@ public final class ClickGui extends Screen {
         if (page == Page.PROFILES || page == Page.FRIENDS) { rebuildActions(); }
     }
     public void selectCategory(Category category) { selectPage(Page.valueOf(category.name())); }
+    private final dev.riserecode.ui.component.KeyboardNavigation keyboardNavigation = new dev.riserecode.ui.component.KeyboardNavigation();
+    public String focusedControlLabel() { return keyboardNavigation.focusedLabel(); }
+    public List<String> accessibleControlLabels() { return keyboardNavigation.labels(); }
     public void selectPage(Page next) {
         next = switch (next) { case GAMEPLAY -> Page.COMBAT; case VISUALS -> Page.RENDER; default -> next; };
         if (next == Page.SETTINGS) { sidebar.toggleExpanded(); return; }
         if (closing || next == page) { return; }
+        keyboardNavigation.clear();
         Client.INSTANCE.getKeybindManager().cancelCapture();
         if(page==Page.COSMETICS){cosmeticsEditor.discard();}
         dev.riserecode.ui.component.FocusedInput.commit(); releaseCapture(); page = next; sidebar.setSelected(NAVIGATION_PAGES.indexOf(next));
@@ -280,6 +284,7 @@ public final class ClickGui extends Screen {
         graphics.pose().translate((float) (windowX + windowWidth / 2), (float) (windowY + windowHeight / 2));
         graphics.pose().scale((float) scale, (float) scale);
         graphics.pose().translate((float) (-windowX - windowWidth / 2), (float) (-windowY - windowHeight / 2));
+        keyboardNavigation.begin();
         dev.riserecode.ui.render.UiBatch.beginOrdered(graphics);
         try {
             RenderUtil.drawDropShadow(graphics, windowX, windowY, windowWidth, windowHeight, 10,
@@ -325,7 +330,7 @@ public final class ClickGui extends Screen {
                         noticeY + 6, 0.8, Theme.opacity(Theme.accent(), alpha * notice));
             }
             settingsPopup.render(graphics,font,pointerX,pointerY,seconds,alpha);
-        } finally { try{dev.riserecode.ui.render.UiBatch.end();}finally{graphics.pose().popMatrix();} }
+        } finally { keyboardNavigation.end(); try{dev.riserecode.ui.render.UiBatch.end();}finally{graphics.pose().popMatrix();} }
     }
     private void notice(String text) { message = text; messageTime = 3; }
     private void rebuildActions() {
@@ -488,17 +493,25 @@ public final class ClickGui extends Screen {
         if(settingsPopup.keyPressed(event)){return true;}
         if (page == Page.COSMETICS && cosmeticsEditor.keyPressed(event)) { return true; }
         if (page == Page.RESOURCES && resourcesEditor.keyPressed(event)) { return true; }
+        if (!settingsPopup.isOpen() && keyboardNavigation.key(event)) { return true; }
         if (dev.riserecode.ui.component.FocusedInput.key(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard)) { return true; }
         if (closing) { return true; }
         if (event.isEscape()) { onClose(); return true; }
         if (event.hasControlDown() && event.key() == 70) { if (page == Page.RESOURCES) { resourcesEditor.search().setFocused(true); resourcesEditor.search().selectAll(); } else { selectPage(Page.SEARCH); field.setFocused(true); } return true; }
         if(page==Page.PERFORMANCE&&getClientSettingsEditor().keyPressed(event,minecraft.keyboardHandler::getClipboard,minecraft.keyboardHandler::setClipboard)){return true;}
         if (!dev.riserecode.ui.component.FocusedInput.active() && (event.key()==262 || event.key()==263)) { if(sidebar.isExpanded() != (event.key()==262)){sidebar.toggleExpanded();} return true; }
-        if (event.key() == 258) {
+        if (event.key() == 258 && event.hasControlDown()) {
             var keyboardPages=sidebar.keyboardItems().stream().map(NAVIGATION_PAGES::get).toList();
             int current = keyboardPages.indexOf(page) < 0 && event.hasShiftDown() ? 0 : keyboardPages.indexOf(page);
             int next = Math.floorMod(current + (event.hasShiftDown() ? -1 : 1), keyboardPages.size());
             selectPage(keyboardPages.get(next)); sidebar.activateSelected(); dev.riserecode.ui.sound.UiSounds.play(); return true;
+        }
+        if (event.key() == 266 || event.key() == 267) {
+            double amount = event.key() == 266 ? 8 : -8;
+            var activePanel = getActivePanel();
+            if (activePanel != null) { var b = activePanel.getBounds(); activePanel.mouseScrolled(b.centerX(), b.centerY(), amount); }
+            else { mouseScrolled(contentBounds.centerX()*canvasScale, contentBounds.centerY()*canvasScale, 0, amount); }
+            return true;
         }
         if (event.isConfirmation() && (page == Page.PROFILES || page == Page.FRIENDS) && !actions.isEmpty()) {
             var b = actions.getFirst().getBounds(); actions.getFirst().mouseClicked(b.centerX(), b.centerY(), 0); return true;

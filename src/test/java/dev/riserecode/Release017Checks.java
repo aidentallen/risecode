@@ -45,7 +45,11 @@ public final class Release017Checks {
         check(manager.loadProfile("subtle")&&manager.choice("Button Style",ThemeManager.ButtonStyle.class)==ThemeManager.ButtonStyle.SUBTLE,"switching profiles restores subtle choice");
         var legacy=manager.snapshot().settings();legacy.remove("Button Style");ThemeManager.assign(manager.getSetting("Button Style"),ThemeManager.ButtonStyle.ACCENT);
         manager.apply(new ThemeProfile(1,legacy));check(manager.choice("Button Style",ThemeManager.ButtonStyle.class)==ThemeManager.ButtonStyle.SUBTLE,"profiles without button style reset to subtle");
-        check(ThemeManager.Background.values().length==11,"animated backgrounds registered");
+        for (var background : ThemeManager.Background.values()) {
+            ThemeManager.assign(manager.getSetting("Background"), background);
+            target.apply(manager.snapshot());
+            check(target.choice("Background", ThemeManager.Background.class) == background, "Background profile round trip: " + background);
+        }
         try(var input=Release017Checks.class.getResourceAsStream("/assets/riserecode/sounds.json")){
             var sounds=JsonParser.parseReader(new java.io.InputStreamReader(input,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
             for(var sound:ThemeManager.ClickSound.values()){

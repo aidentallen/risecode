@@ -1,0 +1,59 @@
+package dev.riserecode.ui.component;
+
+import dev.riserecode.ui.theme.Theme;
+import dev.riserecode.util.RenderUtil;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.IntConsumer;
+import java.util.function.Supplier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.input.KeyEvent;
+
+/** Visible controls register in draw order, using transformed bounds and the active clip. */
+public final class KeyboardNavigation {
+    private record Entry(Object id, Supplier<String> label, Runnable activate, IntConsumer adjust) { }
+    private static KeyboardNavigation collecting;
+    private final List<Entry> entries = new ArrayList<>();
+    private Object focused;
+    public void begin() { entries.clear(); collecting = this; }
+    public void end() { collecting = null; }
+    public String focusedLabel() {
+        return entries.stream().filter(entry -> entry.id() == focused).findFirst().map(entry -> entry.label().get()).orElse("");
+    }
+    public List<String> labels() { return entries.stream().map(entry -> entry.label().get()).toList(); }
+    public void clear() { entries.clear(); focused = null; }
+    public static void control(GuiGraphicsExtractor graphics, Object id, UIComponent.Bounds bounds, double opacity,
+            Supplier<String> label, Runnable activate, IntConsumer adjust) {
+        var navigation = collecting;
+        if (navigation == null || opacity < .95 || bounds.width() <= 0 || bounds.height() <= 0) { return; }
+        var rectangle = new ScreenRectangle((int)Math.floor(bounds.x()), (int)Math.floor(bounds.y()),
+                (int)Math.ceil(bounds.width()), (int)Math.ceil(bounds.height())).transformMaxBounds(graphics.pose());
+        var clip = graphics.scissorStack.peek();
+        if (clip != null && (rectangle.left() < clip.left() || rectangle.right() > clip.right()
+                || rectangle.top() < clip.top() || rectangle.bottom() > clip.bottom())) { return; }
+        navigation.entries.add(new Entry(id, label, activate, adjust));
+        if (navigation.focused == id) {
+            RenderUtil.drawRoundedBorder(graphics, bounds.x(), bounds.y(), bounds.width(), bounds.height(), 3, Theme.accent(), 1);
+        }
+    }
+    private void announce(Entry entry) { Minecraft.getInstance().getNarrator().saySystemNow(entry.label().get()); }
+    public boolean key(KeyEvent event) {
+        if (entries.isEmpty()) { return false; }
+        int index = -1;
+        for (int i = 0; i < entries.size(); i++) { if (entries.get(i).id() == focused) { index = i; break; } }
+        if (event.key() == 258 && !event.hasControlDown()) {
+            FocusedInput.commit();
+            index = Math.floorMod(index < 0 ? (event.hasShiftDown() ? entries.size()-1 : 0) : index + (event.hasShiftDown() ? -1 : 1), entries.size());
+            focused = entries.get(index).id(); announce(entries.get(index)); return true;
+        }
+        if (index < 0 || FocusedInput.active()) { return false; }
+        Entry entry = entries.get(index);
+        if (event.isConfirmation() || event.key() == 32) { entry.activate().run(); announce(entry); return true; }
+        if (entry.adjust() != null && (event.key() >= 262 && event.key() <= 265)) {
+            entry.adjust().accept(event.key() == 262 || event.key() == 265 ? 1 : -1); announce(entry); return true;
+        }
+        return false;
+    }
+}

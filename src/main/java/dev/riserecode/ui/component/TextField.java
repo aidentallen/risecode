@@ -24,7 +24,8 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
     public void onKey(java.util.function.Predicate<KeyEvent> handler) { keyHandler = handler; }
 
     private String validation = "";
-    private Runnable committed = () -> { }, cancelled = () -> { };
+    private Runnable committed = () -> { }, cancelled = () -> { }, beforeFocus = () -> { };
+    public void beforeFocus(Runnable listener) { beforeFocus = listener; }
     public void setMaximum(int value) { edit.maximum(value); }
     public void onChange(Consumer<String> value) { edit.onChange(value); }
     public void onCommit(Runnable value) { committed = value; }
@@ -38,7 +39,7 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
     public TextField(Supplier<String> placeholder) { this.placeholder = placeholder; }
     public String getValue() { return edit.value(); }
     public void setValue(String next) { edit.value(next); time = 0; }
-    public void setFocused(boolean next) { if (next) { FocusedInput.focus(this); } else { FocusedInput.release(this); } focused = next; time = 0; }
+    public void setFocused(boolean next) { if (next && !isFocused()) { beforeFocus.run(); } if (next) { FocusedInput.focus(this); } else { FocusedInput.release(this); } focused = next; time = 0; }
     public boolean isFocused() { return focused; }
     private double left(Font font) {
         double span = RenderUtil.textWidth(font, displayed(), false);
@@ -48,6 +49,7 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
     }
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY, double seconds, double opacity) {
+        keyboard(graphics, opacity, () -> placeholder.get() + ", text, " + (masked ? "hidden" : edit.value()) + (validation.isEmpty() ? "" : ", error: " + validation), () -> { setFocused(true); selectAll(); }, null);
         renderedFont = font; time += seconds;
         double hovered = updateHover(mouseX, mouseY, seconds);
         if(dev.riserecode.ui.render.LiquidGlass.enabled()){

@@ -213,6 +213,7 @@ loom.runs.clientGameTest {
     if (providers.gradleProperty('seedCrackerOnly').isPresent()) { vmArg '-Driserecode.seedCrackerOnly=true' }
     if (providers.gradleProperty('seedCrackerRecovery').isPresent()) { vmArg '-Driserecode.seedCrackerRecovery=true' }
     if (providers.gradleProperty('glassOnly').isPresent()) { vmArg '-Driserecode.glassOnly=true' }
+    if (providers.gradleProperty('keyboardReviewOnly').isPresent()) { vmArg '-Driserecode.keyboardReviewOnly=true' }
     if (providers.gradleProperty('flyOnly').isPresent()) { vmArg '-Driserecode.flyOnly=true' }
     if (providers.gradleProperty('hotbarOnly').isPresent()) { vmArg '-Driserecode.hotbarOnly=true' }
     if (providers.gradleProperty('panoramaOnly').isPresent()) { vmArg '-Driserecode.panoramaOnly=true' }
@@ -303,3 +304,14 @@ tasks.register('baseFinderCheck',JavaExec){dependsOn testClasses;classpath=sourc
 tasks.named('check'){dependsOn 'baseFinderCheck'}
 if (providers.gradleProperty('baseFinderOnly').isPresent()) { loom.runs.clientGameTest.vmArg '-Driserecode.baseFinderOnly=true' }
 if (providers.gradleProperty('liquidGlassOnly').isPresent()) { loom.runs.clientGameTest.vmArg '-Driserecode.liquidGlassOnly=true' }
+
+// Regression tests for whole-repository review safety boundaries.
+tasks.register('reviewSafetyCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.ReviewSafetyChecks'
+}
+tasks.register('releaseGuardsCheck', Exec) {
+    commandLine 'python3', '-m', 'unittest', 'discover', '-s', 'scripts/tests', '-p', 'test_*.py'
+}
+tasks.named('check') { dependsOn 'reviewSafetyCheck', 'releaseGuardsCheck' }

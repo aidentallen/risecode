@@ -8,6 +8,20 @@ Historical entries were recovered from retained source/JAR artifacts and develop
 documentation. Their notes identify provenance and missing history; original dates
 and development commits are not invented.
 
+## Unreleased — Whole-codebase review remediation
+
+- Contain cosmetic cache paths, bound seed database response acquisition, and keep
+  release integrity checks active under optimized Python.
+- Harden map shutdown, resource recovery/retention, flight packet thread ownership,
+  and seed finder scheduling and archive IO.
+- Separate module presentation, register setting adapters, and add visible-control
+  keyboard traversal, adjustment and narrator labels.
+- Bind fresh verification to source/artifact hashes and add CI and failure regressions.
+- Remove Qraftys artwork from source and distributions. Load the optional original
+  pack into a local cache on selection, with checksum verification and Inter fallback.
+- Verification is ongoing; native renderer matrix, custom accessibility surfaces,
+  performance measurements and publication are tracked separately from headless checks.
+
 ## [0.30.0-beta.3](docs/releases/v0.30.0-beta.3.md) — Tactile click sounds
 
 - Add eight original synthesized choices: Thock, Creamy, Marble, Bubble, Snap, Ceramic, Rubber, and Chime.

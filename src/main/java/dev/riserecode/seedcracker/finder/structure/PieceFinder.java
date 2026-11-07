@@ -65,34 +65,30 @@ public class PieceFinder extends Finder {
         return new Vec3i(this.width, this.height, this.depth);
     }
 
+    private int scanCursor, entryCursor;
+    private List<Map.Entry<BlockPos, BlockState>> scanEntries;
+    private final List<BlockPos> scanResult = new ArrayList<>();
     @Override
     public List<BlockPos> findInChunk() {
-        List<BlockPos> result = new ArrayList<>();
-
-        if (this.structure.isEmpty()) {
-            return result;
-        }
-
-        for (BlockPos center : this.searchPositions) {
+        if (structure.isEmpty()) { return new ArrayList<>(); }
+        if (scanEntries == null) { scanEntries = List.copyOf(structure.entrySet()); }
+        while (scanCursor < searchPositions.size()) {
+            BlockPos center = searchPositions.get(scanCursor);
             boolean found = true;
-
-            for (Map.Entry<BlockPos, BlockState> entry : this.structure.entrySet()) {
-                BlockPos pos = this.chunkPos.getWorldPosition().offset(center.offset(entry.getKey()));
-                BlockState state = this.world.getBlockState(pos);
-
-                //Blockstate may change when it gets placed in the world, that's why it's using the block here.
+            while (entryCursor < scanEntries.size()) {
+                dev.riserecode.seedcracker.FinderBudget.read();
+                var entry = scanEntries.get(entryCursor);
+                BlockPos pos = chunkPos.getWorldPosition().offset(center.offset(entry.getKey()));
+                BlockState state = world.getBlockState(pos);
                 if (entry.getValue() != null && !state.getBlock().equals(entry.getValue().getBlock())) {
-                    found = false;
-                    break;
+                    found = false; break;
                 }
+                entryCursor++;
             }
-
-            if (found) {
-                result.add(this.chunkPos.getWorldPosition().offset(center));
-            }
+            if (found) { scanResult.add(chunkPos.getWorldPosition().offset(center)); }
+            scanCursor++; entryCursor = 0;
         }
-
-        return result;
+        return new ArrayList<>(scanResult);
     }
 
     public void setOrientation(Direction facing) {

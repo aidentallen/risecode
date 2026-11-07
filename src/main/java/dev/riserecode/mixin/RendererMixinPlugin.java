@@ -10,16 +10,31 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 /** Sodium overwrites prepareChunkRenders; its own adapter replaces the vanilla hook. */
 public final class RendererMixinPlugin implements IMixinConfigPlugin {
     @Override public boolean shouldApplyMixin(String target, String mixin) {
-        if(mixin.substring(mixin.lastIndexOf('.')+1).startsWith("Bbe")) return FabricLoader.getInstance().isModLoaded("betterblockentities");
-        boolean sodium = FabricLoader.getInstance().isModLoaded("sodium");
-        if (mixin.endsWith(".ChunkTerrainMixin")) { return !sodium; }
-        if(mixin.contains("SodiumChunk") || mixin.contains("IrisChunk")){
-            if(sodium && !chunkAdapters()){return false;}
+        var loader = FabricLoader.getInstance();
+        String name = mixin.substring(mixin.lastIndexOf('.') + 1);
+        boolean sodium = loader.isModLoaded("sodium");
+        if (name.equals("ChunkTerrainMixin")) { return !sodium; }
+        if (name.startsWith("Bbe")) { return pinned("betterblockentities", "1.3.9+mc26.2"); }
+        if (name.equals("SodiumExtraShaderMixin")) {
+            return sodium && pinned("sodium", "0.9.2+mc26.2") && loader.isModLoaded("sodium-extra")
+                    && method("me.flashyreese.mods.sodiumextra.client.fog.FogShaderTransformer", "injectRenderDistanceShape", "(Ljava/lang/String;)Ljava/lang/String;");
         }
-        if (mixin.endsWith(".SodiumExtraShaderMixin")) { return FabricLoader.getInstance().isModLoaded("sodium-extra"); }
-        if (mixin.substring(mixin.lastIndexOf('.') + 1).startsWith("Sodium")) { return sodium; }
-        if (mixin.substring(mixin.lastIndexOf('.') + 1).startsWith("Iris")) { return FabricLoader.getInstance().isModLoaded("iris"); }
+        if (name.startsWith("Sodium") || name.startsWith("Iris")) {
+            // Every adapter uses internal APIs. Exact pinned versions guard menus, placement,
+            // lighting and accessors too; no required injection may run on an unknown version.
+            if (!sodium || !pinned("sodium", "0.9.2+mc26.2")) { return false; }
+            if (loader.isModLoaded("iris") && !pinned("iris", "1.11.4+mc26.2")) { return false; }
+            if (name.startsWith("Iris") && !loader.isModLoaded("iris")) { return false; }
+            if ((name.contains("SodiumChunk") || name.contains("IrisChunk")) && !chunkAdapters()) { return false; }
+        }
         return true;
+    }
+    private static boolean pinned(String mod, String expected) {
+        var installed = FabricLoader.getInstance().getModContainer(mod);
+        if (installed.isEmpty()) { return false; }
+        boolean supported = expected.equals(installed.get().getMetadata().getVersion().getFriendlyString());
+        if (!supported) { org.slf4j.LoggerFactory.getLogger("riserecode").warn("Unsupported {} version; Risecode adapters for it are disabled (supported: {})", mod, expected); }
+        return supported;
     }
     private Boolean chunkAdapters;
     private boolean chunkAdapters(){

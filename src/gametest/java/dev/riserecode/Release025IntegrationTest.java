@@ -66,8 +66,8 @@ public final class Release025IntegrationTest {
     }
     private static void ui(ClientGameTestContext c){
         c.runOnClient(mc->{
-            check(CustomTextRenderer.available(ThemeManager.Typeface.GOOGLE_SANS)&&CustomTextRenderer.available(ThemeManager.Typeface.QRAFTYS),"both fonts available offline");
-            check(mc.getResourceManager().getResource(net.minecraft.resources.Identifier.fromNamespaceAndPath("riserecode","font/qraftys.json")).isPresent(),"bundled namespaced font registered");
+            check(CustomTextRenderer.available(ThemeManager.Typeface.GOOGLE_SANS),"bundled default font available offline");
+            check(Release025IntegrationTest.class.getResource("/assets/riserecode/textures/font/qraftys.png")==null,"optional font artwork absent from distributable");
             check(ClickGui.VISIBLE_PAGES.contains(ClickGui.Page.PERFORMANCE),"Performance is main navigation");
             value("Reduced Motion",true);Client.INSTANCE.getClickGui().open(null);Client.INSTANCE.getClickGui().selectPage(ClickGui.Page.APPEARANCE);
         });c.waitTicks(5);

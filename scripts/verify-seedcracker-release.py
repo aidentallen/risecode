@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Validate one packaged 0.28.0 artifact in disposable native clients, sequentially."""
 from pathlib import Path
+from release_provenance import verified_source
 import hashlib,json,os,re,subprocess,time
 ROOT=Path(__file__).resolve().parent.parent
 OUT=ROOT/'.tooling/seedcracker'
 OUT.mkdir(parents=True,exist_ok=True)
 artifact=ROOT/'build/libs/riserecode-0.28.0.jar'
 expected=hashlib.sha256(artifact.read_bytes()).hexdigest()
-assert 'BUILD SUCCESSFUL' in (OUT/'final-check.log').read_text()
-(OUT/'final-check-receipt.json').write_text(json.dumps({'exitCode':0,'sha256':expected},indent=2)+'\n')
+source=verified_source(ROOT, artifact)
+
+(OUT/'final-check-receipt.json').write_text(json.dumps({'exitCode':0,'sha256':expected,'source':source},indent=2)+'\n')
 env=dict(os.environ,GRADLE_USER_HOME=str(ROOT/'.tooling/gradle-home'))
 for label,options in [('vanilla',['-PseedCrackerRecovery']),('sodium',['-PrendererStack','-PwithoutIris']),('iris',['-PrendererStack','-PwithShaderPack']),('vulkan',['-PrendererStack','-PwithoutIris','-PgraphicsBackend=VULKAN'])]:
     directory=ROOT/('build/run/seedcracker-final-'+label)
@@ -17,7 +19,8 @@ for label,options in [('vanilla',['-PseedCrackerRecovery']),('sodium',['-Prender
     with (OUT/('final-'+label+'.log')).open('w') as log:
         code=subprocess.run(command,cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT).returncode
     actual=hashlib.sha256(artifact.read_bytes()).hexdigest()
-    assert actual==expected,'Release artifact changed during renderer matrix'
+    if not (actual==expected):
+        raise RuntimeError('Release artifact changed during renderer matrix')
     log=(OUT/('final-'+label+'.log')).read_text()
     checks=re.search(r'SeedCracker native checks passed \((\d+) assertions\)',log)
     result={'label':label,'exitCode':code,'seconds':time.time()-start,'sha256':actual,'assertions':int(checks.group(1)) if checks else None,'runDirectory':str(directory),'fullNativePlacementRecovery':label=='vanilla','realGeneratedEndRecovery':label=='vanilla'}

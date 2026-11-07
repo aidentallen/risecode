@@ -1,6 +1,7 @@
-Qraftys Capitalized Font
-Original bitmap artwork by Qraftys.
-Bundled with redistribution permission confirmed by the user for RiseRecode.
-Original glyph artwork is unchanged.
+Qraftys Capitalized Font — optional external pack
+Original bitmap artwork by qrxtfly / Qraftys. All Rights Reserved.
+No font artwork or font pack is distributed in the current source or JAR.
+Selecting Qraftys acquires the original file directly into the user's local cache.
 Source: https://www.curseforge.com/minecraft/texture-packs/qraftys-capitalized-font/files/5605880
-SHA-256 (qraftys.png): b3aa3de3f4a8ecc6f1b71c05f03765b5202178b915df478869b0d74717b7e0df
+Original archive SHA-256: d5de138c0be92d785f77adb8c65d1ee8e12b24ec75683eb0485b38c336415ce7
+Local files retain the original author's terms; no redistribution permission is claimed.

@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """Package the staged, verified 0.28.0 source and distributables; never publishes."""
 from pathlib import Path
+from release_provenance import verified_source
 import hashlib,json,shutil,subprocess,zipfile
 ROOT=Path(__file__).resolve().parent.parent
 OUT=ROOT/'release/0.28.0'
 OUT.mkdir(parents=True,exist_ok=True)
 artifact=ROOT/'build/libs/riserecode-0.28.0.jar'
 expected=hashlib.sha256(artifact.read_bytes()).hexdigest()
+source=verified_source(ROOT, artifact)
 for label in ['vanilla','sodium','iris','vulkan']:
     receipt=json.loads((ROOT/'.tooling/seedcracker'/('final-'+label+'-receipt.json')).read_text())
-    assert receipt['exitCode']==0 and receipt['sha256']==expected,(label,receipt)
-assert 'BUILD SUCCESSFUL' in (ROOT/'.tooling/seedcracker/final-check.log').read_text()
+    if not (receipt['exitCode']==0 and receipt['sha256']==expected):
+        raise RuntimeError((label,receipt))
+
 for name in ['riserecode-0.28.0.jar','riserecode-0.28.0-sources.jar']:
     shutil.copy2(ROOT/'build/libs'/name,OUT/name)
-tree=subprocess.check_output(['git','write-tree'],cwd=ROOT,text=True).strip()
+tree=source['tree']
 subprocess.run(['git','archive','--format=zip','--prefix=risecode-0.28.0/','--output='+str(OUT/'riserecode-0.28.0-source.zip'),tree],cwd=ROOT,check=True)
 with zipfile.ZipFile(artifact) as source,zipfile.ZipFile(OUT/'riserecode-0.28.0-licenses.zip','w',zipfile.ZIP_DEFLATED) as output:
     for name in sorted(source.namelist()):

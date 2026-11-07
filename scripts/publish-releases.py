@@ -29,7 +29,8 @@ def main():
     if len(sys.argv) != 2:
         raise SystemExit('Usage: python3 scripts/publish-releases.py /path/to/prepared-plan.json')
     plan = json.loads(Path(sys.argv[1]).read_text())
-    assert api('user')['login'] == 'aidentallen', 'Sign in as the repository owner first'
+    if not (api('user')['login'] == 'aidentallen'):
+        raise RuntimeError('Sign in as the repository owner first')
     reports = []
     for release in plan:
         tag = release['tag']; endpoint = 'repos/'+REPOSITORY+'/releases/tags/'+tag
@@ -46,22 +47,28 @@ def main():
         for value in release['assets']:
             path = Path(value)
             if path.name in existing:
-                assert asset_matches(existing[path.name], path), 'Existing asset differs: '+tag+'/'+path.name
+                if not (asset_matches(existing[path.name], path)):
+                    raise RuntimeError('Existing asset differs: '+tag+'/'+path.name)
             else:
-                assert remote['draft'], 'Missing asset on already published release: '+tag
+                if not (remote['draft']):
+                    raise RuntimeError('Missing asset on already published release: '+tag)
                 gh('release', 'upload', tag, str(path), '--repo', REPOSITORY)
                 print('Uploaded', tag, path.name, flush=True)
         remote = api(endpoint); existing = {asset['name']: asset for asset in remote['assets']}
-        assert set(existing) == {Path(p).name for p in release['assets']}, 'Unexpected release assets: '+tag
+        if not (set(existing) == {Path(p).name for p in release['assets']}):
+            raise RuntimeError('Unexpected release assets: '+tag)
         for value in release['assets']:
             path = Path(value)
-            assert asset_matches(existing[path.name], path), 'Remote checksum mismatch: '+tag+'/'+path.name
-        assert remote['body'].strip() == Path(release['notes']).read_text().strip(), 'Release notes differ: '+tag
+            if not (asset_matches(existing[path.name], path)):
+                raise RuntimeError('Remote checksum mismatch: '+tag+'/'+path.name)
+        if not (remote['body'].strip() == Path(release['notes']).read_text().strip()):
+            raise RuntimeError('Release notes differ: '+tag)
         if remote['draft']:
             gh('release', 'edit', tag, '--repo', REPOSITORY, '--draft=false',
                '--latest='+('true' if release['version']=='0.9.2' else 'false'))
         published = api(endpoint)
-        assert not published['draft']
+        if not (not published['draft']):
+            raise RuntimeError('Release verification failed')
         reports.append({'tag':tag,'url':published['html_url'],'assets':[
             {'name':a['name'],'bytes':a['size'],'digest':a.get('digest')} for a in published['assets']]})
         print('Published and verified:', published['html_url'], flush=True)

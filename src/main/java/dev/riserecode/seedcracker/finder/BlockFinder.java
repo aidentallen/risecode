@@ -30,20 +30,19 @@ public abstract class BlockFinder extends Finder {
         this.targetBlockStates.addAll(Arrays.stream(blockStates).toList());
     }
 
+    private int scanCursor;
+    private final List<BlockPos> scanResult = new ArrayList<>();
     @Override
     public List<BlockPos> findInChunk() {
-        List<BlockPos> result = new ArrayList<>();
         ChunkAccess chunk = this.world.getChunk(this.chunkPos.getWorldPosition());
-
-        for (BlockPos blockPos : this.searchPositions) {
-            BlockState currentState = chunk.getBlockState(blockPos);
-
-            if (this.targetBlockStates.contains(currentState)) {
-                result.add(this.chunkPos.getWorldPosition().offset(blockPos));
-            }
+        while (scanCursor < searchPositions.size()) {
+            dev.riserecode.seedcracker.FinderBudget.read();
+            BlockPos blockPos = searchPositions.get(scanCursor);
+            BlockState state = chunk.getBlockState(blockPos);
+            if (targetBlockStates.contains(state)) { scanResult.add(chunkPos.getWorldPosition().offset(blockPos)); }
+            scanCursor++;
         }
-
-        return result;
+        // Subclasses filter their result; never expose the retained scan buffer.
+        return new ArrayList<>(scanResult);
     }
-
 }

@@ -22,6 +22,7 @@ public final class NumericField extends UIComponent {
                 setting.setValue(value); changed.run(); field.validation("");
             } catch (IllegalArgumentException invalid) { field.validation("Integer: " + (long)setting.getMin() + " to " + (long)setting.getMax()); }
         });
+        field.beforeFocus(() -> original = setting.getValue());
         field.onCancel(() -> { setting.setValue(original); changed.run(); });
         field.onCommit(() -> {field.setValue(Long.toString(setting.getValue().longValue()));field.validation("");});
     }

@@ -42,9 +42,9 @@ public final class Release025Checks {
         ThemeManager.assign(effect,dev.riserecode.module.modules.BlockOverlayModule.ColorEffect.SPATIAL_RAINBOW);
         var spatial=block.highlightStyle().edges().getFirst().paint();check(spatial.sample(0,0,1)!=spatial.sample(40,0,1),"spatial hue varies by world position");
         check(block.highlightStyle().faces().equals(originalFill),"outline color effect leaves fill independent");
-        var bitmap=Path.of("src/main/resources/assets/riserecode/textures/font/qraftys.png");
-        check(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(bitmap))).equals("b3aa3de3f4a8ecc6f1b71c05f03765b5202178b915df478869b0d74717b7e0df"),"original bitmap checksum pinned");
-        for(String name:new String[]{"google_sans_regular.ttf","google_sans_medium.ttf","qraftys.json"})check(Files.isRegularFile(Path.of("src/main/resources/assets/riserecode/font",name)),"offline font asset "+name);
+        check(!Files.exists(Path.of("src/main/resources/assets/riserecode/textures/font/qraftys.png")), "optional font artwork is never bundled");
+        check(!Files.exists(Path.of("src/main/resources/assets/riserecode/font/qraftys.json")), "no bundled provider references optional artwork");
+        for(String name:new String[]{"google_sans_regular.ttf","google_sans_medium.ttf"})check(Files.isRegularFile(Path.of("src/main/resources/assets/riserecode/font",name)),"offline font asset "+name);
         var manifest=com.google.gson.JsonParser.parseString(Files.readString(Path.of("src/main/resources/assets/riserecode/shaders/include/fsr1/source.json"))).getAsJsonObject();
         for(String name:new String[]{"ffx_a.h","ffx_fsr1.h"}){
             var data=Files.readAllBytes(Path.of("src/main/resources/assets/riserecode/shaders/include/fsr1",name.replace(".h",".glsl")));

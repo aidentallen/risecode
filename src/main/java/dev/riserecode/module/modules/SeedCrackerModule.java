@@ -45,6 +45,7 @@ public final class SeedCrackerModule extends Module {
     private final Map<Finder.Type,BooleanSetting> finders=new EnumMap<>(Finder.Type.class);
     private final Minecraft mc;
     private final SeedStore store;
+    private dev.riserecode.seedcracker.SeedArchiveWorker archiveWorker;
     private final DataStorage data=new DataStorage();
     private final CollectionQueue collection=new CollectionQueue();
     private ClientLevel level;
@@ -57,7 +58,7 @@ public final class SeedCrackerModule extends Module {
     private double regularBits,liftingBits;
     private String storageError="";
     private String message="Enable to collect. Start cracking manually.";
-    private boolean resultAccepted, databasePending, preserveArchive=true;
+    private boolean resultAccepted, databasePending, restorePending, preserveArchive=true;
 
     public SeedCrackerModule(EventBus bus, Minecraft mc) {
         super("SeedCracker","Collect native 26.2 structure observations; crack only with manual Start.",Category.WORLD,bus);
@@ -75,6 +76,8 @@ public final class SeedCrackerModule extends Module {
         case MONUMENT -> "Ocean Monuments"; case SHIPWRECK -> "Shipwrecks"; case IGLOO -> "Igloos";
     }; }
     @Override protected void onEnable() {
+        if (archiveWorker != null && !archiveWorker.terminated()) { throw new IllegalStateException("Previous archive writes are still finishing; retry enable shortly"); }
+        archiveWorker = new dev.riserecode.seedcracker.SeedArchiveWorker(store);
         if (Features.STRUCTURE_TYPES.isEmpty()) { Features.init(dev.riserecode.seedcracker.config.Config.get().getVersion()); }
         SeedCracker.bind(new SeedCracker(data,this::rescan));
         syncFinders();
@@ -92,6 +95,7 @@ public final class SeedCrackerModule extends Module {
     @Override protected void onDisable() {
         acceptResult(); stop(); save(); collection.clear(); level=null; identity=null; data.clear();
         structureSeeds=List.of(); verifiedSeeds=List.of(); SeedCracker.bind(null);
+        if (archiveWorker != null) { archiveWorker.close(); archiveWorker = null; }
         message="Disabled. Saved data requires explicit Restore.";
     }
     private void syncFinders() { finders.forEach((type,setting) -> type.enabled.set(setting.getValue())); }
@@ -122,7 +126,7 @@ public final class SeedCrackerModule extends Module {
     private void tick(UpdateEvent event) {
         changeWorld(mc.level,false); syncFinders(); acceptResult();
         if (!databaseLookup.getValue() && !databaseSubmits.getValue() && database!=null) { cancelDatabase(); }
-        if (supported()) {
+        if (supported() && !restorePending) {
             try { collection.tick(); } catch (RuntimeException failure) { message="Finder failed: "+failure.getMessage(); SeedCracker.LOGGER.error(message,failure); }
         }
         if (event.getTick()-lastSaveTick>=100) { save(); lastSaveTick=event.getTick(); }
@@ -136,6 +140,7 @@ public final class SeedCrackerModule extends Module {
         job.start(); message="Manual attempt started using "+data.observations().size()+" observations. New observations are for your next Start.";
     }
     public void stop() {
+        restorePending = false;
         session++; if (job!=null && !job.progress().complete()) { job.close(); }
         cancelDatabase(); message="Stopped; collection continues while enabled.";
     }
@@ -152,6 +157,7 @@ public final class SeedCrackerModule extends Module {
     public void rescan() {
         requireEnabled(); changeWorld(mc.level,false); syncFinders();
         if (!supported() || mc.player==null) { message="Join a supported world before Rescan."; return; }
+        collection.restartPending();
         int radius=mc.options.renderDistance().get(); ChunkPos center=mc.player.chunkPosition();
         for (int ring=0;ring<=radius;ring++) {
             for (int dx=-ring;dx<=ring;dx++) {
@@ -169,29 +175,34 @@ public final class SeedCrackerModule extends Module {
         requireEnabled(); changeWorld(mc.level,false);
         if (identity==null) { message="Join the matching world before Restore."; return; }
         stop();
-        try {
-            var saved=store.restore(identity); data.replace(saved.observations(),saved.pillars()); structureSeeds=saved.structureSeeds(); verifiedSeeds=saved.verifiedSeeds();
-            preserveArchive=false; savedRevision=data.revision(); message="Restored "+data.observations().size()+" observations. Start is still manual.";
-        } catch (java.io.IOException failure) { message=failure.getMessage(); }
+        var expectedIdentity = identity;
+        long expectedSession = session, expectedRevision = data.revision();
+        restorePending = true;
+        message = "Reading saved observations…";
+        archiveWorker.restore(expectedIdentity).whenComplete((saved, failure) -> mc.execute(() -> {
+            if (!isEnabled() || expectedSession != session || !expectedIdentity.equals(identity)) { return; }
+            restorePending = false;
+            if (expectedRevision != data.revision()) { message = "Observations changed during Restore; retry to replace them"; return; }
+            if (failure != null) { message = "Could not restore data: " + concise(failure); return; }
+            data.replace(saved.observations(), saved.pillars()); structureSeeds = saved.structureSeeds(); verifiedSeeds = saved.verifiedSeeds();
+            preserveArchive = false; savedRevision = data.revision();
+            message = "Restored " + data.observations().size() + " observations. Start is still manual.";
+        }));
     }
     private void save() {
-        if (identity==null || savedRevision==data.revision()) { return; }
-        // An empty fresh session must not overwrite an archive before explicit Restore.
-        if (data.observations().isEmpty() && data.pillars().isEmpty() && structureSeeds.isEmpty() && verifiedSeeds.isEmpty() && savedRevision!=-2) { return; }
-        try {
-            var snapshot=new SeedStore.Saved(1,identity,data.observations(),data.pillars(),structureSeeds,verifiedSeeds);
-            // Keep a previous compatible archive until the user explicitly restores
-            // or clears it. Saving new collection must never silently erase it.
-            if (preserveArchive && java.nio.file.Files.exists(store.path(identity))) {
-                var prior=store.restore(identity);
-                var merged=new java.util.LinkedHashSet<>(prior.observations()); merged.addAll(snapshot.observations());
-                var verified=new java.util.LinkedHashSet<>(prior.verifiedSeeds()); verified.addAll(snapshot.verifiedSeeds());
-                snapshot=new SeedStore.Saved(1,identity,List.copyOf(merged),snapshot.pillars().isEmpty()?prior.pillars():snapshot.pillars(),
-                        snapshot.structureSeeds().isEmpty()?prior.structureSeeds():snapshot.structureSeeds(),List.copyOf(verified));
-            }
-            store.save(snapshot); savedRevision=data.revision(); storageError="";
-        }
-        catch (java.io.IOException | RuntimeException failure) { storageError="Could not save data: "+failure.getMessage(); message=storageError; }
+        if (identity == null || archiveWorker == null || savedRevision == data.revision()) { return; }
+        if (data.observations().isEmpty() && data.pillars().isEmpty() && structureSeeds.isEmpty() && verifiedSeeds.isEmpty() && savedRevision != -2) { return; }
+        var snapshot = new SeedStore.Saved(1, identity, data.observations(), data.pillars(), structureSeeds, verifiedSeeds);
+        long revision = data.revision();
+        var expectedIdentity = identity;
+        savedRevision = revision;
+        archiveWorker.save(snapshot, preserveArchive).whenComplete((ignored, failure) -> mc.execute(() -> {
+            if (!expectedIdentity.equals(identity)) { return; }
+            if (failure != null) {
+                if (savedRevision == revision) { savedRevision = -1; }
+                storageError = "Could not save data: " + concise(failure); message = storageError;
+            } else { storageError = ""; }
+        }));
     }
     public void copySeed() {
         requireEnabled(); acceptResult();

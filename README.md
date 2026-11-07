@@ -59,7 +59,7 @@ and [release verification](docs/releases/v0.26.0.md).
 
 Animate single and double chests through native and BetterBlockEntities paths, keep PlayerESP
 submissions out of shader shadow passes, and add cycle/spatial rainbow block outlines.
-Google Sans and Qraftys work offline; Font Boldness adds stroke without changing layout.
+Google Sans works offline; Qraftys downloads only when selected and then works from the local cache; Font Boldness adds stroke without changing layout.
 Appearance disclosures and footer details support right-click. Performance now has a sidebar
 tab with independent 25–100% world resolution, Bilinear/FSR1 and sharpness controls.
 The HUD and GUI stay native, and 100% bypasses scaling. See [0.25.0 notes](docs/releases/v0.25.0.md).

@@ -31,6 +31,10 @@ public abstract class UIComponent {
         return hover.update(deltaSeconds);
     }
 
+    protected void keyboard(GuiGraphicsExtractor graphics, double opacity, java.util.function.Supplier<String> label,
+            Runnable activate, java.util.function.IntConsumer adjust) {
+        KeyboardNavigation.control(graphics, this, getBounds(), opacity, label, activate, adjust);
+    }
     public abstract void render(GuiGraphicsExtractor graphics, Font font, double mouseX,
             double mouseY, double deltaSeconds, double opacity);
     public boolean mouseClicked(double mouseX, double mouseY, int button) { return false; }

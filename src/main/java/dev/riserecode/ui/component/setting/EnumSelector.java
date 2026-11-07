@@ -38,6 +38,7 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
+        keyboard(graphics, opacity, () -> setting.getName() + ", choice, " + setting.getValue(), () -> choose(1), this::choose);
         double hovered = updateHover(mouseX, mouseY, deltaSeconds);
         if (displayed != setting.getValue()) { displayed = setting.getValue(); change.reset(0); change.animateTo(1); }
         double progress = change.update(deltaSeconds);
@@ -53,8 +54,11 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!contains(mouseX, mouseY) || (button != 0 && button != 1)) { return false; }
+        choose(button == 0 ? 1 : -1); return true;
+    }
+    private void choose(int direction) {
         var options = setting.getOptions();
-        setting.setValue(options.get(Math.floorMod(options.indexOf(setting.getValue()) + (button == 0 ? 1 : -1), options.size())));
-        dev.riserecode.ui.sound.UiSounds.play(); changed.run(); return true;
+        setting.setValue(options.get(Math.floorMod(options.indexOf(setting.getValue()) + direction, options.size())));
+        dev.riserecode.ui.sound.UiSounds.play(); changed.run();
     }
 }

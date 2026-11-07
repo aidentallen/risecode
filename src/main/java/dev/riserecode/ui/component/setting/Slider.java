@@ -59,6 +59,10 @@ public final class Slider extends UIComponent {
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
+        keyboard(graphics, opacity, () -> setting.getName() + ", slider, " + setting.getValue(), this::beginEditing, direction -> {
+            double increment = step > 0 ? step : setting.keyboardIncrement();
+            setting.setValue(Math.clamp(setting.getValue() + direction * increment, setting.getMin(), setting.getMax())); changed.run();
+        });
         double hovered = updateHover(mouseX, mouseY, deltaSeconds);
         position.animateTo(normalized());
         double progress = MathUtil.clamp01(position.update(deltaSeconds));

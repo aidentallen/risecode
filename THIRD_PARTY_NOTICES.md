@@ -70,7 +70,7 @@ The scenic, space and abstract background images and pop, soft-pop and blob
 interface tones added in 0.16.0 are original procedural artwork/audio, covered by
 the project's MIT license. The existing lake image retains its Unsplash credit in
 `assets/riserecode/textures/gui/CREDITS.txt`. Imported local images, sounds and
-optional Minecraftia overrides stay in the user's configuration directory. Google Sans and Qraftys are bundled for offline use.
+optional Minecraftia overrides stay in the user's configuration directory. Google Sans is bundled for offline use; Qraftys is an optional external download.
 
 ### Dual filtering reference and original UI sounds
 
@@ -96,7 +96,7 @@ the project's MIT license. Runtime imports remain user-supplied local assets.
 
 ### Qraftys Capitalized Font
 
-Original bitmap by Qraftys, bundled with the redistribution permission confirmed for this release. Glyph artwork unchanged; see `licenses/qraftys-NOTICE.txt` for the pinned SHA-256. Explicit local overrides remain supported.
+Original bitmap by qrxtfly / Qraftys, All Rights Reserved. No font artwork or pack is distributed in the current source or JAR. Selecting it downloads the pinned original archive to a user-local cache; see `licenses/qraftys-NOTICE.txt` and `FONT_SOURCES.md`. Explicit local overrides remain supported.
 
 ### AMD FidelityFX Super Resolution 1
 

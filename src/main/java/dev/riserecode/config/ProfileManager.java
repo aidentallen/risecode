@@ -16,9 +16,9 @@ public final class ProfileManager implements AutoCloseable {
     private final java.util.concurrent.ExecutorService io=java.util.concurrent.Executors.newSingleThreadExecutor(r->{Thread thread=new Thread(r,"risecode-profile-io");thread.setDaemon(true);return thread;});
     public record Prepared(String name,String document,String fingerprint){ }
     public java.util.concurrent.CompletionStage<List<String>> listAsync(){return java.util.concurrent.CompletableFuture.supplyAsync(this::getProfiles,io);}
-    public java.util.concurrent.CompletionStage<Prepared> prepareAsync(String name){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{backupLegacy(file);if(Files.size(file)>1_048_576){throw new IllegalArgumentException("Profile too large");}byte[] bytes=Files.readAllBytes(file);return new Prepared(name,com.google.gson.JsonParser.parseString(new String(bytes,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject().toString(),fingerprint(bytes));}catch(IOException failure){throw new IllegalArgumentException("Could not read profile");}},io);}
-    public java.util.concurrent.CompletionStage<Boolean> savePrepared(String name,String document,String expected){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{String current=Files.exists(file)?fingerprint(Files.readAllBytes(file)):"";if(!current.equals(expected)){return false;}if(!current.isEmpty()){Files.copy(file,file.resolveSibling(name+".backup-"+java.util.UUID.randomUUID()+".json.bak"));}JsonStorage.write(file,com.google.gson.JsonParser.parseString(document).getAsJsonObject());return JsonStorage.read(file).equals(com.google.gson.JsonParser.parseString(document));}catch(IOException | RuntimeException failure){return false;}},io);}
-    public java.util.concurrent.CompletionStage<String> fingerprintAsync(String name){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{return Files.exists(file)?fingerprint(Files.readAllBytes(file)):"";}catch(IOException failure){throw new IllegalArgumentException("Could not inspect profile");}},io);}
+    public java.util.concurrent.CompletionStage<Prepared> prepareAsync(String name){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{backupLegacy(file);if(Files.size(file)>1_048_576){throw new IllegalArgumentException("Profile too large");}byte[] bytes=readProfile(file);return new Prepared(name,com.google.gson.JsonParser.parseString(new String(bytes,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject().toString(),fingerprint(bytes));}catch(IOException failure){throw new IllegalArgumentException("Could not read profile");}},io);}
+    public java.util.concurrent.CompletionStage<Boolean> savePrepared(String name,String document,String expected){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{String current=Files.exists(file)?fingerprint(readProfile(file)):"";if(!current.equals(expected)){return false;}if(!current.isEmpty()){Files.copy(file,file.resolveSibling(name+".backup-"+java.util.UUID.randomUUID()+".json.bak"));}JsonStorage.write(file,com.google.gson.JsonParser.parseString(document).getAsJsonObject());return readDocument(file).equals(com.google.gson.JsonParser.parseString(document));}catch(IOException | RuntimeException failure){return false;}},io);}
+    public java.util.concurrent.CompletionStage<String> fingerprintAsync(String name){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{return Files.exists(file)?fingerprint(readProfile(file)):"";}catch(IOException failure){throw new IllegalArgumentException("Could not inspect profile");}},io);}
     private static String fingerprint(byte[] bytes){try{return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));}catch(java.security.NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}}
 
     public ProfileManager(ConfigManager config, Runnable refreshUi, Logger logger) {
@@ -42,7 +42,7 @@ public final class ProfileManager implements AutoCloseable {
     public boolean loadProfile(String name) {
         Path file = getFile(name);
         if (!Files.isRegularFile(file)) { return false; }
-        try { config.applyProfile(JsonStorage.read(file)); }
+        try { config.applyProfile(readDocument(file)); }
         catch (IOException | RuntimeException failure) { logger.error("Could not load profile {}", name, failure); return false; }
         config.setActiveProfile(name); refreshUi.run();
         return true;
@@ -65,8 +65,18 @@ public final class ProfileManager implements AutoCloseable {
         return result;
     }
 
+    private static byte[] readProfile(Path file) throws IOException {
+        try (var input = Files.newInputStream(file)) {
+            byte[] data = input.readNBytes(1_048_577);
+            if (data.length > 1_048_576) { throw new IOException("Profile exceeds 1 MiB"); }
+            return data;
+        }
+    }
+    private static com.google.gson.JsonObject readDocument(Path file) throws IOException {
+        return com.google.gson.JsonParser.parseString(new String(readProfile(file), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+    }
     private void backupLegacy(Path file) throws IOException {
-        if (Files.exists(file) && !JsonStorage.read(file).has("resources")) { Path backup = file.resolveSibling(file.getFileName()+".pre-resources"); if (!Files.exists(backup)) { Files.copy(file, backup); } }
+        if (Files.exists(file) && !readDocument(file).has("resources")) { Path backup = file.resolveSibling(file.getFileName()+".pre-resources"); if (!Files.exists(backup)) { Files.copy(file, backup); } }
     }
     public List<String> getProfiles() {
         if (!Files.isDirectory(directory)) { return List.of(); }
@@ -81,7 +91,7 @@ public final class ProfileManager implements AutoCloseable {
     public boolean saveActiveHudLayout() {
         String name = getActiveProfile();
         if (name == null || !Files.isRegularFile(getFile(name))) { return true; }
-        try { backupLegacy(getFile(name)); JsonStorage.write(getFile(name), config.withCurrentHudState(JsonStorage.read(getFile(name)))); return true; }
+        try { backupLegacy(getFile(name)); JsonStorage.write(getFile(name), config.withCurrentHudState(readDocument(getFile(name)))); return true; }
         catch (IOException | RuntimeException failure) { logger.error("Could not save HUD layout to profile {}", name, failure); return false; }
     }
     public void refreshUi(){refreshUi.run();}

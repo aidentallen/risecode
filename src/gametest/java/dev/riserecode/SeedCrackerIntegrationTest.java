@@ -81,7 +81,9 @@ public final class SeedCrackerIntegrationTest {
                 module().generation.setValue("isolation-fixture"); // tick applies a new identity
             }); c.waitTicks(2);
             c.runOnClient(mc -> { check(module().data().observations().isEmpty(),"generation profile isolates observations"); module().generation.setValue("default"); }); c.waitTicks(2);
-            c.runOnClient(mc -> { check(module().data().observations().isEmpty(),"travel/profile changes never restore implicitly"); module().restore(); check(!module().data().observations().isEmpty(),"explicit matching restore"); });
+            c.runOnClient(mc -> { check(module().data().observations().isEmpty(),"travel/profile changes never restore implicitly"); module().restore(); });
+            c.waitFor(mc -> !module().data().observations().isEmpty(), 200);
+            c.runOnClient(mc -> check(!module().data().observations().isEmpty(),"explicit matching restore"));
             // Start a substantial job, then travel: old worker results must be rejected.
             c.runOnClient(mc -> { module().clearData(); for (var o : nativeObservations.stream().limit(5).toList()) { module().data().addBaseData(o.data(),dev.riserecode.seedcracker.cracker.DataAddedEvent.POKE_LIFTING); } check(module().job().progress().complete(),"sufficient collection still waits for manual Start"); module().start(); Client.INSTANCE.getEventBus().post(new dev.riserecode.event.ChunkLifecycleEvent(dev.riserecode.event.ChunkLifecycleEvent.Kind.LOAD,0)); check(!module().job().progress().cancelled(),"ordinary chunk load never cancels cracking or resets collection"); });
             world.getServer().runCommand("execute in minecraft:the_end run tp @a 0 90 0");
@@ -98,7 +100,9 @@ public final class SeedCrackerIntegrationTest {
             });
             c.runOnClient(mc -> check(new PillarData(module().data().pillars()).test(com.seedfinding.mccore.rand.seed.PillarSeed.fromStructureSeed(SEED)),"real End bedrock observations match known world"));
             for (int i=0;i<6;i++) {
-                c.runOnClient(mc -> module().setEnabled(false)); c.runOnClient(mc -> { module().setEnabled(true); check(module().data().observations().isEmpty(),"toggle never restores implicitly"); module().restore(); check(!module().data().pillars().isEmpty(),"End observations saved and restored"); });
+                c.runOnClient(mc -> module().setEnabled(false)); c.runOnClient(mc -> { module().setEnabled(true); check(module().data().observations().isEmpty(),"toggle never restores implicitly"); module().restore(); });
+                c.waitFor(mc -> !module().data().pillars().isEmpty(), 200);
+                c.runOnClient(mc -> check(!module().data().pillars().isEmpty(),"End observations saved and restored"));
             }
             if (Boolean.getBoolean("riserecode.seedCrackerRecovery")) {
                 var realPillars=new java.util.concurrent.atomic.AtomicReference<List<Integer>>(); c.runOnClient(mc -> realPillars.set(module().data().pillars()));

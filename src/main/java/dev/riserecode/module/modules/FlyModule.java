@@ -78,16 +78,19 @@ public final class FlyModule extends Module {
         }
     }
 
-    /** Runs on a Netty thread; records the remote server's latest flight permissions for restoration. */
+    /** Extract packet values on Netty; client-owned state is validated and updated on the client thread. */
     private void receive(PacketEvent.Receive event) {
         if (!(event.getPacket() instanceof ClientboundPlayerAbilitiesPacket packet)) return;
         Session current = session;
         // On a hosted world the baseline comes from the server session, not from packets.
         if (current == null || current.closed || current.server != null) return;
         Minecraft client = minecraft;
-        if (!current.matches(client)) return;
-        current.clientMode = client.gameMode.getPlayerMode();
-        current.clientFlags = new FlightFlags(packet.canFly(), packet.isFlying());
+        FlightFlags flags = new FlightFlags(packet.canFly(), packet.isFlying());
+        client.execute(() -> {
+            if (session != current || current.closed || !current.matches(client)) return;
+            current.clientMode = client.gameMode.getPlayerMode();
+            current.clientFlags = flags;
+        });
     }
 
     /** Only the session's server player strips temporary flight from its save data. */

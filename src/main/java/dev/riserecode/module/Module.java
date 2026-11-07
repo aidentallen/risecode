@@ -39,8 +39,10 @@ public abstract class Module {
     public final dev.riserecode.setting.BooleanSetting popOverride=register(new dev.riserecode.setting.BooleanSetting("Animation Override","Use independent module animation settings",false));
     public final dev.riserecode.setting.DoubleSetting popTiming=register(dev.riserecode.setting.DoubleSetting.extended("Pop Duration","Independent entrance duration",.2,0,10));
     public final dev.riserecode.setting.DoubleSetting popStrength=register(dev.riserecode.setting.DoubleSetting.extended("Pop Strength","Independent entrance scale and movement",1,0,10));
-    public double popDuration(){if((popOverride.getValue()||!popIn.getValue())&&dev.riserecode.ui.theme.Theme.manager()!=null){dev.riserecode.ui.theme.Theme.manager().module(this).migrate(this);}return dev.riserecode.ui.theme.ModuleAppearance.call(capabilityId,()->dev.riserecode.ui.theme.Theme.bool("Reduced Motion",false)?0:dev.riserecode.ui.theme.Theme.number("Opening Duration",.2));}
-    public double popScale(double progress){return dev.riserecode.ui.theme.ModuleAppearance.call(capabilityId,()->dev.riserecode.ui.animation.PopIn.scale(dev.riserecode.ui.animation.Animation.scale(dev.riserecode.ui.theme.ThemeManager.Channel.OPENING),progress));}
+    private ModulePresentation presentation = ModulePresentation.NONE;
+    public final void presentation(ModulePresentation adapter) { presentation = Objects.requireNonNull(adapter); }
+    public double popDuration() { return presentation.duration(this); }
+    public double popScale(double progress) { return presentation.scale(this, progress); }
     private int keybind = UNBOUND;
     private int defaultKeybind = UNBOUND;
     private BindMode bindMode = BindMode.TOGGLE;
@@ -193,9 +195,7 @@ public abstract class Module {
         EventBus.Subscription subscription = eventBus.subscribe(eventType, priority, receiveCancelled,
                 event -> {
                     if (enabled && !transitioning) {
-                        if(event instanceof dev.riserecode.event.Render3DEvent || event instanceof dev.riserecode.event.EnchantmentRenderEvent) {
-                            dev.riserecode.ui.theme.ModuleAppearance.with(capabilityId,()->listener.accept(event));
-                        } else { listener.accept(event); }
+                        presentation.dispatch(this, event, () -> listener.accept(event));
                     }
                 });
         subscriptions.add(subscription);

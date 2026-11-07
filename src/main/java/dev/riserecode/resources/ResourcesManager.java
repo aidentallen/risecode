@@ -27,6 +27,7 @@ public final class ResourcesManager implements AutoCloseable {
     private volatile boolean busy;
     private String status = "Choose resources, then Apply";
     private Transaction transaction;
+    private Path rollbackDirectory;
     private static final class Transaction {
         final Path previous; final List<String> packs; final CompletableFuture<ApplyResult> result; final Consumer<Boolean> commit;
         boolean recovering; Throwable failure;
@@ -37,6 +38,16 @@ public final class ResourcesManager implements AutoCloseable {
     public ResourcesManager(Path config, EventBus bus) {
         var format = SharedConstants.getCurrentVersion().packVersion(PackType.CLIENT_RESOURCES); major = format.major(); minor = format.minor();
         library = new ResourcesLibrary(config.resolve("resources/26.2"), major, minor);
+        try {
+            Path pointer = library.directory().resolve("active.json");
+            if (Files.isRegularFile(pointer)) {
+                var saved = ResourceIo.read(pointer);
+                String rollback = saved.has("rollback") ? saved.get("rollback").getAsString() : "";
+                if (rollback.matches("[a-f0-9-]{36}") && UUID.fromString(rollback).toString().equals(rollback)) {
+                    rollbackDirectory = library.directory().resolve("generations").resolve(rollback);
+                }
+            }
+        } catch (IOException | RuntimeException invalid) { dev.riserecode.Client.INSTANCE.getLogger().warn("Could not read resource rollback pointer", invalid); }
         failures = bus.subscribe(ResourceReloadFailureEvent.class, 100, false, event -> { if (reloadFailed(event.failure())) { event.cancel(); } });
         Path old = config.resolve("styles");
         if (Files.exists(old)) {
@@ -63,6 +74,12 @@ public final class ResourcesManager implements AutoCloseable {
         busy = true; status = "Preparing resources offline…"; var result = new CompletableFuture<ApplyResult>();
         ResourcesState previous = applied; boolean packChanged = !next.equals(previous) || !ResourcesPackSource.matches(next);
         library.work(() -> {
+            var retained = new java.util.HashSet<Path>();
+            Path active = ResourcesPackSource.directory();
+            if (active != null) { retained.add(active); }
+            if (rollbackDirectory != null) { retained.add(rollbackDirectory); }
+            try { GenerationRetention.prune(library.directory().resolve("generations"), retained); }
+            catch (IOException failure) { dev.riserecode.Client.INSTANCE.getLogger().warn("Could not reclaim unused resource generations", failure); }
             if (!packChanged || next.selected().isEmpty()) { return (Path) null; }
             library.verifySelection(next); var resources = library.compose(next);
             Path generation = library.directory().resolve("generations/" + UUID.randomUUID()); Files.createDirectories(generation);
@@ -90,15 +107,16 @@ public final class ResourcesManager implements AutoCloseable {
             if (error != null) { finish(result, false, ResourcesLibrary.message(error)); return; }
             if (mc.gui.overlay() != null) { finish(result, false, "Wait for the current resource reload"); return; }
             Path previousDirectory = ResourcesPackSource.directory();
+            Path previousRollback = rollbackDirectory;
             Consumer<Boolean> commit = success -> {
                 if (!success) { applied = previous; return; }
                 try {
                     applied = next;
-                    if (packChanged) { pointer(generation); }
+                    if (packChanged) { pointer(generation, previousDirectory); rollbackDirectory = previousDirectory; }
                     afterReload.run(); changed.run();
                 } catch (IOException | RuntimeException failure) {
                     applied = previous;
-                    if (packChanged) { try { pointer(previousDirectory); } catch (IOException restore) { failure.addSuppressed(restore); } }
+                    if (packChanged) { try { pointer(previousDirectory, previousRollback); rollbackDirectory = previousRollback; } catch (IOException restore) { failure.addSuppressed(restore); } }
                     throw new IllegalStateException(failure);
                 }
             };
@@ -114,21 +132,45 @@ public final class ResourcesManager implements AutoCloseable {
         }));
         return result;
     }
-    private void pointer(Path generation) throws IOException {
+    private void pointer(Path generation, Path rollback) throws IOException {
         var pointer = new JsonObject(); pointer.addProperty("generation", generation == null ? "" : generation.getFileName().toString());
+        pointer.addProperty("rollback", rollback == null ? "" : rollback.getFileName().toString());
         ResourceIo.write(library.directory().resolve("active.json"), pointer);
     }
     /** Called by the Minecraft failure adapter before vanilla discards all selected packs. */
     public boolean reloadFailed(Throwable failure) {
         Transaction t=transaction;if(t==null)return false;
-        if(t.recovering){transaction=null;t.commit.accept(false);finish(t.result,false,"Resources recovery failed: "+ResourcesLibrary.message(failure));return false;}
+        if (t.recovering) {
+            transaction = null; t.commit.accept(false);
+            if (failure != t.failure) { failure.addSuppressed(t.failure); }
+            finish(t.result, false, "Resources recovery failed: " + ResourcesLibrary.message(failure)
+                    + " · Original failure: " + ResourcesLibrary.message(t.failure));
+            return false;
+        }
         t.recovering=true;t.failure=failure;ResourcesPackSource.select(t.previous);
         var mc=Minecraft.getInstance();mc.getResourcePackRepository().reload();mc.getResourcePackRepository().setSelected(t.packs);mc.gui.setOverlay(null);
         mc.execute(()->mc.reloadResourcePacks().whenComplete((ignored,error)->mc.execute(()->{
-            if(transaction!=t)return;transaction=null;t.commit.accept(false);finish(t.result,false,"Previous resources restored: "+ResourcesLibrary.message(t.failure));
+            if (transaction != t) return;
+            transaction = null;
+            t.commit.accept(false);
+            if (error != null) {
+                if (error != t.failure) { t.failure.addSuppressed(error); }
+                finish(t.result, false, "Resources recovery failed: " + ResourcesLibrary.message(error)
+                        + " · Original failure: " + ResourcesLibrary.message(t.failure));
+            } else {
+                finish(t.result, false, "Previous resources restored: " + ResourcesLibrary.message(t.failure));
+            }
         })));
         return true;
     }
     private void finish(CompletableFuture<ApplyResult> result,boolean success,String message){busy=false;status=message;result.complete(new ApplyResult(success,message));}
-    @Override public void close() { closed = true; failures.close(); library.close(); }
+    @Override public void close() {
+        closed = true;
+        if (transaction != null) {
+            Transaction pending = transaction; transaction = null;
+            ResourcesPackSource.select(pending.previous); pending.commit.accept(false);
+            finish(pending.result, false, "Client stopped during resource reload; prior selection retained");
+        }
+        failures.close(); library.close();
+    }
 }

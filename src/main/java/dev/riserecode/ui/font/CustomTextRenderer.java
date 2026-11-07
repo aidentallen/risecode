@@ -245,11 +245,30 @@ public final class CustomTextRenderer {
     public static void configure(ThemeManager value) { manager = value; }
     public static boolean prepareNativeBitmap(Path config,Path root) throws IOException {return BitmapPackFont.prepareNative(config,root);}
     private static String base(ThemeManager.Typeface font) { return font.name().toLowerCase(Locale.ROOT); }
+    private static OptionalFontDownload optionalFont;
+    public static void retryOptionalFont() {
+        if (optionalFont != null) { optionalFont.close(); optionalFont = null; }
+        FAILURES.remove("qraftys_pack"); AVAILABLE.remove(ThemeManager.Typeface.QRAFTYS);
+        if (manager != null && selected() == ThemeManager.Typeface.QRAFTYS) { requestOptionalFont(); }
+    }
+    private static void requestOptionalFont() {
+        if (manager == null || optionalFont != null) { return; }
+        var download = new OptionalFontDownload(); optionalFont = download;
+        download.request(manager.getFontDirectory()).whenComplete((path, failure) -> net.minecraft.client.Minecraft.getInstance().execute(() -> {
+            if (optionalFont != download) { return; }
+            AVAILABLE.remove(ThemeManager.Typeface.QRAFTYS);
+            if (failure == null) {
+                FAILURES.remove("qraftys_pack");
+                var client = net.minecraft.client.Minecraft.getInstance();
+                if (selected() == ThemeManager.Typeface.QRAFTYS && client.gui.overlay() == null) { client.reloadResourcePacks(); }
+            }
+        }));
+    }
     public static boolean available(ThemeManager.Typeface font) {
         return AVAILABLE.computeIfAbsent(font, CustomTextRenderer::findAvailable);
     }
     private static boolean findAvailable(ThemeManager.Typeface font) {
-        if (font == ThemeManager.Typeface.QRAFTYS) { return CustomTextRenderer.class.getResource("/assets/riserecode/textures/font/qraftys.png") != null; }
+        if (font == ThemeManager.Typeface.QRAFTYS) { return manager != null && BitmapPackFont.find(manager.getDirectory()) != null; }
         String file = base(font) + "_regular.ttf";
         return CustomTextRenderer.class.getResource("/assets/riserecode/font/" + file) != null
                 || manager != null && (Files.isRegularFile(manager.getFontDirectory().resolve(file))
@@ -259,8 +278,8 @@ public final class CustomTextRenderer {
         ThemeManager.Typeface chosen = selected();
         if (chosen == ThemeManager.Typeface.QRAFTYS) {
             if (FAILURES.containsKey("qraftys_pack")) { return "Invalid Qraftys pack · using Inter"; }
-            return available(chosen) ? "Qraftys original bitmap · bundled offline"
-                    : "Add Qraftys ZIP to resourcepacks · using Inter";
+            return available(chosen) ? "Qraftys resource-pack glyphs · local cache"
+                    : optionalFont == null ? "Qraftys downloads when selected · using Inter" : optionalFont.status();
         }
         if (FAILURES.containsKey(base(chosen) + "_regular")) { return "Invalid " + base(chosen) + " font · using Inter"; }
         return available(chosen) ? "STB 8× filled glyphs · live preview"
@@ -270,6 +289,7 @@ public final class CustomTextRenderer {
         return manager == null ? ThemeManager.Typeface.INTER : manager.choice("Font Selection", ThemeManager.Typeface.class);
     }
     private static BitmapPackFont bitmap() {
+        if (selected() == ThemeManager.Typeface.QRAFTYS && !available(selected())) { requestOptionalFont(); return null; }
         if (selected() == ThemeManager.Typeface.QRAFTYS && bitmap != null) { return bitmap; }
         if (selected() != ThemeManager.Typeface.QRAFTYS || !available(selected()) || FAILURES.containsKey("qraftys_pack")) { return null; }
         if (bitmap == null) {
@@ -508,6 +528,7 @@ public final class CustomTextRenderer {
         }}finally{dev.riserecode.ui.render.UiBatch.end();}
     }
     public static void close() {
+        if (optionalFont != null) { optionalFont.close(); optionalFont = null; }
         dev.riserecode.ui.render.UiBatch.clearPlans();
         BRANDS.values().forEach(BrandRaster::close);BRANDS.clear();
         LAYOUTS.clear();FALLBACKS.clear(); generation++;

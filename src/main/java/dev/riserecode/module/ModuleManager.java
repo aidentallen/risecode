@@ -41,6 +41,11 @@ public final class ModuleManager {
     private final List<Module> modules = new ArrayList<>();
     private final List<Module> view = Collections.unmodifiableList(modules);
     private final Map<String, Module> byName = new LinkedHashMap<>();
+    private java.util.function.Function<Module, ModulePresentation> presentations = module -> ModulePresentation.NONE;
+    public void presentations(java.util.function.Function<Module, ModulePresentation> factory) {
+        presentations = Objects.requireNonNull(factory);
+        modules.forEach(module -> module.presentation(presentations.apply(module)));
+    }
     private long registryRevision;
     private final Map<Class<?>,Optional<Module>> byClass=new java.util.HashMap<>();
     private final Map<String, Module> byId = new LinkedHashMap<>();
@@ -100,6 +105,7 @@ public final class ModuleManager {
 
     public <M extends Module> M register(M module) {
         Objects.requireNonNull(module);
+        module.presentation(presentations.apply(module));
         String key = normalize(module.getName());
         if (byName.containsKey(key) || byId.containsKey(module.capabilityId())) {
             throw new IllegalArgumentException("Duplicate module: " + module.getName());

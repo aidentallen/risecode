@@ -68,21 +68,20 @@ public final class ModuleButton extends UIComponent {
         seedcracker = module instanceof dev.riserecode.module.modules.SeedCrackerModule seed ? new SeedCrackerControls(seed) : null;
         keybind = new KeybindControl(module, Client.INSTANCE.getKeybindManager());
         enabled = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.TOGGLES, module.isEnabled() ? 1 : 0, 0.2, MathUtil.Easing.IN_OUT_CUBIC);
+        var settingControls = SettingControls.defaults();
+        settingControls.register(DoubleSetting.class, (number, listener) -> {
+            if (module instanceof dev.riserecode.module.modules.BaritoneModule && number.getName().startsWith("Destination ")) {
+                return new SettingControls.Control(new dev.riserecode.ui.component.setting.NumericField(number, listener), 32);
+            }
+            double step = module instanceof dev.riserecode.module.modules.CapePhysicsModule cape && number == cape.strength() ? .01 : 0;
+            return new SettingControls.Control(new Slider(number, listener, step), 24);
+        });
         for (Setting<?> setting : module.getSettings()) {
             if(glassEditor!=null){continue;}
             if(setting==module.popIn||setting==module.popOverride||setting==module.popTiming||setting==module.popStrength){continue;}
-            UIComponent component;
-            double controlHeight;
-            if (setting instanceof BooleanSetting bool) { component = new ToggleSwitch(bool, changed); controlHeight = 15; }
-            else if (setting instanceof dev.riserecode.setting.StringSetting text) { component = new dev.riserecode.ui.component.setting.StringControl(text, changed); controlHeight = 32; }
-            else if (setting instanceof DoubleSetting number && module instanceof dev.riserecode.module.modules.BaritoneModule && setting.getName().startsWith("Destination ")) {
-                component = new dev.riserecode.ui.component.setting.NumericField(number, changed); controlHeight = 32;
-            }
-            else if (setting instanceof DoubleSetting number) { component = new Slider(number, changed, module instanceof dev.riserecode.module.modules.CapePhysicsModule cape && number == cape.strength() ? 0.01 : 0); controlHeight = 24; }
-            else if (setting instanceof EnumSetting<?> option) { component = enumControl(option, changed); controlHeight = 15; }
-            else if (setting instanceof dev.riserecode.setting.BlockListSetting blocks) { component = new dev.riserecode.ui.component.setting.BlockListControl(blocks, changed); controlHeight = 20; }
-            else if (setting instanceof ColorSetting color) { component = new ColorPicker(color, changed, true); controlHeight = 22; }
-            else { throw new IllegalArgumentException("No UI adapter for " + setting.getClass().getName()); }
+            SettingControls.Control adapter = settingControls.create(setting, changed);
+            UIComponent component = adapter.component();
+            double controlHeight = adapter.height();
             controls.add(new SettingControl(setting, component, controlHeight));
             positions.put(component, Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.EXPANSION, 0, 0.2, MathUtil.Easing.OUT_QUART));
         }
@@ -135,6 +134,9 @@ public final class ModuleButton extends UIComponent {
         try{renderCard(graphics,font,localX(mouseX),localY(mouseY),seconds,opacity*progress);}finally{graphics.pose().popMatrix();}
     }
     private void renderCard(GuiGraphicsExtractor graphics,Font font,double mouseX,double mouseY,double seconds,double opacity){
+        KeyboardNavigation.control(graphics, this, new Bounds(x, y, width, HEADER_HEIGHT), opacity,
+                () -> module.getName() + ", module, " + (module.isEnabled() ? "enabled" : "disabled") + ", " + (expanded ? "expanded" : "collapsed"),
+                () -> manager.toggle(module), direction -> { expanded = direction > 0; if (!expanded) { cancelKeyCapture(); appearance.unfocus(); FocusedInput.commit(); } });
         hover.animateTo(mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + HEADER_HEIGHT ? 1 : 0);
         double hovered = hover.update(seconds);
         enabled.animateTo(module.isEnabled() ? 1 : 0);

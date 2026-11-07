@@ -15,6 +15,7 @@ public final class StringControl extends UIComponent {
     public StringControl(StringSetting setting, Runnable changed) {
         this.setting = setting; field = new TextField(() -> setting.getDescription()); field.setMaximum(setting.maximum());
         field.onChange(value -> { try { setting.setValue(value); field.validation(""); changed.run(); } catch (IllegalArgumentException invalid) { field.validation(invalid.getMessage()); } });
+        field.beforeFocus(() -> original = setting.getValue());
         field.onCancel(() -> { setting.setValue(original); changed.run(); });
     }
     public TextField field() { return field; }

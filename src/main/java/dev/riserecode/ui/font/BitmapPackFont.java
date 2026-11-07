@@ -23,7 +23,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.render.TextureSetup;
 import org.lwjgl.system.MemoryUtil;
 
-/** Loads the original bundled Qraftys bitmap with optional explicit local overrides.
+/** Loads a user-local Qraftys pack; no third-party font artwork is bundled.
  * Original bitmap advances and small-cap lowercase glyphs are preserved. A linear-time Euclidean
  * distance transform creates a separate GPU atlas for live shadows/glow; text uses nearest sampling.
  */
@@ -55,7 +55,7 @@ final class BitmapPackFont implements AutoCloseable {
     }
 
     static boolean prepareNative(Path config,Path root) throws IOException {
-        Path pack=find(config);if(pack==null){return true;}
+        Path pack=find(config);if(pack==null){return false;}
         try(ZipFile zip=new ZipFile(pack.toFile())){
             var entry=zip.getEntry("assets/minecraft/textures/font/ascii.png");
             if(entry==null||entry.getSize()>1024*1024){return false;}
@@ -71,11 +71,7 @@ final class BitmapPackFont implements AutoCloseable {
     }
 
     private static java.io.InputStream open(Path pack) throws IOException {
-        if (pack == null) {
-            var stream = BitmapPackFont.class.getResourceAsStream("/assets/riserecode/textures/font/qraftys.png");
-            if (stream == null) throw new IOException("Bundled Qraftys bitmap missing");
-            return stream;
-        }
+        if (pack == null) { throw new IOException("Optional Qraftys pack is not installed locally"); }
         try (var zip = new ZipFile(pack.toFile())) {
             var entry = zip.getEntry("assets/minecraft/textures/font/ascii.png");
             if (entry == null || entry.getSize() > 1024 * 1024) throw new IOException("Missing/oversized Qraftys bitmap");

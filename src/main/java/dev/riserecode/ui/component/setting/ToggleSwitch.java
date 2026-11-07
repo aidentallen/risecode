@@ -28,6 +28,7 @@ public final class ToggleSwitch extends UIComponent {
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
+        keyboard(graphics, opacity, () -> label + ", toggle, " + (value.getAsBoolean() ? "on" : "off"), () -> setter.accept(!value.getAsBoolean()), null);
         double hovered = updateHover(mouseX, mouseY, deltaSeconds);
         slide.animateTo(value.getAsBoolean() ? 1 : 0);
         double active = slide.update(deltaSeconds);

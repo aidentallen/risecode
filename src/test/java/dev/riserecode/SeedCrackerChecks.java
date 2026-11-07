@@ -44,6 +44,14 @@ public final class SeedCrackerChecks {
         }
         try { store.save(new SeedStore.Saved(1,id,List.of(),List.of(),List.of(),List.of(123L))); throw new AssertionError("unverified saved seed"); } catch (IllegalArgumentException expected) { checks++; }
         check(store.restore(id).equals(saved),"failed save preserves previous archive");
+        try (var archive = new SeedArchiveWorker(store)) {
+            var cleared = new SeedStore.Saved(1, id, List.of(), List.of(), List.of(), List.of());
+            archive.save(cleared, true).get(5, java.util.concurrent.TimeUnit.SECONDS);
+            check(archive.restore(id).get(5, java.util.concurrent.TimeUnit.SECONDS).equals(saved), "Serial archive worker preserves prior observations");
+            archive.save(cleared, false).get(5, java.util.concurrent.TimeUnit.SECONDS);
+            check(archive.restore(id).get(5, java.util.concurrent.TimeUnit.SECONDS).equals(cleared), "Explicit clear is ordered after older saves");
+        }
+        store.save(saved);
         Files.writeString(store.path(id),"{broken");
         try { store.restore(id); throw new AssertionError("corrupt data accepted"); } catch (java.io.IOException expected) { checks++; }
         check(Files.readString(store.path(id)).equals("{broken"),"corrupt archive preserved");

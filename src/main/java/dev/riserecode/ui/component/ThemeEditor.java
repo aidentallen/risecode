@@ -111,7 +111,9 @@ public final class ThemeEditor extends UIComponent {
         controlActions.put("Background File", List.of(actions.get(3)));
         controlActions.put("Sound File", List.of(actions.get(4), actions.get(5)));
         if(!scoped){sectionActions.put("Geometry & Layout", List.of(actions.get(6)));}
-        sectionActions.put("Typography", List.of(actions.get(7)));
+        var optionalFont = new ActionButton("Download Font", () -> { CustomTextRenderer.retryOptionalFont(); notice.accept(CustomTextRenderer.status()); });
+        actions.add(optionalFont);
+        sectionActions.put("Typography", List.of(actions.get(7), optionalFont));
 
     }
     private List<Bounds> toolBounds(List<ActionButton> tools,double available){var mc=net.minecraft.client.Minecraft.getInstance();return ButtonMetrics.flow(mc==null?null:mc.font,tools.stream().map(ActionButton::label).toList(),available);}

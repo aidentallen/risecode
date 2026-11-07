@@ -241,12 +241,26 @@ public final class MapService implements AutoCloseable {
     public void resourceReload(){generation++;pending.clear();capture=null;colors.clear();textures.clear();}
     int[] recolorDetail(SurfaceTile tile){return colors.recolorDetail(mc,tile);}
     int[] recolor(SurfaceTile tile){return colors.recolor(mc,tile);}
+    private void drainCompletions() {
+        Completion completion;
+        while ((completion = completed.poll()) != null) {
+            if (completion.generation() == generation) { completion.apply().run(); }
+        }
+    }
     @Override public void close(){updates.close();terrainChanges.close();textures.shutdown();if(!waypointsReady&&!bufferedDeaths.isEmpty()){flushWaypointsSnapshot();}
         if(waypointsReady&&worldDirectory!=null){
             // Place the final snapshot behind pending writes, preserving their order at shutdown.
             var archives=waypoints.pendingArchives();JsonObject snapshot=waypoints.snapshot();Path path=worldDirectory.resolve("waypoints.json");
             long deadline=System.nanoTime()+2_000_000_000L;
-            while(!submit(()->{try{persistWaypoints(path,snapshot,archives);}catch(java.io.IOException error){Client.INSTANCE.getLogger().error("Cannot persist waypoint snapshot; preserving prior index",error);}})&&System.nanoTime()<deadline){java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);}
+            boolean admitted = false;
+            while (!(admitted = submit(() -> {
+                try { persistWaypoints(path, snapshot, archives); }
+                catch (java.io.IOException error) { Client.INSTANCE.getLogger().error("Cannot persist waypoint snapshot; preserving prior index", error); }
+            })) && System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
+                drainCompletions();
+                java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);
+            }
+            if (!admitted) { Client.INSTANCE.getLogger().error("Final waypoint snapshot could not be queued; prior disk snapshot retained: {}", path); }
         }
-        worker.shutdown();try{long deadline=System.nanoTime()+5_000_000_000L;while(!worker.awaitTermination(10,TimeUnit.MILLISECONDS)&&System.nanoTime()<deadline){Completion completion;while((completion=completed.poll())!=null){if(completion.generation()==generation){completion.apply().run();}}}if(!worker.isTerminated()){worker.shutdownNow();}}catch(InterruptedException e){Thread.currentThread().interrupt();worker.shutdownNow();}}
+        worker.shutdown();try{long deadline=System.nanoTime()+5_000_000_000L;while(!worker.awaitTermination(10,TimeUnit.MILLISECONDS)&&System.nanoTime()<deadline){Completion completion;while((completion=completed.poll())!=null){if(completion.generation()==generation){completion.apply().run();}}}if(!worker.isTerminated()){Client.INSTANCE.getLogger().error("Map IO shutdown deadline exceeded; some queued writes may be incomplete");worker.shutdownNow();}}catch(InterruptedException e){Thread.currentThread().interrupt();worker.shutdownNow();}}
 }

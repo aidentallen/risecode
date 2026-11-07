@@ -50,6 +50,7 @@ public final class ColorPicker extends UIComponent {
             channels[i]=DoubleSetting.extended(new String[]{"Alpha","Red","Green","Blue"}[i],"Color channel",(current()>>>shift)&255,0,255);
             channelSliders[i]=new Slider(channels[i],()->{write((current()&~(255<<shift))|((int)Math.round(channels[index].getValue())<<shift));readColor();},1);
         }
+        hex.beforeFocus(() -> original = current());
         hex.onChange(ignored -> commitHex()); hex.onCancel(() -> { write(original); readColor(); });
         hex.onCommit(() -> { hex.setValue(ColorSetting.hex(current())); hex.validation(""); });
         readColor();
@@ -80,6 +81,8 @@ public final class ColorPicker extends UIComponent {
     }
     public static int hsv(double hue, double saturation, double value) { return ColorUtil.hsv(hue, MathUtil.clamp01(saturation), MathUtil.clamp01(value)); }
     @Override public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY, double seconds, double opacity) {
+        dev.riserecode.ui.component.KeyboardNavigation.control(graphics, this, new Bounds(x,y,width,22), opacity,
+                () -> setting.getName() + ", color, " + ColorSetting.hex(current()) + ", " + (expanded ? "expanded" : "collapsed"), () -> setExpanded(!expanded), null);
         opening.animateTo(expanded ? 1 : 0); opening.update(seconds);
         if (current() != displayed) { readColor(); }
         String label = Theme.displayName(setting.getName());

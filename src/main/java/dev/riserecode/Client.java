@@ -86,6 +86,7 @@ public enum Client {
         moduleManager = new ModuleManager(eventBus, logger);
         moduleManager.initDefaults(minecraft, friendManager, rotationManager, attackManager, cameraEffects, blockIndex);
         themeManager = new ThemeManager(FabricLoader.getInstance().getConfigDir().resolve(MOD_ID), logger);
+        moduleManager.presentations(module -> new dev.riserecode.ui.theme.ThemedModulePresentation());
         themeManager.load(); themeManager.bind(eventBus); CustomTextRenderer.configure(themeManager);
         hudRenderer = new HudRenderer(eventBus, minecraft, moduleManager, NAME, themeManager);
         configManager = new ConfigManager(FabricLoader.getInstance().getConfigDir().resolve(MOD_ID),
@@ -148,21 +149,42 @@ public enum Client {
     public void shutdown() {
         if (!initialized) { return; }
         // Save user choices before cleanup temporarily disables active modules.
-        configManager.save();
-        discordActivity.close();
-        keybindManager.close();
-        hudRenderer.close();
-        dev.riserecode.ui.component.ResourcesPreviews.shutdown();
-        resourcesManager.close(); maps.close(); cosmetics.close();
-        dev.riserecode.ui.panorama.LivingPanorama.close(); themeManager.close(); dev.riserecode.ui.theme.BrandingLogo.close(); dev.riserecode.render.ItemOutlineRenderer.close(); dev.riserecode.render.SilhouetteOutlineRenderer.close(); dev.riserecode.render.glass.GlassRenderer.close(); dev.riserecode.render.glass.GlassPreview.close(); BlurUtil.close(); dev.riserecode.ui.menu.MenuBackdrop.close(); CustomTextRenderer.close();
-        dev.riserecode.render.WorldLabels.clearTextCache(); targetHighlights.close(); worldRenderer.close(); blockIndex.close();
-        profileManager.close(); configManager.close();
-        moduleManager.disableAll();
-        rotationManager.close();
-        attackManager.close(); cameraEffects.close();
-        Minecraft.getInstance().options.save();
-        AnimationManager.ui().clear();
+        cleanup("save configuration", configManager::save);
+        cleanup("disable modules", moduleManager::disableAll);
+        cleanup("discordActivity.close", () -> discordActivity.close());
+        cleanup("keybindManager.close", () -> keybindManager.close());
+        cleanup("hudRenderer.close", () -> hudRenderer.close());
+        cleanup("dev.riserecode.ui.component.ResourcesPreviews.shutdown", () -> dev.riserecode.ui.component.ResourcesPreviews.shutdown());
+        cleanup("resourcesManager.close", () -> resourcesManager.close());
+        cleanup("maps.close", () -> maps.close());
+        cleanup("cosmetics.close", () -> cosmetics.close());
+        cleanup("dev.riserecode.ui.panorama.LivingPanorama.close", () -> dev.riserecode.ui.panorama.LivingPanorama.close());
+        cleanup("themeManager.close", () -> themeManager.close());
+        cleanup("dev.riserecode.ui.theme.BrandingLogo.close", () -> dev.riserecode.ui.theme.BrandingLogo.close());
+        cleanup("dev.riserecode.render.ItemOutlineRenderer.close", () -> dev.riserecode.render.ItemOutlineRenderer.close());
+        cleanup("dev.riserecode.render.SilhouetteOutlineRenderer.close", () -> dev.riserecode.render.SilhouetteOutlineRenderer.close());
+        cleanup("dev.riserecode.render.glass.GlassRenderer.close", () -> dev.riserecode.render.glass.GlassRenderer.close());
+        cleanup("dev.riserecode.render.glass.GlassPreview.close", () -> dev.riserecode.render.glass.GlassPreview.close());
+        cleanup("BlurUtil.close", () -> BlurUtil.close());
+        cleanup("dev.riserecode.ui.menu.MenuBackdrop.close", () -> dev.riserecode.ui.menu.MenuBackdrop.close());
+        cleanup("CustomTextRenderer.close", () -> CustomTextRenderer.close());
+        cleanup("dev.riserecode.render.WorldLabels.clearTextCache", () -> dev.riserecode.render.WorldLabels.clearTextCache());
+        cleanup("targetHighlights.close", () -> targetHighlights.close());
+        cleanup("worldRenderer.close", () -> worldRenderer.close());
+        cleanup("blockIndex.close", () -> blockIndex.close());
+        cleanup("profileManager.close", () -> profileManager.close());
+        cleanup("configManager.close", () -> configManager.close());
+        cleanup("rotationManager.close", () -> rotationManager.close());
+        cleanup("attackManager.close", () -> attackManager.close());
+        cleanup("cameraEffects.close", () -> cameraEffects.close());
+        cleanup("Minecraft.getInstance.options.save", () -> Minecraft.getInstance().options.save());
+        cleanup("AnimationManager.ui.clear", () -> AnimationManager.ui().clear());
         resourcesReady = false; initialized = false;
+    }
+
+    private void cleanup(String owner, Runnable action) {
+        try { action.run(); }
+        catch (RuntimeException failure) { logger.error("Shutdown cleanup failed for {}", owner, failure); }
     }
 
     public void openHudEditor() { Minecraft.getInstance().gui.setScreen(new HudEditorScreen(hudRenderer)); }
