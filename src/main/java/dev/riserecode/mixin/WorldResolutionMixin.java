@@ -54,4 +54,9 @@ public abstract class WorldResolutionMixin {
     }
     @Inject(method={"resize","close"},at=@At("HEAD"))
     private void riserecode$release(CallbackInfo ci){WorldResolution.close();}
+    @Inject(method="setLevel",at=@At("RETURN"))
+    private void riserecode$worldReleased(net.minecraft.client.multiplayer.ClientLevel level,CallbackInfo callback){
+        if(level==null){WorldResolution.close();dev.riserecode.render.ShaderWorldOverlay.close();dev.riserecode.render.glass.GlassRenderer.closeGameplay();}
+    }
+
 }

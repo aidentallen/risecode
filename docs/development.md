@@ -190,3 +190,14 @@ results terminate without needing a client callback. Local path/digest/stream
 checks protect malformed inputs and pre-existing traversal/symlinks. They are not
 an OS sandbox against another process concurrently replacing files under the same
 user account; cache roots are trusted user-owned directories.
+
+The overlay oracle distinguishes native transparency tint from Iris's separate
+post-world overlay. Water uses local channel contrast plus a no-line negative
+control, rather than requiring unblended RGB through water. The scene simulation
+is frozen while checking geometry so flowing water cannot move the camera or
+change the occluder. World targets close at actual level clear; a network
+Disconnect callback alone can precede the last old-world frame.
+
+Archive tasks omit empty directories as well as normalizing timestamps and order.
+An untracked empty directory left by an asset removal must not make a working
+checkout's JAR differ from a fresh source archive build.

@@ -335,4 +335,5 @@ tasks.named('check') { dependsOn 'reviewPersistenceCheck' }
 tasks.withType(AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
+    includeEmptyDirs = false
 }

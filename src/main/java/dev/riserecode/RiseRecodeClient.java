@@ -34,7 +34,7 @@ public final class RiseRecodeClient implements ClientModInitializer {
                 dev.riserecode.ui.component.ResourcesPreviews.close();
                 dev.riserecode.ui.panorama.LivingPanorama.reload(); dev.riserecode.ui.menu.MenuBackdrop.close(); dev.riserecode.ui.theme.BrandingLogo.invalidate();
             });
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler,minecraft)->{dev.riserecode.render.glass.GlassRenderer.closeGameplay();dev.riserecode.render.WorldResolution.close();dev.riserecode.render.ShaderWorldOverlay.close();});
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler,minecraft)->{dev.riserecode.render.glass.GlassRenderer.closeGameplay();});
         ClientLifecycleEvents.CLIENT_STARTED.register(minecraft -> { client.getClickGui(); dev.riserecode.render.placement.PlacementShaderBridge.init(); });
         ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
             dev.riserecode.ui.panorama.LivingPanorama.tick();
