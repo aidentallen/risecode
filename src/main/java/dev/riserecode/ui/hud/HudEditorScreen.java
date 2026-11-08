@@ -66,6 +66,8 @@ public final class HudEditorScreen extends Screen {
             for (double y = 0; y < height; y += step) { RenderUtil.line(g, 0, y, width, y, 0.4, 0x10FFFFFF); }
         }
         for (HudRenderer.Box box : hud.getBoxes()) {
+            dev.riserecode.ui.component.KeyboardNavigation.control(g, box.element(), new UIComponent.Bounds(box.x(),box.y(),box.width(),box.height()),1,
+                    () -> "HUD element, " + box.element().label() + ", activate for layout and style", () -> select(box.element()), null);
             int color = box.element() == selected ? Theme.accent() : Theme.opacity(Theme.SECONDARY, 0.6);
             RenderUtil.drawRoundedBorder(g, box.x() - 2, box.y() - 2, box.width() + 4, box.height() + 4, 2, color, 0.8);
             double labelY = box.y() >= 12 ? box.y() - 10 : box.y() + box.height() + 3;

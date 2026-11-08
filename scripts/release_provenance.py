@@ -23,6 +23,7 @@ def source_identity(root):
 def verified_source(root, artifact, receipt=None):
     receipt = receipt or root / 'build/verification/project.json'
     report = json.loads(receipt.read_text())
+    if report.get('status') != 'passed': raise RuntimeError('Verification receipt did not pass')
     identity = source_identity(root)
     if identity['dirty'] or report['source'] != identity: raise RuntimeError('Release source differs from a clean verified commit')
     relative = str(artifact.relative_to(root))

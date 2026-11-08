@@ -23,7 +23,7 @@ public abstract class ConnectionMixin {
     @WrapMethod(method = "sendPacket")
     private void riserecode$send(Packet<?> packet, ChannelFutureListener listener, boolean flush, Operation<Void> original) {
         if (!riserecode$isClient()) { original.call(packet, listener, flush); return; }
-        PacketEvent.Send event = Client.INSTANCE.getEventBus().post(new PacketEvent.Send(packet));
+        PacketEvent.Send event = Client.INSTANCE.getEventBus().post(new PacketEvent.Send(packet, (Connection)(Object)this));
         if (!event.isCancelled()) { original.call(event.getPacket(), listener, flush); return; }
         if (listener != null) {
             // Preserve Netty's callback thread and report cancellation instead of leaving callers waiting.
@@ -37,7 +37,7 @@ public abstract class ConnectionMixin {
     @WrapMethod(method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V")
     private void riserecode$receive(ChannelHandlerContext context, Packet<?> packet, Operation<Void> original) {
         if (!riserecode$isClient() || !context.channel().isOpen()) { original.call(context, packet); return; }
-        PacketEvent.Receive event = Client.INSTANCE.getEventBus().post(new PacketEvent.Receive(packet));
+        PacketEvent.Receive event = Client.INSTANCE.getEventBus().post(new PacketEvent.Receive(packet, (Connection)(Object)this));
         if (!event.isCancelled()) { original.call(context, event.getPacket()); }
     }
 

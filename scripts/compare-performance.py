@@ -8,14 +8,15 @@ for kind in ('baseline','candidate'):
  for run in range(1,4):
   path=a.directory/f'{kind}-{run}'/'frames.jsonl'
   for row in map(json.loads,path.read_text().splitlines()):
-   assert row['warmupSeconds']>=10 and row['measurementSeconds']>=30,(path,row)
-   assert row['renderFrames']>0 and row['throttleReason']=='NONE',(path,row)
+   if not (row['warmupSeconds']>=10 and row['measurementSeconds']>=30): raise RuntimeError((path,row))
+   if not (row['renderFrames']>0 and row['throttleReason']=='NONE'): raise RuntimeError((path,row))
    records.setdefault(row['scene'],{}).setdefault(kind,[]).append(row)
 summary={}
 print('| Scene | Allocation KiB/frame before / after | Reduction | Render median ms before / after | Render p95 ms before / after | CPU ms/frame before / after |')
 print('| --- | ---: | ---: | ---: | ---: | ---: |')
 for scene,kinds in records.items():
- for values in kinds.values(): assert len(values)==3,(scene,len(values))
+ for values in kinds.values():
+     if not (len(values)==3): raise RuntimeError((scene,len(values)))
  def m(kind,key):return statistics.median(r[key] for r in kinds[kind])
  keys=('renderAllocatedBytesPerFrame','renderMedianMs','renderP95Ms','renderCpuMsPerFrame')
  pairs=[(m('baseline',key),m('candidate',key)) for key in keys]

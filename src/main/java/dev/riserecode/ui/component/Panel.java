@@ -34,7 +34,10 @@ public final class Panel extends UIComponent {
     private ModuleButton captured;
 
     /** A null category represents the global Search page. */
-    public Panel(Category category, ModuleManager manager, Runnable changed) {
+    private final ModuleEditorServices services;
+    public Panel(Category category, ModuleManager manager, Runnable changed) { this(category,manager,changed,ModuleEditorServices.live()); }
+    public Panel(Category category, ModuleManager manager, Runnable changed, ModuleEditorServices services) {
+        this.services=services;
         this.category = category; this.manager = manager; this.changed = changed; syncModules();
     }
     public Category getCategory() { return category; }
@@ -64,7 +67,7 @@ public final class Panel extends UIComponent {
         buttons.removeIf(button -> !registered.contains(button.getModule()));
         for (Module module : registered) {
             if (buttons.stream().noneMatch(button -> button.getModule() == module)) {
-                ModuleButton button = new ModuleButton(module, manager, changed); button.setShowCategory(category == null); buttons.add(button);
+                ModuleButton button = new ModuleButton(module, manager, changed, services); button.setShowCategory(category == null); buttons.add(button);
             }
         }
         buttons.sort(Comparator.comparing(button -> button.getModule().getName(), String.CASE_INSENSITIVE_ORDER));

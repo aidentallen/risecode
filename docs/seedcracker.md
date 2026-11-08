@@ -117,3 +117,22 @@ mock service; they do not submit real worlds.
 commit `b72a829f768967fa737a4f1f63b32e37b9619152` (MIT). SeedFinding and LattiCG
 JARs are extracted from the checksum-verified official upstream release, avoiding
 mutable Maven resolution. Full notices accompany all release artifacts.
+
+### Collection across client ticks
+
+Collection is a heuristic observation of the live client world, not an atomic
+chunk snapshot. Finder reads may span ticks. A block candidate is checked again
+before chest-specific properties or neighborhood processing, so replacement by
+air/stone is skipped. Completed pattern evidence can describe blocks observed
+at different times; it is a clue to generation, not proof that the whole pattern
+coexisted at one instant. Changing/obfuscated worlds can invalidate such clues.
+Manual rescan replaces queued work and the collection archive remains subject
+to the same trust limits.
+
+Acquisition and downstream chest processing reserve work before reads/side
+effects. A chest candidate reserves a fixed conservative quota (16 for buried
+treasure, 128 for shipwreck); completed acquisition results are shared immutable
+lists and consumption resumes without repeating observations. The cooperative
+2048-unit/1.5 ms slice is a scheduling bound, not a measured frame-time guarantee:
+construction, allocator/GC pauses and an individual operation can exceed the
+time target. Never read live game state from archive worker threads.

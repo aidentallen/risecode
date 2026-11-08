@@ -12,7 +12,7 @@ public final class KeyboardReviewIntegrationTest {
     private static void check(boolean value, String message) { checks++; if (!value) { throw new AssertionError(message); } }
     private static ClickGui gui() { return Client.INSTANCE.getClickGui(); }
     private static void key(ClientGameTestContext context, int key) {
-        context.runOnClient(mc -> mc.gui.screen().keyPressed(new KeyEvent(key, 0, 0))); context.waitTicks(2);
+        context.getInput().pressKey(key); context.waitTicks(2);
     }
     private static void focus(ClientGameTestContext context, String prefix) {
         for (int i = 0; i < 100; i++) {
@@ -25,6 +25,10 @@ public final class KeyboardReviewIntegrationTest {
         context.waitFor(mc -> Client.INSTANCE.isInitialized() && Client.INSTANCE.resourcesReady() && mc.gui.overlay() == null, 1200);
         var module = Client.INSTANCE.getModuleManager().getByClass(FullBrightModule.class).orElseThrow();
         context.runOnClient(mc -> {
+            if (Boolean.getBoolean("riserecode.requireNarrator")) {
+                check(mc.getNarrator().isActive(), "Native narrator engine is available");
+                mc.options.narrator().set(net.minecraft.client.NarratorStatus.ALL);
+            }
             Client.INSTANCE.getModuleManager().disableAll();
             module.getMode().setValue(FullBrightModule.Mode.GAMMA); module.getBrightness().setValue(.5);
             gui().open(null); gui().selectPage(ClickGui.Page.SEARCH); gui().getSearchField().setValue("FullBright");
@@ -47,6 +51,89 @@ public final class KeyboardReviewIntegrationTest {
         key(context, InputConstants.KEY_RIGHT);
         context.runOnClient(mc -> check(module.getMode().getValue() != mode, "Arrow changes enum choice"));
         context.runOnClient(mc -> { module.setEnabled(false); mc.gui.setScreen(null); });
+        colorControls(context); configurationFlows(context); auxiliaryControls(context);
+        context.runOnClient(mc->mc.gui.setScreen(null));
         Client.INSTANCE.getLogger().info("Keyboard review native checks passed ({} assertions)", checks);
     }
+    private static final class ColorProbe extends net.minecraft.client.gui.screens.Screen {
+        final dev.riserecode.setting.ColorSetting setting=new dev.riserecode.setting.ColorSetting("Probe","",0xFF112233);
+        final dev.riserecode.ui.component.setting.ColorPicker picker=new dev.riserecode.ui.component.setting.ColorPicker(setting,()->{});
+        final dev.riserecode.ui.component.KeyboardNavigation navigation=new dev.riserecode.ui.component.KeyboardNavigation();
+        ColorProbe(){super(net.minecraft.network.chat.Component.literal("Color keyboard acceptance"));}
+        @Override public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g,int mx,int my,float delta){
+            picker.setBounds(20,20,300,picker.getPreferredHeight());navigation.begin();
+            try{picker.render(g,font,mx,my,.05,1);}finally{navigation.end();}
+        }
+        @Override public boolean keyPressed(KeyEvent event){if(navigation.key(event)){return true;}return dev.riserecode.ui.component.FocusedInput.key(event,minecraft.keyboardHandler::getClipboard,minecraft.keyboardHandler::setClipboard);}
+        @Override public boolean charTyped(net.minecraft.client.input.CharacterEvent event){return dev.riserecode.ui.component.FocusedInput.character(event);}
+    }
+    private static void colorFocus(ClientGameTestContext context,ColorProbe probe,String prefix){
+        for(int i=0;i<100;i++){key(context,InputConstants.KEY_TAB);if(context.computeOnClient(mc->probe.navigation.focusedLabel().startsWith(prefix))){return;}}
+        throw new AssertionError("Cannot reach color control: "+prefix);
+    }
+    private static void colorControls(ClientGameTestContext context){
+        var probe=context.computeOnClient(mc->new ColorProbe());context.runOnClient(mc->mc.gui.setScreen(probe));context.waitTicks(3);
+        colorFocus(context,probe,"Probe, color,");key(context,InputConstants.KEY_SPACE);context.waitTicks(15);
+        colorFocus(context,probe,"Probe, end color");key(context,InputConstants.KEY_SPACE);
+        colorFocus(context,probe,"AARRGGBB, text");key(context,InputConstants.KEY_RETURN);
+        context.runOnClient(mc->{for(int code:"FF778899".codePoints().toArray()){mc.gui.screen().charTyped(new net.minecraft.client.input.CharacterEvent(code));}});
+        key(context,InputConstants.KEY_RETURN);
+        context.runOnClient(mc->check(probe.setting.getSecondary()==0xFF778899&&probe.setting.getValue()==0xFF112233,"Keyboard selects and edits end color without changing start"));
+        colorFocus(context,probe,"Probe, start color");key(context,InputConstants.KEY_SPACE);
+        colorFocus(context,probe,"Probe, color mode");
+        var visited=new java.util.HashSet<dev.riserecode.setting.ColorSetting.Mode>();
+        for(int i=0;i<dev.riserecode.setting.ColorSetting.Mode.values().length;i++){key(context,InputConstants.KEY_RIGHT);visited.add(context.computeOnClient(mc->probe.setting.getMode()));}
+        check(visited.size()==dev.riserecode.setting.ColorSetting.Mode.values().length,"Keyboard reaches every color mode");
+        colorFocus(context,probe,"Probe, gradient direction");var previous=context.computeOnClient(mc->probe.setting.getDirection());key(context,InputConstants.KEY_RIGHT);
+        check(context.computeOnClient(mc->probe.setting.getDirection())!=previous,"Keyboard adjusts gradient direction");context.takeScreenshot("review-color-keyboard");
+        context.runOnClient(mc->mc.gui.setScreen(null));
+    }
+
+    private static void type(ClientGameTestContext context,String value) {
+        context.runOnClient(mc->{for(int code:value.codePoints().toArray()){mc.gui.screen().charTyped(new net.minecraft.client.input.CharacterEvent(code));}});
+    }
+    private static void configurationFlows(ClientGameTestContext context) {
+        String name="ReviewKeyboard";
+        context.runOnClient(mc->{gui().open(null);gui().selectPage(ClickGui.Page.PROFILES);});context.waitTicks(20);
+        focus(context,"Enter a profile name...");key(context,InputConstants.KEY_RETURN);type(context,name);
+        focus(context,"Save client profile, button");key(context,InputConstants.KEY_RETURN);
+        var manager=Client.INSTANCE.getProfileManager();
+        check(java.nio.file.Files.isRegularFile(manager.getFile(name)),"Keyboard saves named client profile");
+        var module=Client.INSTANCE.getModuleManager().getByClass(FullBrightModule.class).orElseThrow();
+        double saved=context.computeOnClient(mc->module.getBrightness().getValue());
+        context.runOnClient(mc->module.getBrightness().setValue(.1));
+        focus(context,"Client: "+name+", button");key(context,InputConstants.KEY_RETURN);
+        context.waitFor(mc->Math.abs(module.getBrightness().getValue()-saved)<.0001,240);
+        check(true,"Keyboard reloads saved client profile");
+        context.runOnClient(mc->gui().selectPage(ClickGui.Page.FRIENDS));context.waitTicks(20);
+        focus(context,"Enter a player name...");key(context,InputConstants.KEY_RETURN);type(context,"ReviewTester");
+        focus(context,"Add, button");key(context,InputConstants.KEY_RETURN);
+        check(Client.INSTANCE.getFriendManager().isFriend("ReviewTester"),"Keyboard adds named friend");
+        focus(context,"ReviewTester  ×, button");key(context,InputConstants.KEY_RETURN);
+        check(!Client.INSTANCE.getFriendManager().isFriend("ReviewTester"),"Keyboard removes named friend");
+        context.runOnClient(mc->mc.gui.setScreen(null));
+    }
+    private static void auxiliaryFocus(ClientGameTestContext context,String prefix) {
+        for(int i=0;i<100;i++) {
+            key(context,InputConstants.KEY_TAB);
+            if(context.computeOnClient(mc->{var nav=dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen());return nav!=null&&nav.focusedLabel().startsWith(prefix);})){return;}
+        }
+        throw new AssertionError("Auxiliary keyboard cannot reach "+prefix);
+    }
+    private static void auxiliaryControls(ClientGameTestContext context) {
+        var parent=context.computeOnClient(mc->new ColorProbe());
+        context.runOnClient(mc->{var glass=Client.INSTANCE.getModuleManager().getByClass(dev.riserecode.module.modules.GlassModule.class).orElseThrow();mc.gui.setScreen(new dev.riserecode.ui.component.GlassEditorScreen(glass,parent));});context.waitTicks(20);
+        auxiliaryFocus(context,"Glass preview, Rotation");
+        String previous=context.computeOnClient(mc->dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen()).focusedLabel());
+        key(context,InputConstants.KEY_RIGHT);
+        check(!previous.equals(context.computeOnClient(mc->dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen()).focusedLabel())),"Auxiliary preview rotation responds through real keyboard hook");
+        auxiliaryFocus(context,"Done, button");key(context,InputConstants.KEY_RETURN);
+        context.runOnClient(mc->check(mc.gui.screen()==parent,"Keyboard returns from auxiliary Glass editor"));
+        var blocks=new dev.riserecode.setting.BlockListSetting("Probe blocks","",java.util.List.of());
+        context.runOnClient(mc->mc.gui.setScreen(new dev.riserecode.ui.component.setting.BlockPickerScreen(parent,blocks,()->{})));context.waitTicks(3);
+        auxiliaryFocus(context,"minecraft:acacia_button, block");key(context,InputConstants.KEY_SPACE);
+        check(blocks.getValue().contains("minecraft:acacia_button"),"Keyboard selects auxiliary registry row");
+        key(context,InputConstants.KEY_ESCAPE);context.runOnClient(mc->check(mc.gui.screen()==parent,"Keyboard returns from auxiliary block picker"));
+    }
+
 }

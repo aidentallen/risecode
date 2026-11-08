@@ -22,7 +22,7 @@ public final class NoFallModule extends Module {
     private final Minecraft minecraft;
     private volatile boolean packetProtection;
     private volatile Attempt attempt;
-    private volatile boolean acknowledged;
+    private boolean acknowledged;
     private RotationManager.Lease rotation;
     private ItemUtil.HotbarSelection selection;
     private RotationManager.Rotation aim;
@@ -33,7 +33,7 @@ public final class NoFallModule extends Module {
     private Object observedLevel,observedPlayer;
     private String status="Ready";
     private record Attempt(Mode mode,BlockPos position,BlockHitResult hit,InteractionHand hand,int slot,Item item){}
-    public NoFallModule(EventBus bus,Minecraft minecraft){super("Clutch","Fall protection and automatic item clutches",Category.PLAYER,bus,"NoFall");this.minecraft=minecraft;mode.onChange(()->packetProtection=false);}
+    public NoFallModule(EventBus bus,Minecraft minecraft){super("Clutch","Fall protection and automatic item clutches",Category.PLAYER,bus,"NoFall");this.minecraft=minecraft;mode.onChange(()->{packetProtection=false;if(isEnabled()){clear(false);}});}
     public EnumSetting<Mode> getMode(){return mode;}
     public String status(){return status;}
     @Override protected void onEnable(){
@@ -41,7 +41,21 @@ public final class NoFallModule extends Module {
         listen(UpdateEvent.class,100,false,this::update);
         listen(UpdateEvent.class,-80,false,this::interact);
         listen(PacketEvent.Send.class,this::packet);
-        listen(PacketEvent.Receive.class,event->{Attempt current=attempt;if(current!=null&&event.getPacket() instanceof ClientboundBlockUpdatePacket update&&update.getPos().equals(current.position())){acknowledged=matches(current.mode(),update.getBlockState().getBlock());}});
+        listen(PacketEvent.Receive.class, this::receive);
+    }
+    private void receive(PacketEvent.Receive event) {
+        if (!(event.getPacket() instanceof ClientboundBlockUpdatePacket packet)) { return; }
+        Attempt captured = attempt;
+        var source = event.source();
+        if (captured == null || source == null) { return; }
+        BlockPos position = packet.getPos().immutable();
+        Block block = packet.getBlockState().getBlock();
+        minecraft.execute(() -> {
+            var connection = minecraft.getConnection();
+            if (!isEnabled() || attempt != captured || !requested || connection == null || connection.getConnection() != source
+                    || observedLevel != minecraft.level || observedPlayer != minecraft.player) { return; }
+            if (position.equals(captured.position()) && matches(captured.mode(), block)) { acknowledged = true; }
+        });
     }
     private boolean eligible(){var p=minecraft.player;return p!=null&&minecraft.level!=null&&minecraft.gameMode!=null&&minecraft.gui.screen()==null&&p.isAlive()&&!p.isCreative()&&!p.isSpectator()&&!p.getAbilities().flying&&!p.isFallFlying()&&!p.isPassenger()&&!p.isInWater()&&!p.isInLava()&&!p.onClimbable();}
     private void update(UpdateEvent event){

@@ -23,7 +23,15 @@ public abstract class KeyboardHandlerMixin {
             KeyPressEvent priority = Client.INSTANCE.getEventBus().post(new KeyPressEvent(input, action));
             if (priority.isCancelled()) { callback.cancel(); return; }
         }
-        if (action != 0 && (mc.gui.screen() instanceof dev.riserecode.ui.clickgui.ClickGui || mc.gui.screen() instanceof dev.riserecode.ui.hud.HudEditorScreen)
+        var auxiliary = dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen());
+        if (action != 0 && auxiliary != null) {
+            if (auxiliary.key(input)) { callback.cancel(); return; }
+            if (input.key() == 266 || input.key() == 267) {
+                mc.gui.screen().mouseScrolled(mc.gui.screen().width*.75, mc.gui.screen().height*.5, 0, input.key()==266?8:-8);
+                callback.cancel(); return;
+            }
+        }
+        if (action != 0 && input.key() != 258 && (mc.gui.screen() instanceof dev.riserecode.ui.clickgui.ClickGui || mc.gui.screen() instanceof dev.riserecode.ui.hud.HudEditorScreen)
                 && dev.riserecode.ui.component.FocusedInput.key(input, mc.keyboardHandler::getClipboard, mc.keyboardHandler::setClipboard)) { callback.cancel(); return; }
         KeyPressEvent event = Client.INSTANCE.getEventBus().post(new KeyPressEvent(input, action));
         if (event.isCancelled()) { callback.cancel(); }

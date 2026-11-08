@@ -15,7 +15,7 @@ import java.util.HexFormat;
 public final class ResourceIo {
     private ResourceIo() { }
     public static JsonObject read(Path path) throws IOException {
-        try (var reader = Files.newBufferedReader(path)) { return JsonParser.parseReader(reader).getAsJsonObject(); }
+        return dev.riserecode.config.JsonStorage.read(path, 16*1024*1024);
     }
     public static void write(Path path, JsonObject data) throws IOException {
         Files.createDirectories(path.getParent());

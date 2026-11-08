@@ -40,9 +40,7 @@ public final class ModuleButton extends UIComponent {
 
     private final KeybindControl keybind;
     private final dev.riserecode.ui.animation.ButtonFeedback press=new dev.riserecode.ui.animation.ButtonFeedback();
-    private final SeedCrackerControls seedcracker;
-    private final BaritoneControls baritone;
-    private final ActionButton glassEditor;
+    private final ModuleEditorRegistry.Editor editor;
     private final List<SettingControl> controls = new ArrayList<>();
     private final Map<UIComponent, Animation> positions = new IdentityHashMap<>();
     private final Animation enabled;
@@ -59,25 +57,19 @@ public final class ModuleButton extends UIComponent {
     private UIComponent captured;
 
     public ModuleButton(Module module, ModuleManager manager, Runnable changed) {
+        this(module, manager, changed, ModuleEditorServices.live());
+    }
+    public ModuleButton(Module module, ModuleManager manager, Runnable changed, ModuleEditorServices services) {
         this.module = module; this.manager = manager;
-        appearance = new ModuleAppearanceEditor(Client.INSTANCE.getThemeManager(),module);
-        bindings = new SettingsSection("module:"+module.capabilityId()+":bindings","Keybind",()->{cancelKeyCapture();dev.riserecode.ui.component.FocusedInput.commit();});
-
-        glassEditor=module instanceof dev.riserecode.module.modules.GlassModule glass?new ActionButton("Customize / Preview",()->{FocusedInput.commit();var mc=net.minecraft.client.Minecraft.getInstance();mc.gui.setScreen(new GlassEditorScreen(glass,mc.gui.screen()));}):null;
-        baritone = module instanceof dev.riserecode.module.modules.BaritoneModule b ? new BaritoneControls(b) : null;
-        seedcracker = module instanceof dev.riserecode.module.modules.SeedCrackerModule seed ? new SeedCrackerControls(seed) : null;
-        keybind = new KeybindControl(module, Client.INSTANCE.getKeybindManager());
+        editor = services.editors().create(module);
+        appearance = new ModuleAppearanceEditor(services.themes(),module);
+        bindings = new SettingsSection("module:"+module.capabilityId()+":bindings","Keybind",()->{cancelKeyCapture();FocusedInput.commit();});
+        keybind = new KeybindControl(module,services.keys());
         enabled = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.TOGGLES, module.isEnabled() ? 1 : 0, 0.2, MathUtil.Easing.IN_OUT_CUBIC);
         var settingControls = SettingControls.defaults();
-        settingControls.register(DoubleSetting.class, (number, listener) -> {
-            if (module instanceof dev.riserecode.module.modules.BaritoneModule && number.getName().startsWith("Destination ")) {
-                return new SettingControls.Control(new dev.riserecode.ui.component.setting.NumericField(number, listener), 32);
-            }
-            double step = module instanceof dev.riserecode.module.modules.CapePhysicsModule cape && number == cape.strength() ? .01 : 0;
-            return new SettingControls.Control(new Slider(number, listener, step), 24);
-        });
+        editor.controls().accept(settingControls,changed);
         for (Setting<?> setting : module.getSettings()) {
-            if(glassEditor!=null){continue;}
+            if(editor.replacesSettings()){continue;}
             if(setting==module.popIn||setting==module.popOverride||setting==module.popTiming||setting==module.popStrength){continue;}
             SettingControls.Control adapter = settingControls.create(setting, changed);
             UIComponent component = adapter.component();
@@ -102,8 +94,8 @@ public final class ModuleButton extends UIComponent {
     private void updateScoped(double deltaSeconds) {
         expansion.animateTo(expanded ? 1 : 0); expansion.update(deltaSeconds);
         if(!expanded&&!bodyHeight.isRunning()&&bodyHeight.getValue()==0){return;}
-        double result = (glassEditor==null?4:44) + appearance.preferredHeight(width-14) + SettingsSection.HEADER+bindings.bodyHeight(KeybindControl.HEIGHT) + (baritone == null ? 0 : 58) + (seedcracker == null ? 0 : SeedCrackerControls.HEIGHT)
-                + (module instanceof dev.riserecode.module.modules.ChunkAnimationsModule ? 13 : 0);
+        double result = 4 + appearance.preferredHeight(width-14) + SettingsSection.HEADER + bindings.bodyHeight(KeybindControl.HEIGHT)
+                + editor.extras().stream().mapToDouble(ModuleEditorRegistry.Extra::height).sum();
         String previousGroup="";
         for (SettingControl control : controls) { if (control.setting().isVisible()) { String group=module.settingGroup(control.setting()); if(!group.isEmpty()&&!group.equals(previousGroup)){result+=16;} previousGroup=group; result += controlHeight(control); } }
         bodyHeight.animateTo(expanded ? result : 0); bodyHeight.update(deltaSeconds);
@@ -161,14 +153,13 @@ public final class ModuleButton extends UIComponent {
                 RenderUtil.text(graphics, font, category, categoryX, y + 9, 0.75, Theme.opacity(Theme.SECONDARY, opacity * 0.7));
             }
         }
-        RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, mouseX>=x+width-badgeWidth-7 && mouseX<x+width-7 && mouseY>=y+7 && mouseY<y+22 ? module.classification().description() : expanded ? details(module) : module.getDescription(), (width - 14) / 0.8),
+        RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, mouseX>=x+width-badgeWidth-7 && mouseX<x+width-7 && mouseY>=y+7 && mouseY<y+22 ? module.classification().description() : expanded ? editor.details().get() : module.getDescription(), (width - 14) / 0.8),
                 x + 7, y + 25, Math.min(.8,10/(9*Theme.number("Font Scale",1))), Theme.opacity(Theme.SECONDARY, opacity * 0.8));
         if (height - HEADER_HEIGHT <= 0.1) { return; }
         RenderUtil.scissorPush(graphics, x + 3, y + HEADER_HEIGHT, width - 6, height - HEADER_HEIGHT - 2);
         try {
             double top = 0;
-            if (seedcracker != null) { seedcracker.setBounds(x+7,y+HEADER_HEIGHT,width-14,SeedCrackerControls.HEIGHT); seedcracker.render(graphics,font,mouseX,mouseY,seconds,opacity*expansion.getValue()); top+=SeedCrackerControls.HEIGHT; }
-            if(glassEditor!=null){glassEditor.setBounds(x+7,y+HEADER_HEIGHT,width-14,26);glassEditor.render(graphics,font,mouseX,mouseY,seconds,opacity*expansion.getValue());RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,((dev.riserecode.module.modules.GlassModule)module).status(),(width-14)/.6),x+7,y+HEADER_HEIGHT+29,.6,Theme.opacity(Theme.SECONDARY,opacity*expansion.getValue()));top+=40;}
+            top = renderExtras(true, top, graphics, font, mouseX, mouseY, seconds, opacity*expansion.getValue());
             String previousGroup="";
             for (SettingControl control : controls) {
                 if (!control.setting().isVisible()) { continue; }
@@ -180,11 +171,7 @@ public final class ModuleButton extends UIComponent {
                 control.component().render(graphics, font, mouseX, mouseY, seconds, opacity * expansion.getValue());
                 top += controlHeight(control);
             }
-            if (baritone != null) { baritone.setBounds(x + 7, y + HEADER_HEIGHT + top, width - 14, 58); baritone.render(graphics, font, mouseX, mouseY, seconds, opacity * expansion.getValue()); top += 58; }
-
-            if (module instanceof dev.riserecode.module.modules.ChunkAnimationsModule chunks) {
-                RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,chunks.status(),(width-14)/0.6),x+7,y+HEADER_HEIGHT+top,0.6,Theme.opacity(Theme.SECONDARY,opacity*expansion.getValue())); top+=13;
-            }
+            top = renderExtras(false, top, graphics, font, mouseX, mouseY, seconds, opacity*expansion.getValue());
             appearance.setBounds(x+7,y+HEADER_HEIGHT+top,width-14,appearance.preferredHeight(width-14));
             appearance.render(graphics,font,mouseX,mouseY,seconds,opacity*expansion.getValue());top+=appearance.getBounds().height();
             bindings.setBounds(x+7,y+HEADER_HEIGHT+top,width-14,SettingsSection.HEADER);bindings.render(graphics,font,mouseX,mouseY,seconds,opacity*expansion.getValue());top+=SettingsSection.HEADER;
@@ -210,8 +197,9 @@ public final class ModuleButton extends UIComponent {
             return true;
         }
         if (!expanded) { return true; }
-        if(seedcracker!=null&&mouseY>=y+HEADER_HEIGHT&&mouseY<Math.min(y+height,y+HEADER_HEIGHT+SeedCrackerControls.HEIGHT)&&seedcracker.mouseClicked(mouseX,mouseY,button)){return true;}
-        if(glassEditor!=null&&glassEditor.mouseClicked(mouseX,mouseY,button)){captured=glassEditor;return true;}
+        for (var extra : editor.extras()) {
+            if (extra.component().getBounds().y()+extra.height() <= y+height+.01 && extra.component().mouseClicked(mouseX,mouseY,button)) { captured=extra.component(); return true; }
+        }
         for (SettingControl control : controls) {
             // Partially revealed rows must not accept input outside the animated card's clip.
             if (control.setting().isVisible() && control.component().getBounds().y() + controlHeight(control) <= y + height + 0.01
@@ -219,7 +207,6 @@ public final class ModuleButton extends UIComponent {
                 captured = control.component(); return true;
             }
         }
-        if (baritone != null && baritone.mouseClicked(mouseX, mouseY, button)) { return true; }
         if(appearance.mouseClicked(mouseX,mouseY,button)){captured=appearance;return true;}
         if(bindings.mouseClicked(mouseX,mouseY,button)){return true;}
         if (bindings.isExpanded() && bindings.bodyHeight(KeybindControl.HEIGHT)>=KeybindControl.HEIGHT-.01 && keybind.getBounds().y() + KeybindControl.HEIGHT <= y + height + 0.01 && keybind.mouseClicked(mouseX, mouseY, button)) {
@@ -234,12 +221,12 @@ public final class ModuleButton extends UIComponent {
         if (captured == null) { return false; }
         boolean consumed = captured.mouseReleased(localX(mouseX),localY(mouseY),button); captured = null; return consumed;
     }
-    private static String details(Module module) {
-        if(module instanceof dev.riserecode.module.modules.SeedCrackerModule seed)return seed.statusLines().get(0);
-        if(module instanceof dev.riserecode.module.modules.NoFallModule clutch)return clutch.status();
-        if(module instanceof dev.riserecode.module.modules.BlockAnimationsModule blocks)return blocks.status();
-        if(module instanceof dev.riserecode.module.modules.FullBrightModule full&&full.getMode().getValue()==dev.riserecode.module.modules.FullBrightModule.Mode.SHADER_NIGHT_VISION)return full.shaderStatus();
-        return module.getDescription();
+    private double renderExtras(boolean before, double top, GuiGraphicsExtractor graphics, Font font, double mx,double my,double seconds,double opacity) {
+        for(var extra:editor.extras()) {
+            if(extra.beforeSettings()!=before){continue;}
+            extra.component().setBounds(x+7,y+HEADER_HEIGHT+top,width-14,extra.height());
+            extra.component().render(graphics,font,mx,my,seconds,opacity);top+=extra.height();
+        }
+        return top;
     }
-
 }

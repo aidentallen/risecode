@@ -20,8 +20,13 @@ public final class JsonStorage {
     private JsonStorage() { }
 
     public static JsonObject read(Path file) throws IOException {
-        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            JsonElement root = JsonParser.parseReader(reader);
+        return read(file, 16*1024*1024);
+    }
+    public static JsonObject read(Path file, int limit) throws IOException {
+        try (var input = Files.newInputStream(file)) {
+            byte[] data = input.readNBytes(Math.addExact(limit, 1));
+            if (data.length > limit) { throw new IOException("JSON exceeds " + limit + " bytes"); }
+            JsonElement root = JsonParser.parseString(new String(data, StandardCharsets.UTF_8));
             if (!root.isJsonObject()) { throw new IllegalArgumentException("JSON root must be an object"); }
             return root.getAsJsonObject();
         }

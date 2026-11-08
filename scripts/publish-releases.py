@@ -5,6 +5,10 @@ import hashlib
 import json
 import subprocess
 import sys
+import argparse
+import io
+import zipfile
+from release_provenance import verified_source
 
 ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = 'aidentallen/risecode'
@@ -25,17 +29,80 @@ def asset_matches(remote, path):
               'repos/'+REPOSITORY+'/releases/assets/'+str(remote['id']), binary=True)
     return hashlib.sha256(data).hexdigest() == expected
 
+def audit_assets(paths):
+    def archive(data, depth=0):
+        if depth > 3: raise RuntimeError('Release archive nesting limit')
+        with zipfile.ZipFile(io.BytesIO(data)) as zipped:
+            entries = zipped.infolist()
+            if len(entries) > 20000 or sum(entry.file_size for entry in entries) > 256*1024*1024:
+                raise RuntimeError('Release archive inspection limit')
+            for entry in entries:
+                name = entry.filename.lower()
+                if name.endswith(('qraftys.png', 'qraftys.zip', '/font/qraftys.json')):
+                    raise RuntimeError('Restricted Qraftys artwork/provider in release asset: '+entry.filename)
+                if entry.is_dir(): continue
+                if name.endswith(('.jar', '.zip')): archive(zipped.read(entry), depth+1)
+                elif name.endswith('.png') and entry.file_size <= 1048576:
+                    if hashlib.sha256(zipped.read(entry)).hexdigest() == 'b3aa3de3f4a8ecc6f1b71c05f03765b5202178b915df478869b0d74717b7e0df':
+                        raise RuntimeError('Restricted Qraftys bitmap in release asset')
+    for path in paths:
+        if path.suffix.lower() in ('.jar', '.zip'): archive(path.read_bytes())
+
+
+def prepare_plan(document, historical=False):
+    if historical:
+        if not isinstance(document, list): raise RuntimeError('Historical migration requires a legacy release list')
+        releases = document
+    else:
+        if not isinstance(document, dict) or document.get('format') != 1: raise RuntimeError('Current releases require a format=1 provenance plan')
+        releases = document['releases']
+    for release in releases:
+        paths = [Path(value) for value in release['assets']]
+        if not paths or len({path.name for path in paths}) != len(paths): raise RuntimeError('Missing or duplicate release assets')
+        Path(release['notes']).read_text()  # All local inputs must exist before remote mutation.
+        hashes = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
+        audit_assets(paths)
+        if not historical:
+            artifact = Path(release['artifact'])
+            receipt = Path(release['verificationReceipt'])
+            identity = verified_source(ROOT, artifact, receipt)
+            if release['sourceCommit'] != identity['commit']: raise RuntimeError('Prepared source commit differs from verified source')
+            if hashes != release['assetSha256']: raise RuntimeError('Prepared asset hashes differ')
+            report = json.loads(receipt.read_text())
+            expected = set(report['artifacts'].values()) | {report['sourceArchiveSha256']}
+            if not expected.issubset(set(hashes.values())): raise RuntimeError('Release must include verified binary, sources and source archive')
+    return releases
+
+
+def verify_tag(tag, commit=None):
+    reference = api('repos/'+REPOSITORY+'/git/ref/tags/'+tag)
+    if commit is None: return
+    target = reference['object']
+    for _ in range(4):
+        if target['type'] == 'commit':
+            if target['sha'] != commit: raise RuntimeError('Remote release tag differs from verified source: '+tag)
+            return
+        if target['type'] != 'tag': break
+        target = api('repos/'+REPOSITORY+'/git/tags/'+target['sha'])['object']
+    raise RuntimeError('Remote tag does not resolve to a verified commit: '+tag)
+
+
 def main():
-    if len(sys.argv) != 2:
-        raise SystemExit('Usage: python3 scripts/publish-releases.py /path/to/prepared-plan.json')
-    plan = json.loads(Path(sys.argv[1]).read_text())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('plan', type=Path)
+    parser.add_argument('--historical-migration', action='store_true', help='Explicit legacy migration; restricted artwork remains forbidden')
+    args = parser.parse_args()
+    plan = prepare_plan(json.loads(args.plan.read_text()), args.historical_migration)
+    # Validate every source tag before creating or uploading anything.
+    for release in plan: verify_tag(release['tag'], None if args.historical_migration else release['sourceCommit'])
+    (ROOT/'build/publication').mkdir(parents=True, exist_ok=True)
     if not (api('user')['login'] == 'aidentallen'):
         raise RuntimeError('Sign in as the repository owner first')
     reports = []
     for release in plan:
         tag = release['tag']; endpoint = 'repos/'+REPOSITORY+'/releases/tags/'+tag
         # Release creation must reference an already-pushed, recovered source tag.
-        api('repos/'+REPOSITORY+'/git/ref/tags/'+tag)
+        verify_tag(tag, None if args.historical_migration else release['sourceCommit'])
         try:
             remote = api(endpoint)
         except subprocess.CalledProcessError as error:

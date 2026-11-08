@@ -55,23 +55,16 @@ public final class ShipwreckFinder extends BlockFinder {
         return finders;
     }
 
+    private final dev.riserecode.seedcracker.CandidateCursor<BlockPos> candidates = new dev.riserecode.seedcracker.CandidateCursor<>();
     @Override
     public List<BlockPos> findInChunk() {
-
-
-        List<BlockPos> result = super.findInChunk();
-
-        result.removeIf(pos -> {
-            BlockState state = this.world.getBlockState(pos);
-            if (state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) return true;
-
-            BlockEntity blockEntity = this.world.getBlockEntity(pos);
-            if (!(blockEntity instanceof ChestBlockEntity)) return true;
-
-            return !this.onChestFound(pos);
+        // One candidate inspects a fixed 3x3x4 neighborhood plus a small constant number of anchors.
+        return candidates.consume(super.findInChunk(), 128, pos -> {
+            BlockState state = world.getBlockState(pos);
+            if (!state.is(Blocks.CHEST) || !state.hasProperty(ChestBlock.TYPE) || state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) { return false; }
+            if (!(world.getBlockEntity(pos) instanceof ChestBlockEntity)) { return false; }
+            return onChestFound(pos);
         });
-
-        return result;
     }
 
     /**

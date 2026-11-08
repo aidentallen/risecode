@@ -12,6 +12,26 @@ spec.loader.exec_module(provenance)
 
 
 class ProvenanceChecks(unittest.TestCase):
+    def test_failed_verification_keeps_actual_exit_and_log_digest(self):
+        import subprocess
+        import sys
+        spec = importlib.util.spec_from_file_location('verifier', Path(__file__).resolve().parents[1]/'verify-project.py')
+        verifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(verifier)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def failing(command, **kwargs):
+                kwargs['stdout'].write('injected dependency acquisition failure\n')
+                return subprocess.CompletedProcess(command, 23)
+            with patch.object(verifier, 'ROOT', root), patch.object(verifier, 'source_identity', lambda: dict(dirty=False)), patch.object(verifier.subprocess, 'run', failing), patch.object(sys, 'argv', ['verify-project.py']):
+                with self.assertRaises(SystemExit): verifier.main()
+            output = root/'build/verification'
+            report = json.loads((output/'project.json').read_text())
+            self.assertEqual(report['status'], 'failed')
+            self.assertEqual(report['tasks'][0]['exitCode'], 23)
+            self.assertEqual(report['tasks'][0]['logSha256'], hashlib.sha256((output/'dependencies.log').read_bytes()).hexdigest())
+            self.assertEqual(report['artifacts'], {})
+
     def test_changed_source_artifact_and_logs_refused(self):
         for mismatch in ('none', 'source', 'dirty', 'artifact', 'log', 'task'):
             with self.subTest(mismatch=mismatch), tempfile.TemporaryDirectory() as temporary:
@@ -26,7 +46,7 @@ class ProvenanceChecks(unittest.TestCase):
                     log = output/(name+'.log')
                     log.write_text('fresh output')
                     tasks.append(dict(name=name, exitCode=0, logSha256=hashlib.sha256(log.read_bytes()).hexdigest()))
-                report = dict(source=dict(identity), tasks=tasks, artifacts={'build/mod.jar':hashlib.sha256(artifact.read_bytes()).hexdigest()})
+                report = dict(status='passed', source=dict(identity), tasks=tasks, artifacts={'build/mod.jar':hashlib.sha256(artifact.read_bytes()).hexdigest()})
                 receipt = output/'project.json'
                 receipt.write_text(json.dumps(report))
                 if mismatch == 'source': identity['fingerprint'] = 'changed'

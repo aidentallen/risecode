@@ -57,6 +57,11 @@ public final class SeedCrackerModule extends Module {
     private long bitsRevision=-1;
     private double regularBits,liftingBits;
     private String storageError="";
+    private boolean pendingClear;
+    private long clearIntent, writeSequence;
+    private java.util.concurrent.CompletableFuture<Void> pendingSave;
+    private long queuedRevision = -1, queuedClearIntent = -1;
+    private SeedStore.Identity queuedIdentity;
     private String message="Enable to collect. Start cracking manually.";
     private boolean resultAccepted, databasePending, restorePending, preserveArchive=true;
 
@@ -114,7 +119,7 @@ public final class SeedCrackerModule extends Module {
         acceptResult(); stop(); save();
         boolean compatible=next!=null && next.equals(identity);
         level=current;
-        if (!compatible) { data.clear(); structureSeeds=List.of(); verifiedSeeds=List.of(); savedRevision=-1; preserveArchive=true; }
+        if (!compatible) { data.clear(); structureSeeds=List.of(); verifiedSeeds=List.of(); savedRevision=-1; preserveArchive=true; pendingClear=false; clearIntent++; }
         identity=next; collection.world(supported()?current:null);
         message=current==null ? "Disconnected. Data saved; use Restore after rejoining." : supported() ?
                 "Collecting. Start an attempt manually; Restore loads matching saved data." : "Flat/debug/custom dimensions are unsupported by native structure rules.";
@@ -170,7 +175,7 @@ public final class SeedCrackerModule extends Module {
         }
         message="Queued loaded chunks. "+collection.pending()+" finder tasks; no cracking was started.";
     }
-    public void clearData() { requireEnabled(); stop(); data.clear(); structureSeeds=List.of(); verifiedSeeds=List.of(); collection.world(level); preserveArchive=false; savedRevision=-2; save(); message="Data and results cleared for this world."; }
+    public void clearData() { requireEnabled(); stop(); data.clear(); structureSeeds=List.of(); verifiedSeeds=List.of(); collection.world(level); preserveArchive=false; pendingClear=true; clearIntent++; savedRevision=-1; save(); message="Data and results cleared for this world."; }
     public void restore() {
         requireEnabled(); changeWorld(mc.level,false);
         if (identity==null) { message="Join the matching world before Restore."; return; }
@@ -190,18 +195,26 @@ public final class SeedCrackerModule extends Module {
         }));
     }
     private void save() {
-        if (identity == null || archiveWorker == null || savedRevision == data.revision()) { return; }
-        if (data.observations().isEmpty() && data.pillars().isEmpty() && structureSeeds.isEmpty() && verifiedSeeds.isEmpty() && savedRevision != -2) { return; }
+        if (identity == null || archiveWorker == null || savedRevision == data.revision() && !pendingClear) { return; }
+        if (data.observations().isEmpty() && data.pillars().isEmpty() && structureSeeds.isEmpty() && verifiedSeeds.isEmpty() && !pendingClear) { return; }
+        if (pendingSave != null && identity.equals(queuedIdentity) && queuedRevision == data.revision() && queuedClearIntent == clearIntent
+                && (!pendingSave.isDone() || !pendingSave.isCompletedExceptionally())) { return; }
         var snapshot = new SeedStore.Saved(1, identity, data.observations(), data.pillars(), structureSeeds, verifiedSeeds);
         long revision = data.revision();
         var expectedIdentity = identity;
-        savedRevision = revision;
-        archiveWorker.save(snapshot, preserveArchive).whenComplete((ignored, failure) -> mc.execute(() -> {
-            if (!expectedIdentity.equals(identity)) { return; }
+        long sequence = ++writeSequence, intent = clearIntent;
+        queuedIdentity = identity; queuedRevision = revision; queuedClearIntent = intent;
+        pendingSave = archiveWorker.save(snapshot, preserveArchive);
+        pendingSave.whenComplete((ignored, failure) -> mc.execute(() -> {
+            if (!expectedIdentity.equals(identity) || sequence != writeSequence) { return; }
             if (failure != null) {
                 if (savedRevision == revision) { savedRevision = -1; }
                 storageError = "Could not save data: " + concise(failure); message = storageError;
-            } else { storageError = ""; }
+            } else {
+                savedRevision = revision;
+                if (clearIntent == intent) { pendingClear = false; }
+                storageError = "";
+            }
         }));
     }
     public void copySeed() {

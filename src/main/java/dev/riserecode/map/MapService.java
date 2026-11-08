@@ -85,7 +85,7 @@ public final class MapService implements AutoCloseable {
         terrainChanges=bus.subscribe(TerrainChangedEvent.class,e->{if(recording&&e.level()==level){var key=new Key(dimension,e.position().getX()>>4,e.position().getZ()>>4);scanned.remove(key);if(dirty.size()<512){dirty.add(key);}}});
     }
     public static String hash(String value){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
-    public boolean connected(){return level!=null;}
+    public boolean connected(){return level!=null && level==mc.level;}
     public boolean ready(){return connected()&&waypointsReady;}
     public boolean recording(){return recording;}
     public void recording(boolean value){recording=value;if(!value){capture=null;}saveSettings();}
@@ -104,7 +104,8 @@ public final class MapService implements AutoCloseable {
         tick++;ClientLevel current=mc.level;String nextWorld=current==null?"":identity();
         if(current!=level){
             boolean sameWorld=nextWorld.equals(world)&&!nextWorld.isEmpty();
-            if(!sameWorld){flushWaypointsSnapshot();bufferedDeaths.clear();waypoints=new WaypointStore();waypointsReady=false;savedRevision=-1;}
+            if ((!sameWorld || pendingWorldFlush != null) && !flushWaypointsSnapshot()) { drainCompletions(); return; }
+            if(!sameWorld){bufferedDeaths.clear();waypoints=new WaypointStore();waypointsReady=false;savedRevision=-1;}
             generation++;capture=null;dirty.clear();visible.clear();cpuBytes=0;layers.reset();pending.clear();missing.clear();tiles.clear();scanned.clear();textures.clear();colors.clear();scanCursor=0;level=current;world=nextWorld;if(!sameWorld){wasDead=false;}
             if(level!=null){worldDirectory=root.resolve(hash(world));dimension=level.dimension().identifier().toString();if(!sameWorld){loadWaypoints();}}
         }
@@ -141,14 +142,32 @@ public final class MapService implements AutoCloseable {
             finally{savingWaypoints.set(false);}
         })){savingWaypoints.set(false);}
     }
-    private void flushWaypointsSnapshot(){
-        if(worldDirectory==null){return;}
-        if(!waypointsReady){
-            if(bufferedDeaths.isEmpty()){return;}var deaths=List.copyOf(bufferedDeaths);Path path=worldDirectory.resolve("waypoints.json");
-            submit(()->{try{WaypointStore store=new WaypointStore();if(Files.isRegularFile(path)){store.load(JsonStorage.read(path));}for(var death:deaths){store.death(death.x(),death.y(),death.z(),death.dimension(),death.time());}for(var archive:store.pendingArchives().entrySet()){JsonStorage.write(path.getParent().resolve("deaths").resolve(archive.getKey()+".json"),archive.getValue());}JsonStorage.write(path,store.snapshot());}catch(Exception error){Client.INSTANCE.getLogger().error("Cannot flush deaths recorded while loading; preserving waypoint file",error);}});return;
+    private RetainedWrite pendingWorldFlush;
+    private Throwable reportedFlushFailure;
+    private boolean flushWaypointsSnapshot() {
+        if (pendingWorldFlush == null) {
+            if (worldDirectory == null || !waypointsReady && bufferedDeaths.isEmpty()) { return true; }
+            Path path = worldDirectory.resolve("waypoints.json");
+            if (!waypointsReady) {
+                var deaths = List.copyOf(bufferedDeaths);
+                pendingWorldFlush = new RetainedWrite(() -> {
+                    var store = new WaypointStore();
+                    if (Files.isRegularFile(path)) { store.load(JsonStorage.read(path, 8*1024*1024)); }
+                    for (var death : deaths) { store.death(death.x(), death.y(), death.z(), death.dimension(), death.time()); }
+                    persistWaypoints(path, store.snapshot(), store.pendingArchives());
+                });
+            } else {
+                var archives = waypoints.pendingArchives(); var snapshot = waypoints.snapshot();
+                pendingWorldFlush = new RetainedWrite(() -> persistWaypoints(path, snapshot, archives));
+            }
         }
-        var archives=waypoints.pendingArchives();JsonObject snapshot=waypoints.snapshot();Path path=worldDirectory.resolve("waypoints.json");
-        if(!submit(()->{try{persistWaypoints(path,snapshot,archives);}catch(java.io.IOException error){Client.INSTANCE.getLogger().error("Cannot persist waypoint snapshot; preserving prior index",error);}} )){Client.INSTANCE.getLogger().error("Waypoint IO queue full while leaving world {}",worldDirectory);}
+        if (pendingWorldFlush.progress(worker)) { pendingWorldFlush = null; reportedFlushFailure = null; return true; }
+        Throwable failure = pendingWorldFlush.failure();
+        if (failure != null && failure != reportedFlushFailure) {
+            reportedFlushFailure = failure;
+            Client.INSTANCE.getLogger().warn("Map world transition waiting for waypoint persistence; snapshot retained", failure);
+        }
+        return false;
     }
     private static void persistWaypoints(Path path,JsonObject json,Map<Integer,JsonObject> archives)throws java.io.IOException{
         for(var archive:archives.entrySet()){JsonStorage.write(path.getParent().resolve("deaths").resolve(archive.getKey()+".json"),archive.getValue());}
@@ -247,20 +266,19 @@ public final class MapService implements AutoCloseable {
             if (completion.generation() == generation) { completion.apply().run(); }
         }
     }
-    @Override public void close(){updates.close();terrainChanges.close();textures.shutdown();if(!waypointsReady&&!bufferedDeaths.isEmpty()){flushWaypointsSnapshot();}
-        if(waypointsReady&&worldDirectory!=null){
-            // Place the final snapshot behind pending writes, preserving their order at shutdown.
-            var archives=waypoints.pendingArchives();JsonObject snapshot=waypoints.snapshot();Path path=worldDirectory.resolve("waypoints.json");
-            long deadline=System.nanoTime()+2_000_000_000L;
-            boolean admitted = false;
-            while (!(admitted = submit(() -> {
-                try { persistWaypoints(path, snapshot, archives); }
-                catch (java.io.IOException error) { Client.INSTANCE.getLogger().error("Cannot persist waypoint snapshot; preserving prior index", error); }
-            })) && System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
-                drainCompletions();
-                java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);
-            }
-            if (!admitted) { Client.INSTANCE.getLogger().error("Final waypoint snapshot could not be queued; prior disk snapshot retained: {}", path); }
+    @Override public void close() {
+        updates.close(); terrainChanges.close(); textures.shutdown();
+        long admissionDeadline = System.nanoTime()+2_000_000_000L;
+        boolean flushed = false;
+        while (!(flushed = flushWaypointsSnapshot()) && System.nanoTime() < admissionDeadline && !Thread.currentThread().isInterrupted()) {
+            drainCompletions(); java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);
         }
-        worker.shutdown();try{long deadline=System.nanoTime()+5_000_000_000L;while(!worker.awaitTermination(10,TimeUnit.MILLISECONDS)&&System.nanoTime()<deadline){Completion completion;while((completion=completed.poll())!=null){if(completion.generation()==generation){completion.apply().run();}}}if(!worker.isTerminated()){Client.INSTANCE.getLogger().error("Map IO shutdown deadline exceeded; some queued writes may be incomplete");worker.shutdownNow();}}catch(InterruptedException e){Thread.currentThread().interrupt();worker.shutdownNow();}}
+        if (!flushed) { Client.INSTANCE.getLogger().error("Waypoint flush deadline exceeded; latest snapshot remains unacknowledged, prior disk data retained"); }
+        worker.shutdown();
+        try {
+            long deadline = System.nanoTime()+5_000_000_000L;
+            while (!worker.awaitTermination(10, TimeUnit.MILLISECONDS) && System.nanoTime() < deadline) { drainCompletions(); }
+            if (!worker.isTerminated()) { Client.INSTANCE.getLogger().error("Map IO shutdown deadline exceeded; writes may be incomplete"); worker.shutdownNow(); }
+        } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); worker.shutdownNow(); }
+    }
 }

@@ -213,6 +213,9 @@ loom.runs.clientGameTest {
     if (providers.gradleProperty('seedCrackerOnly').isPresent()) { vmArg '-Driserecode.seedCrackerOnly=true' }
     if (providers.gradleProperty('seedCrackerRecovery').isPresent()) { vmArg '-Driserecode.seedCrackerRecovery=true' }
     if (providers.gradleProperty('glassOnly').isPresent()) { vmArg '-Driserecode.glassOnly=true' }
+    if (providers.gradleProperty('requireNarrator').isPresent()) { vmArg '-Driserecode.requireNarrator=true' }
+    if (providers.gradleProperty('reviewOverlayOnly').isPresent()) { vmArg '-Driserecode.reviewOverlayOnly=true' }
+    if (providers.gradleProperty('reviewRaceOnly').isPresent()) { vmArg '-Driserecode.reviewRaceOnly=true' }
     if (providers.gradleProperty('keyboardReviewOnly').isPresent()) { vmArg '-Driserecode.keyboardReviewOnly=true' }
     if (providers.gradleProperty('flyOnly').isPresent()) { vmArg '-Driserecode.flyOnly=true' }
     if (providers.gradleProperty('hotbarOnly').isPresent()) { vmArg '-Driserecode.hotbarOnly=true' }
@@ -315,3 +318,15 @@ tasks.register('releaseGuardsCheck', Exec) {
     commandLine 'python3', '-m', 'unittest', 'discover', '-s', 'scripts/tests', '-p', 'test_*.py'
 }
 tasks.named('check') { dependsOn 'reviewSafetyCheck', 'releaseGuardsCheck' }
+tasks.register('reviewPersistenceCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.riserecode.ReviewPersistenceChecks'
+}
+tasks.named('check') { dependsOn 'reviewPersistenceCheck' }
+
+// Release archives must be stable across clean, identical source builds.
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}

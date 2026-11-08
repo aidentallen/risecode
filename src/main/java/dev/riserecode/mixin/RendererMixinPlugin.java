@@ -13,6 +13,7 @@ public final class RendererMixinPlugin implements IMixinConfigPlugin {
         var loader = FabricLoader.getInstance();
         String name = mixin.substring(mixin.lastIndexOf('.') + 1);
         boolean sodium = loader.isModLoaded("sodium");
+        resolveCapabilities();
         if (name.equals("ChunkTerrainMixin")) { return !sodium; }
         if (name.startsWith("Bbe")) { return pinned("betterblockentities", "1.3.9+mc26.2"); }
         if (name.equals("SodiumExtraShaderMixin")) {
@@ -28,6 +29,17 @@ public final class RendererMixinPlugin implements IMixinConfigPlugin {
             if ((name.contains("SodiumChunk") || name.contains("IrisChunk")) && !chunkAdapters()) { return false; }
         }
         return true;
+    }
+    private boolean capabilitiesResolved;
+    private void resolveCapabilities() {
+        if (capabilitiesResolved) { return; }
+        capabilitiesResolved = true;
+        var loader = FabricLoader.getInstance();
+        String sodium = loader.getModContainer("sodium").map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse(null);
+        String iris = loader.getModContainer("iris").map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse(null);
+        boolean versions = sodium == null ? iris == null : dev.riserecode.render.RendererCapabilities.supportedVersions(sodium, iris);
+        boolean signatures = sodium == null || versions && chunkAdapters();
+        dev.riserecode.render.RendererCapabilities.chunkAdapters = dev.riserecode.render.RendererCapabilities.resolveMotion(sodium, iris, signatures);
     }
     private static boolean pinned(String mod, String expected) {
         var installed = FabricLoader.getInstance().getModContainer(mod);

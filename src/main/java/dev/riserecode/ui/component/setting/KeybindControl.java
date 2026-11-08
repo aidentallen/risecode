@@ -24,6 +24,10 @@ public final class KeybindControl extends UIComponent {
         reset = new ActionButton("Reset", () -> keys.reset(module));
         toggle = new ActionButton("Toggle", () -> { keys.cancelCapture(); keys.setMode(module, Module.BindMode.TOGGLE); });
         hold = new ActionButton("Hold", () -> { keys.cancelCapture(); keys.setMode(module, Module.BindMode.HOLD); });
+        binding.accessibleLabel(() -> module.getName()+", key binding, "+binding.label());
+        reset.accessibleLabel(() -> module.getName()+", reset key binding");
+        toggle.accessibleLabel(() -> module.getName()+", key activation toggle");
+        hold.accessibleLabel(() -> module.getName()+", key activation hold");
         buttons = List.of(binding, reset, toggle, hold);
     }
     public ActionButton getBindingButton() { return binding; }

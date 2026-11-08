@@ -11,6 +11,8 @@ public final class ActionButton extends UIComponent {
     private final dev.riserecode.ui.animation.ButtonFeedback press = new dev.riserecode.ui.animation.ButtonFeedback();
     private final Supplier<String> label;
     private final Runnable action;
+    private Supplier<String> accessibleLabel;
+    public ActionButton accessibleLabel(Supplier<String> label) { accessibleLabel = label; return this; }
     private BooleanSupplier enabled=()->true;
     private boolean clickSound = true;
     private Icon icon;
@@ -39,7 +41,7 @@ public final class ActionButton extends UIComponent {
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
         fit(font);boolean active=isEnabled();
-        if (active) { keyboard(graphics, opacity, () -> label.get() + ", button", () -> { action.run(); dev.riserecode.ui.sound.UiSounds.play(); }, null); }
+        if (active) { keyboard(graphics, opacity, () -> (accessibleLabel == null ? label.get() : accessibleLabel.get()) + ", button", () -> { action.run(); dev.riserecode.ui.sound.UiSounds.play(); }, null); }
         double hovered = updateHover(active?mouseX:-1e6, active?mouseY:-1e6, deltaSeconds);
         if(!active){opacity*=0.5;}
         double compression = press.scale();

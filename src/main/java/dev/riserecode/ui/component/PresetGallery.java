@@ -14,6 +14,9 @@ public final class PresetGallery extends UIComponent {
         var presets = ThemeManager.Preset.values(); double w = (width - 6) / 2;
         for (int i = 0; i < presets.length; i++) {
             double left = x + (i % 2) * (w + 6), top = y + (i / 2) * 24; int[] colors = ThemeManager.palette(presets[i]);
+            var preset=presets[i];
+            KeyboardNavigation.control(g,preset,new Bounds(left,top,w,21),opacity,()->"Appearance preset, "+preset,
+                    ()->{manager.applyPreset(preset);dev.riserecode.ui.sound.UiSounds.play();},null);
             RenderUtil.drawRoundedRect(g, left, top, w, 21, 3, Theme.opacity(colors[2], opacity));
             RenderUtil.drawGradientRect(g, left + 3, top + 3, 8, 15, Theme.opacity(colors[0], opacity), Theme.opacity(colors[1], opacity));
             RenderUtil.text(g, font, presets[i] == ThemeManager.Preset.CLASSIC_RISECODE ? "Classic risecode" : Theme.displayName(presets[i].name()), left + 15, top + 7, 0.7, Theme.opacity(Theme.TEXT, opacity));

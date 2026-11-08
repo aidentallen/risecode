@@ -64,29 +64,17 @@ public final class BuriedTreasureFinder extends BlockFinder {
         return finders;
     }
 
+    private final dev.riserecode.seedcracker.CandidateCursor<BlockPos> candidates = new dev.riserecode.seedcracker.CandidateCursor<>();
     @Override
     public List<BlockPos> findInChunk() {
-
-
-        List<BlockPos> result = super.findInChunk();
-
-        result.removeIf(pos -> {
+        return candidates.consume(super.findInChunk(), 16, pos -> {
             BlockState chest = world.getBlockState(pos);
-            if (chest.getValue(ChestBlock.WATERLOGGED)) return true;
-
-            BlockState chestHolder = world.getBlockState(pos.below());
-            return !CHEST_HOLDERS.contains(chestHolder);
+            if (!chest.is(Blocks.CHEST) || !chest.hasProperty(ChestBlock.WATERLOGGED) || chest.getValue(ChestBlock.WATERLOGGED)) { return false; }
+            if (!CHEST_HOLDERS.contains(world.getBlockState(pos.below()))) { return false; }
+            RegionStructure.Data<?> data = Features.BURIED_TREASURE.at(chunkPos.x(), chunkPos.z());
+            if (SeedCracker.get().getDataStorage().observeForOutline(data, DataAddedEvent.POKE_STRUCTURES)) { cuboids.add(new Cuboid(pos, ARGB.color(255,255,0))); }
+            return true;
         });
-
-        result.forEach(pos -> {
-            RegionStructure.Data<?> data = Features.BURIED_TREASURE.at(this.chunkPos.x(), this.chunkPos.z());
-
-            if (SeedCracker.get().getDataStorage().observeForOutline(data, DataAddedEvent.POKE_STRUCTURES)) {
-                this.cuboids.add(new Cuboid(pos, ARGB.color(255, 255, 0)));
-            }
-        });
-
-        return result;
     }
 
     @Override

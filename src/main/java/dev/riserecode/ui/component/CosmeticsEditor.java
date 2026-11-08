@@ -28,6 +28,7 @@ public final class CosmeticsEditor extends UIComponent {
     private CosmeticCategory category=CosmeticCategory.CAPE;
     private String selected="";
     private SettingsSection itemSection;
+    private final Object rotationFocus=new Object(),zoomFocus=new Object();
     private boolean catalog,editing,dragging;
     private double listScroll,settingsScroll,maxList,maxSettings,previousX,yaw=160,zoom=1;
     private double previewTime;
@@ -142,6 +143,11 @@ public final class CosmeticsEditor extends UIComponent {
         float size=(float)Math.min(previewBounds.width()/3,(bottom-top)/2.5)* (float)zoom;
         g.entity(state,size,new Vector3f(0,state.boundingBoxHeight/2,0),rotation,new Quaternionf(),(int)previewBounds.x(),(int)top,(int)(previewBounds.x()+previewBounds.width()),(int)bottom);
 
+        KeyboardNavigation.control(g,rotationFocus,new Bounds(previewBounds.x()+4,top+2,previewBounds.width()-8,15),alpha,
+                () -> "Cosmetic preview, rotation, "+Math.round(yaw),()->yaw=160,direction->yaw+=direction*15);
+        KeyboardNavigation.control(g,zoomFocus,new Bounds(previewBounds.x()+4,top+19,previewBounds.width()-8,15),alpha,
+                () -> "Cosmetic preview, zoom, "+zoom,()->zoom=1,direction->zoom=Math.clamp(zoom+direction*.08,.5,1.6));
+        RenderUtil.text(g,font,"Rotation / Zoom · Tab, arrows",previewBounds.x()+8,top+5,.55,Theme.opacity(Theme.SECONDARY,alpha));
         poseButton.setBounds(previewBounds.x()+3,previewBounds.y()+2,previewBounds.width()-6,18);poseButton.render(g,font,mx,my,0.016,alpha);rows.add(poseButton);
         var selectedDef=manager.library().find(selected);
         if(selectedDef!=null&&!manager.library().available(selectedDef)){

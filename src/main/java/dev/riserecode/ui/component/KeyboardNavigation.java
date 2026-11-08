@@ -13,6 +13,11 @@ import net.minecraft.client.input.KeyEvent;
 
 /** Visible controls register in draw order, using transformed bounds and the active clip. */
 public final class KeyboardNavigation {
+    public interface ManagedScreen { KeyboardNavigation riserecode$keyboardNavigation(); }
+    public static KeyboardNavigation auxiliary(net.minecraft.client.gui.screens.Screen screen) {
+        if (screen == null || !screen.getClass().getName().startsWith("dev.riserecode.ui.") || screen instanceof dev.riserecode.ui.clickgui.ClickGui) { return null; }
+        return screen instanceof ManagedScreen managed ? managed.riserecode$keyboardNavigation() : null;
+    }
     private record Entry(Object id, Supplier<String> label, Runnable activate, IntConsumer adjust) { }
     private static KeyboardNavigation collecting;
     private final List<Entry> entries = new ArrayList<>();

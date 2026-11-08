@@ -37,6 +37,8 @@ def main():
     receipt.unlink(missing_ok=True)
     env = dict(os.environ, GRADLE_USER_HOME=str(ROOT / '.tooling/gradle-home'))
     tasks = []
+    report = dict(format=1, status='running', source=before, tasks=tasks, artifacts={}, nativeRuntime='not executed by this command')
+    receipt.write_text(json.dumps(report, indent=2)+'\n')
     for name, command in [('dependencies', ['python3', 'scripts/fetch-dependencies.py']),
                           ('check-build', ['./gradlew', 'check', 'build', '--rerun-tasks', '--no-daemon', *(['--offline'] if args.offline else [])])]:
         start = time.monotonic()
@@ -46,16 +48,22 @@ def main():
         text = log.read_text()
         tasks.append(dict(name=name, command=command, exitCode=result.returncode, seconds=time.monotonic()-start,
                           logSha256=sha(log), suites=[dict(name=m[0].strip(), assertions=int(m[1])) for m in re.findall(r'([^\n]+?) passed \((\d+) assertions\)', text)]))
+        tasks[-1]['gradleTasks'] = [dict(name=m[0], outcome=m[1] or 'EXECUTED') for m in re.findall(r'^> Task :(\S+?)(?: (FAILED|UP-TO-DATE|SKIPPED|NO-SOURCE))?$', text, re.MULTILINE)]
+        report['status'] = 'failed' if result.returncode else 'running'
+        receipt.write_text(json.dumps(report, indent=2)+'\n')
         if result.returncode: raise SystemExit(f'{name} failed: {log}')
     after = source_identity()
-    if before != after: raise SystemExit('Source changed during verification; receipt refused')
+    if before != after:
+        report['status'] = 'invalidated'; report['sourceAfter'] = after
+        receipt.write_text(json.dumps(report, indent=2)+'\n')
+        raise SystemExit('Source changed during verification; receipt refused')
     properties = dict(line.split('=', 1) for line in (ROOT/'gradle.properties').read_text().splitlines() if '=' in line and not line.lstrip().startswith('#'))
     basename = properties['archives_base_name'] + '-' + properties['mod_version']
     built = [ROOT/'build/libs'/(basename+suffix) for suffix in ('.jar', '-sources.jar')]
     if any(not path.is_file() for path in built): raise SystemExit('Current release JAR or sources JAR missing')
     artifacts = {str(path.relative_to(ROOT)): sha(path) for path in built}
     if not artifacts: raise SystemExit('No release artifacts built')
-    report = dict(format=1, source=before, dependenciesSha256=sha(ROOT/'dependencies/manifest.json'),
+    report = dict(format=1, status='passed', source=before, dependenciesSha256=sha(ROOT/'dependencies/manifest.json'),
                   java=subprocess.check_output(['java', '-version'], stderr=subprocess.STDOUT, text=True).strip(),
                   tasks=tasks, artifacts=artifacts, nativeRuntime='not executed by this command')
     if args.package:

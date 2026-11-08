@@ -15,10 +15,51 @@ public final class ProfileManager implements AutoCloseable {
     private final Logger logger;
     private final java.util.concurrent.ExecutorService io=java.util.concurrent.Executors.newSingleThreadExecutor(r->{Thread thread=new Thread(r,"risecode-profile-io");thread.setDaemon(true);return thread;});
     public record Prepared(String name,String document,String fingerprint){ }
-    public java.util.concurrent.CompletionStage<List<String>> listAsync(){return java.util.concurrent.CompletableFuture.supplyAsync(this::getProfiles,io);}
-    public java.util.concurrent.CompletionStage<Prepared> prepareAsync(String name){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{backupLegacy(file);if(Files.size(file)>1_048_576){throw new IllegalArgumentException("Profile too large");}byte[] bytes=readProfile(file);return new Prepared(name,com.google.gson.JsonParser.parseString(new String(bytes,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject().toString(),fingerprint(bytes));}catch(IOException failure){throw new IllegalArgumentException("Could not read profile");}},io);}
-    public java.util.concurrent.CompletionStage<Boolean> savePrepared(String name,String document,String expected){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{String current=Files.exists(file)?fingerprint(readProfile(file)):"";if(!current.equals(expected)){return false;}if(!current.isEmpty()){Files.copy(file,file.resolveSibling(name+".backup-"+java.util.UUID.randomUUID()+".json.bak"));}JsonStorage.write(file,com.google.gson.JsonParser.parseString(document).getAsJsonObject());return readDocument(file).equals(com.google.gson.JsonParser.parseString(document));}catch(IOException | RuntimeException failure){return false;}},io);}
-    public java.util.concurrent.CompletionStage<String> fingerprintAsync(String name){Path file=getFile(name);return java.util.concurrent.CompletableFuture.supplyAsync(()->{try{return Files.exists(file)?fingerprint(readProfile(file)):"";}catch(IOException failure){throw new IllegalArgumentException("Could not inspect profile");}},io);}
+    public java.util.concurrent.CompletionStage<List<String>> listAsync() { return submitIo(this::getProfiles); }
+    public java.util.concurrent.CompletionStage<Prepared> prepareAsync(String name) {
+        Path file = getFile(name);
+        return submitIo(() -> {
+            byte[] bytes = readProfile(file);
+            var document = parseDocument(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+            backupLegacyDocument(file, document);
+            return new Prepared(name, document.toString(), fingerprint(bytes));
+        });
+    }
+    public java.util.concurrent.CompletionStage<Boolean> savePrepared(String name, String document, String expected) {
+        Path file = getFile(name);
+        return submitIo(() -> {
+            try {
+                var parsed = parseDocument(document);
+                String current = currentFingerprint(file);
+                if (!current.equals(expected)) { return false; }
+                backupCurrent(file, name, current);
+                JsonStorage.write(file, parsed);
+                return readDocument(file).equals(parsed);
+            } catch (IOException | RuntimeException failure) { logger.warn("Could not save prepared profile {}", name, failure); return false; }
+        });
+    }
+    public java.util.concurrent.CompletionStage<String> fingerprintAsync(String name) {
+        Path file = getFile(name);
+        return submitIo(() -> currentFingerprint(file));
+    }
+    private <T> java.util.concurrent.CompletableFuture<T> submitIo(java.util.concurrent.Callable<T> action) {
+        var result = new java.util.concurrent.CompletableFuture<T>();
+        try { io.execute(() -> { try { result.complete(action.call()); } catch (Exception failure) { result.completeExceptionally(failure); } }); }
+        catch (java.util.concurrent.RejectedExecutionException stopped) { result.completeExceptionally(stopped); }
+        return result;
+    }
+    private static com.google.gson.JsonObject parseDocument(String text) throws IOException {
+        if (text.length() > 1_048_576 || text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 1_048_576) { throw new IOException("Profile exceeds 1 MiB"); }
+        return com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+    }
+    private static String currentFingerprint(Path file) throws IOException { return Files.exists(file) ? fingerprint(readProfile(file)) : ""; }
+    private static void backupCurrent(Path file, String name, String fingerprint) throws IOException {
+        if (!fingerprint.isEmpty()) { Files.copy(file, file.resolveSibling(name+".backup-"+java.util.UUID.randomUUID()+".json.bak")); }
+    }
+    private static void backupLegacyDocument(Path file, com.google.gson.JsonObject document) throws IOException {
+        Path backup = file.resolveSibling(file.getFileName()+".pre-resources");
+        if (!document.has("resources") && !Files.exists(backup)) { Files.copy(file, backup); }
+    }
     private static String fingerprint(byte[] bytes){try{return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));}catch(java.security.NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}}
 
     public ProfileManager(ConfigManager config, Runnable refreshUi, Logger logger) {
@@ -76,7 +117,7 @@ public final class ProfileManager implements AutoCloseable {
         return com.google.gson.JsonParser.parseString(new String(readProfile(file), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
     }
     private void backupLegacy(Path file) throws IOException {
-        if (Files.exists(file) && !readDocument(file).has("resources")) { Path backup = file.resolveSibling(file.getFileName()+".pre-resources"); if (!Files.exists(backup)) { Files.copy(file, backup); } }
+        if (Files.exists(file)) { backupLegacyDocument(file, readDocument(file)); }
     }
     public List<String> getProfiles() {
         if (!Files.isDirectory(directory)) { return List.of(); }

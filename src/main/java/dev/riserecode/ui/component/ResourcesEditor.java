@@ -124,8 +124,8 @@ public final class ResourcesEditor extends UIComponent {
             }
         }
         for (String id : selected) {
-            rows.add(new Row(id, new ActionButton("Up", () -> move(id, -1)), new ActionButton("Down", () -> move(id, 1)),
-                    new ActionButton("×", () -> { selected.remove(id); rebuild(); }), new ActionButton("Details", () -> {
+            rows.add(new Row(id, new ActionButton("Up", () -> move(id, -1)).accessibleLabel(() -> id+", move resource up"), new ActionButton("Down", () -> move(id, 1)).accessibleLabel(() -> id+", move resource down"),
+                    new ActionButton("×", () -> { selected.remove(id); rebuild(); }).accessibleLabel(() -> id+", remove resource"), new ActionButton("Details", () -> {
                         detail = known == null ? null : known.byId().get(id); focused = id; resetScroll();
                     })));
         }
@@ -170,6 +170,9 @@ public final class ResourcesEditor extends UIComponent {
                 for (int i = 0; i < cards.size(); i++) {
                     var card = cards.get(i); double cx = x + i % columns * (cardWidth + 8), cy = top + i / columns * 66 - scroll;
                     card.action().setBounds(cx, cy, cardWidth, 60); if (cy + 60 < top || cy >= bottom) { continue; }
+                    KeyboardNavigation.control(g,card.action(),new Bounds(cx,cy,cardWidth,60),alpha,
+                            () -> "Resource, "+card.entry().name()+", "+(selected.contains(card.entry().id())?"selected":"unselected")+", activate to toggle, arrows for details",
+                            () -> toggle(card.entry()), ignored -> {detail=card.entry();focused=detail.id();resetScroll();});
                     boolean picked = selected.contains(card.entry().id());
                     RenderUtil.drawRoundedRect(g, cx, cy, cardWidth, 60, 5, Theme.opacity(card.action().contains(mx, my) ? Theme.HOVER : Theme.SURFACE, alpha));
                     if (picked) { RenderUtil.drawRoundedBorder(g, cx, cy, cardWidth, 60, 5, Theme.opacity(Theme.accent(), alpha), 1); }

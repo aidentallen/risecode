@@ -14,9 +14,14 @@ public final class FinderBudget implements AutoCloseable {
         if (CURRENT.get() != null || reads < 1 || nanos < 1) { throw new IllegalArgumentException("Invalid scan budget"); }
         remaining = reads; deadline = System.nanoTime() + nanos; CURRENT.set(this);
     }
-    public static void read() {
+    public static void read() { work(1); }
+    public static void work(int units) {
+        if (units < 1 || units > 2048) { throw new IllegalArgumentException("Invalid candidate work cost"); }
         FinderBudget budget = CURRENT.get();
-        if (budget != null && (budget.remaining-- <= 0 || System.nanoTime() >= budget.deadline)) { throw YIELD; }
+        if (budget != null) {
+            if (budget.remaining < units || System.nanoTime() >= budget.deadline) { throw YIELD; }
+            budget.remaining -= units;
+        }
     }
     @Override public void close() { CURRENT.remove(); }
 }

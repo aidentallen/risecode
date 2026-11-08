@@ -7,10 +7,15 @@ import net.minecraft.network.protocol.Packet;
 public abstract class PacketEvent extends Event {
     private final Packet<?> originalPacket;
     private Packet<?> packet;
+    private final net.minecraft.network.Connection source;
 
     protected PacketEvent(Packet<?> packet) {
-        super(true); this.packet = Objects.requireNonNull(packet); originalPacket = packet;
+        this(packet, null);
     }
+    protected PacketEvent(Packet<?> packet, net.minecraft.network.Connection source) {
+        super(true); this.packet = Objects.requireNonNull(packet); originalPacket = packet; this.source = source;
+    }
+    public final net.minecraft.network.Connection source() { return source; }
     public final Packet<?> getPacket() { return packet; }
     public final Packet<?> getOriginalPacket() { return originalPacket; }
     public final void setPacket(Packet<?> replacement) {
@@ -20,6 +25,6 @@ public abstract class PacketEvent extends Event {
         }
         packet = replacement;
     }
-    public static final class Send extends PacketEvent { public Send(Packet<?> packet) { super(packet); } }
-    public static final class Receive extends PacketEvent { public Receive(Packet<?> packet) { super(packet); } }
+    public static final class Send extends PacketEvent { public Send(Packet<?> packet) { super(packet); } public Send(Packet<?> packet, net.minecraft.network.Connection source) { super(packet, source); } }
+    public static final class Receive extends PacketEvent { public Receive(Packet<?> packet) { super(packet); } public Receive(Packet<?> packet, net.minecraft.network.Connection source) { super(packet, source); } }
 }

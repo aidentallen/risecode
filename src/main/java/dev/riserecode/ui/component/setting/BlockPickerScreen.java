@@ -44,6 +44,8 @@ public final class BlockPickerScreen extends Screen {
             int rows = Math.max(0, (height - 104) / 20);
             for (int i = 0; i < rows && i + scroll < filtered.size(); i++) {
                 String id = filtered.get(i + scroll); boolean selected = setting.getValue().contains(id); int y = 64 + i * 20;
+                dev.riserecode.ui.component.KeyboardNavigation.control(graphics,id,new dev.riserecode.ui.component.UIComponent.Bounds(left+6,y,w-12,20),1,
+                        () -> id + ", block, " + (setting.getValue().contains(id)?"selected":"unselected"), () -> {setting.toggle(id);changed.run();},null);
                 if (mouseY >= y && mouseY < y + 20 && mouseX >= left && mouseX < left + w) { graphics.fill(left + 6, y, left + w - 6, y + 20, 0x18FFFFFF); }
                 RenderUtil.text(graphics, font, (selected ? "● " : "○ ") + id, left + 12, y + 5, 0.9, selected ? Theme.accent() : Theme.TEXT);
             }

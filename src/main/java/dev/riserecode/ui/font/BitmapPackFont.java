@@ -117,11 +117,14 @@ final class BitmapPackFont implements AutoCloseable {
                     }
                 }
             }
-            texture = RenderSystem.getDevice().createTexture(() -> "risecode Qraftys bitmap SDF", GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
-                    GpuFormat.R8_UNORM, SIDE, SIDE, 1, 1);
-            view = RenderSystem.getDevice().createTextureView(texture);
-            try (GpuBuffer upload = RenderSystem.getDevice().createBuffer(() -> "risecode bitmap font upload", GpuBuffer.USAGE_COPY_SRC, atlas)) {
-                RenderSystem.getDevice().createCommandEncoder().copyBufferToTexture(upload.slice(), 0, 0, SIDE, SIDE, texture, 0, 0, SIDE, SIDE, 0, 0);
+            try (var gpu = new dev.riserecode.util.AllocationScope()) {
+                var prepared = gpu.own(RenderSystem.getDevice().createTexture(() -> "risecode Qraftys bitmap SDF", GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
+                        GpuFormat.R8_UNORM, SIDE, SIDE, 1, 1), GpuTexture::close);
+                var preparedView = gpu.own(RenderSystem.getDevice().createTextureView(prepared), GpuTextureView::close);
+                try (GpuBuffer upload = RenderSystem.getDevice().createBuffer(() -> "risecode bitmap font upload", GpuBuffer.USAGE_COPY_SRC, atlas)) {
+                    RenderSystem.getDevice().createCommandEncoder().copyBufferToTexture(upload.slice(), 0, 0, SIDE, SIDE, prepared, 0, 0, SIDE, SIDE, 0, 0);
+                }
+                texture = prepared; view = preparedView; gpu.commit();
             }
         } finally { MemoryUtil.memFree(atlas); }
     }

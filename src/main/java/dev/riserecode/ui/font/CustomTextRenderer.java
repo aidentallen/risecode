@@ -82,7 +82,7 @@ public final class CustomTextRenderer {
     private record Glyph(int cell, int width, int height, int xOffset, int yOffset, double advance) { }
     private static final class Face implements AutoCloseable {
         private final ByteBuffer data;
-        private final STBTTFontinfo info = STBTTFontinfo.malloc();
+        private final STBTTFontinfo info;
         private final float scale;
         private final double baseline;
         private final boolean pixel;
@@ -96,21 +96,25 @@ public final class CustomTextRenderer {
         private Face(byte[] bytes, boolean pixel) {
             validate(bytes);
             this.pixel = pixel;
-            data = MemoryUtil.memAlloc(bytes.length); data.put(bytes).flip();
-            if (!STBTruetype.stbtt_InitFont(info, data)) { info.free(); MemoryUtil.memFree(data); throw new IllegalArgumentException("Invalid TrueType font"); }
-            // Minecraftia's em includes unusually large ascender space. Normalize the visible
-            // capital height to the shared seven-unit menu/HUD cap, not its em box.
-            if (pixel) {
+            try (var allocation = new dev.riserecode.util.AllocationScope()) {
+                info = allocation.own(STBTTFontinfo.malloc(), STBTTFontinfo::free);
+                data = allocation.own(MemoryUtil.memAlloc(bytes.length), MemoryUtil::memFree); data.put(bytes).flip();
+                if (!STBTruetype.stbtt_InitFont(info, data)) { throw new IllegalArgumentException("Invalid TrueType font"); }
+                // Minecraftia's em includes unusually large ascender space. Normalize the visible
+                // capital height to the shared seven-unit menu/HUD cap, not its em box.
+                if (pixel) {
+                    try (MemoryStack stack = MemoryStack.stackPush()) {
+                        var x0 = stack.mallocInt(1); var y0 = stack.mallocInt(1); var x1 = stack.mallocInt(1); var y1 = stack.mallocInt(1);
+                        STBTruetype.stbtt_GetCodepointBox(info, 'H', x0, y0, x1, y1);
+                        scale = (float) (7.0 * DENSITY / Math.max(1, y1.get(0) - y0.get(0)));
+                    }
+                } else { scale = STBTruetype.stbtt_ScaleForPixelHeight(info, 11 * DENSITY); }
                 try (MemoryStack stack = MemoryStack.stackPush()) {
                     var x0 = stack.mallocInt(1); var y0 = stack.mallocInt(1); var x1 = stack.mallocInt(1); var y1 = stack.mallocInt(1);
-                    STBTruetype.stbtt_GetCodepointBox(info, 'H', x0, y0, x1, y1);
-                    scale = (float) (7.0 * DENSITY / Math.max(1, y1.get(0) - y0.get(0)));
+                    STBTruetype.stbtt_GetCodepointBitmapBox(info, 'H', scale, scale, x0, y0, x1, y1);
+                    baseline = -y0.get(0) / (double) DENSITY;
                 }
-            } else { scale = STBTruetype.stbtt_ScaleForPixelHeight(info, 11 * DENSITY); }
-            try (MemoryStack stack = MemoryStack.stackPush()) {
-                var x0 = stack.mallocInt(1); var y0 = stack.mallocInt(1); var x1 = stack.mallocInt(1); var y1 = stack.mallocInt(1);
-                STBTruetype.stbtt_GetCodepointBitmapBox(info, 'H', scale, scale, x0, y0, x1, y1);
-                baseline = -y0.get(0) / (double) DENSITY;
+                allocation.commit();
             }
         }
         private static void validate(byte[] bytes) {
@@ -140,9 +144,9 @@ public final class CustomTextRenderer {
         }
         private void upload() {
             if (coverageView != null) { return; }
-            ByteBuffer distancePixels = MemoryUtil.memCalloc(SIDE * SIDE);
-            ByteBuffer coveragePixels = MemoryUtil.memCalloc(SIDE * SIDE);
-            try {
+            try (var allocation = new dev.riserecode.util.AllocationScope()) {
+                ByteBuffer distancePixels = allocation.own(MemoryUtil.memCalloc(SIDE * SIDE), MemoryUtil::memFree);
+                ByteBuffer coveragePixels = allocation.own(MemoryUtil.memCalloc(SIDE * SIDE), MemoryUtil::memFree);
                 int cell = 0;
                 for (int code = 32; code < 256; code++) {
                     bake(distancePixels, code, cell); bakeCoverage(coveragePixels, code, cell++);
@@ -150,11 +154,15 @@ public final class CustomTextRenderer {
                 for (int code : SYMBOLS.codePoints().toArray()) {
                     bake(distancePixels, code, cell); bakeCoverage(coveragePixels, code, cell++);
                 }
-                texture = uploadAtlas(distancePixels, "risecode font effects");
-                view = RenderSystem.getDevice().createTextureView(texture);
-                coverageTexture = uploadAtlas(coveragePixels, "risecode filled font");
-                coverageView = RenderSystem.getDevice().createTextureView(coverageTexture);
-            } finally { MemoryUtil.memFree(distancePixels); MemoryUtil.memFree(coveragePixels); }
+                try (var gpu = new dev.riserecode.util.AllocationScope()) {
+                    var effects = gpu.own(uploadAtlas(distancePixels, "risecode font effects"), GpuTexture::close);
+                    var effectsView = gpu.own(RenderSystem.getDevice().createTextureView(effects), GpuTextureView::close);
+                    var filled = gpu.own(uploadAtlas(coveragePixels, "risecode filled font"), GpuTexture::close);
+                    var filledView = gpu.own(RenderSystem.getDevice().createTextureView(filled), GpuTextureView::close);
+                    texture = effects; view = effectsView; coverageTexture = filled; coverageView = filledView;
+                    gpu.commit();
+                }
+            }
         }
         private static GpuTexture uploadAtlas(ByteBuffer pixels, String name) {
             GpuTexture atlas = RenderSystem.getDevice().createTexture(() -> name,
@@ -162,7 +170,7 @@ public final class CustomTextRenderer {
             try (GpuBuffer upload = RenderSystem.getDevice().createBuffer(() -> name + " upload", GpuBuffer.USAGE_COPY_SRC, pixels)) {
                 RenderSystem.getDevice().createCommandEncoder().copyBufferToTexture(upload.slice(), 0, 0, SIDE, SIDE, atlas, 0, 0, SIDE, SIDE, 0, 0);
                 return atlas;
-            } catch (RuntimeException failure) { atlas.close(); throw failure; }
+            } catch (RuntimeException | Error failure) { atlas.close(); throw failure; }
         }
         /** Filled coverage retains fine stems/counters which a coarse SDF can erase.
          * The transparent gutter prevents adjacent atlas cells bleeding into the glyph.

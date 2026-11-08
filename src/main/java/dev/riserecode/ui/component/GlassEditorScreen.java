@@ -29,6 +29,7 @@ public final class GlassEditorScreen extends Screen {
     private final ActionButton done,reset;
     private final List<UIComponent> hitControls=new ArrayList<>();
     private UIComponent captured;
+    private final Object[] previewFocus={new Object(),new Object(),new Object()};
     private boolean rotating;
     private double rotation=155,tilt=0,zoom=1,scroll,maxScroll;
     private double panelX,panelY,panelWidth,panelHeight,previewX,previewY,previewW,previewH;
@@ -99,6 +100,16 @@ public final class GlassEditorScreen extends Screen {
         maxScroll=Math.max(0,y+scroll-panelY-panelHeight+6);scroll=Math.clamp(scroll,0,maxScroll);
         var state=previewState(partial);
         g.entity(state,(float)(Math.min(previewW*.34,previewH*.40)*zoom),new Vector3f(),new Quaternionf().rotateZ((float)Math.PI).rotateX((float)Math.toRadians(tilt)).rotateY((float)Math.toRadians(rotation)),null,(int)previewX,(int)previewY,(int)(previewX+previewW),(int)(previewY+previewH));
+        String[] previewLabels={"Rotation","Tilt","Zoom"};
+        for(int i=0;i<3;i++) {
+            final int axis=i;
+            double controlY=previewY+26+i*16;
+            KeyboardNavigation.control(g,previewFocus[i],new UIComponent.Bounds(previewX+8,controlY,previewW-16,15),1,
+                    () -> "Glass preview, "+previewLabels[axis]+", "+(axis==0?rotation:axis==1?tilt:zoom),
+                    () -> {if(axis==0){rotation=155;}else if(axis==1){tilt=0;}else{zoom=1;}},
+                    direction -> {if(axis==0){rotation+=direction*15;}else if(axis==1){tilt=Math.clamp(tilt+direction*5,-35,35);}else{zoom=Math.clamp(zoom+direction*.08,.5,1.6);}});
+            RenderUtil.text(g,font,previewLabels[i]+" · arrows",previewX+12,controlY+3,.6,Theme.SECONDARY);
+        }
         RenderUtil.text(g,font,"Drag to rotate · Scroll to zoom",previewX+8,previewY+8,.7,Theme.TEXT);
         RenderUtil.text(g,font,minecraft.player==null?"Sample loadout":"Your skin & equipment",previewX+8,previewY+previewH-16,.7,Theme.TEXT);
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,module.status(),(width-190)/.65),16,height-23,.65,Theme.SECONDARY);

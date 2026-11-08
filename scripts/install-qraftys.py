@@ -47,7 +47,7 @@ try:
             for entry in incoming.infolist():
                 outgoing.writestr(entry, json.dumps(metadata, indent=2).encode() if entry.filename == "pack.mcmeta" else incoming.read(entry))
         with zipfile.ZipFile(temporary) as adapted:
-            assert adapted.read("assets/minecraft/textures/font/ascii.png") == incoming.read("assets/minecraft/textures/font/ascii.png")
+            if not (adapted.read("assets/minecraft/textures/font/ascii.png") == incoming.read("assets/minecraft/textures/font/ascii.png")): raise RuntimeError('Verification failed')
     temporary.replace(target)
 finally:
     if temporary is not None:

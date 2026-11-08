@@ -17,6 +17,8 @@ public final class BackgroundGallery extends UIComponent {
         var values = ThemeManager.Background.values(); double w = (width - 9) / 4;
         for (int i = 0; i < values.length; i++) {
             double left = x + i % 4 * (w + 3), top = y + i / 4 * 41;
+            var background=values[i];
+            KeyboardNavigation.control(g,background,new Bounds(left,top,w,37),alpha,()->"Background, "+background,()->choose(background),null);
             RenderUtil.drawRoundedRect(g, left, top, w, 37, 3, Theme.opacity(Theme.SURFACE, alpha));
             if(values[i]==ThemeManager.Background.NONE){RenderUtil.line(g,left+8,top+19,left+w-8,top+5,1,Theme.opacity(Theme.SECONDARY,alpha*.6));}
             else if(dev.riserecode.ui.menu.AnimatedPreview.animated(values[i])){dev.riserecode.ui.menu.AnimatedPreview.draw(g,values[i],left,top,w,24,Theme.opacity(-1,alpha),false);}
@@ -33,6 +35,10 @@ public final class BackgroundGallery extends UIComponent {
             if(hovered){RenderUtil.drawGlow(g,left,top,w,37,3,Theme.opacity(Theme.accent(),alpha));RenderUtil.drawRoundedBorder(g,left,top,w,37,3,Theme.opacity(Theme.accent(),alpha),1);}
             if (manager.choice("Background", ThemeManager.Background.class) == values[i]) { RenderUtil.drawRoundedBorder(g,left,top,w,37,3,Theme.opacity(Theme.accent(),alpha),1); }
         }
+    }
+    private void choose(ThemeManager.Background background) {
+        @SuppressWarnings("unchecked") var setting=(EnumSetting<ThemeManager.Background>)manager.getSetting("Background");
+        setting.setValue(background);manager.changed();dev.riserecode.ui.sound.UiSounds.play();
     }
     @Override public boolean mouseClicked(double mx, double my, int button) {
         if (button != 0 || !contains(mx, my)) { return false; }

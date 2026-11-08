@@ -97,3 +97,50 @@ Generated Resources packs retain the active and previous successful generation.
 Before the next apply, unused UUID generation directories are reclaimed without
 following symlinks. Source archives and their attribution stay intact. A failed
 prune is logged and does not invalidate the active selection.
+
+### Publication contract
+
+A current publication plan is a JSON object with `format: 1` and a `releases`
+array. Each release supplies `tag`, `title`, `version`, `notes`, `assets`,
+`artifact`, `verificationReceipt`, `sourceCommit` and `assetSha256` (asset base
+name to SHA-256). Run the fresh verifier with `--package` on a clean commit
+first. The publisher requires a passed receipt for the exact clean source,
+verified binary/source/archive hashes, and a remote tag resolving to that same
+commit. It validates every plan entry before release mutations. Incomplete,
+failed or invalidated receipts cannot authorize publication.
+
+Legacy list-shaped plans require explicit `--historical-migration`. That mode
+is for restoring already-audited historical releases and does not establish
+current build provenance. Both modes inspect nested archives and reject Qraftys
+artwork, its provider and downloaded pack. Historical assets containing that
+artwork must not be republished. Existing remote history is a separate audit.
+Gradle archive timestamps and entry order are normalized; repeat-build hash
+comparisons still need to accompany any reproducibility claim.
+
+### Review regression fixtures
+
+`reviewPersistenceCheck` covers retained map writes under executor/completion
+queue saturation, a transient write failure, reload terminal outcomes, allocation
+rollback, candidate budgets and unsupported-renderer motion policy. The native
+`-PreviewRaceOnly` fixture exercises failed/rejected empty SeedCracker clears,
+stale chest candidates, dense sliced/unsliced comparison, saturated actual
+MapService transitions/close and packet attempt/connection identity. These have
+different coverage: a helper regression is not a full world-transition or device
+failure test.
+
+`-PkeyboardReviewOnly -PrequireNarrator` requires a working native narrator and
+uses Minecraft's keyboard input hook. It covers common module controls, color
+endpoints/modes/direction, profile save/load, friend add/remove and auxiliary Glass/block-picker navigation. Speech
+is dispatched to the native engine; human audible comprehension is not asserted.
+The auxiliary collector covers project screens, with shared controls, gallery
+and resource cards, HUD selections and preview rotation/zoom. Complete Resources recovery flows, every canvas gesture, small-window/large-font
+behavior and clipped-content scrolling still need independent acceptance tests.
+
+`-PreviewOverlayOnly` provides fixed-camera pixel assertions for visible,
+opaque-occluded and through-wall lines, plus screenshots of glass, water,
+particles and reload. The pinned Iris/Complementary combination logs missing
+custom line shader overrides while the targeted color/depth assertions pass:
+Risecode's dedicated overlay path keeps those lines outside the pack shader.
+The warnings remain visible. This evidence does not establish every shader,
+line width, shadow pass, armor/held-item surface, scaling or BBE ownership case.
+Record the exact unchanged JAR and log/image hashes for a final release matrix.

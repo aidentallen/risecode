@@ -30,7 +30,7 @@ public final class ResourcesManager implements AutoCloseable {
     private Path rollbackDirectory;
     private static final class Transaction {
         final Path previous; final List<String> packs; final CompletableFuture<ApplyResult> result; final Consumer<Boolean> commit;
-        boolean recovering; Throwable failure;
+        ReloadRecovery recovery;
         Transaction(Path previous, List<String> packs, CompletableFuture<ApplyResult> result, Consumer<Boolean> commit) {
             this.previous = previous; this.packs = packs; this.result = result; this.commit = commit;
         }
@@ -122,13 +122,14 @@ public final class ResourcesManager implements AutoCloseable {
             };
             if (!packChanged) { try { commit.accept(true); finish(result, true, "Resources applied"); } catch (RuntimeException failure) { finish(result, false, ResourcesLibrary.message(failure)); } return; }
             transaction = new Transaction(previousDirectory, mc.getResourcePackRepository().getSelectedPacks().stream().map(net.minecraft.server.packs.repository.Pack::getId).toList(), result, commit);
+            configureRecovery(transaction, mc);
             ResourcesPackSource.select(generation); status = "Reloading resources…";
-            mc.reloadResourcePacks().whenComplete((ignored, failure) -> mc.execute(() -> {
-                if (transaction == null || transaction.result != result || transaction.recovering) { return; }
+            try { mc.reloadResourcePacks().whenComplete((ignored, failure) -> mc.execute(() -> {
+                if (transaction == null || transaction.result != result || transaction.recovery.recovering()) { return; }
                 if (failure != null) { reloadFailed(failure); return; }
                 try { commit.accept(true); transaction = null; finish(result, true, "Resources applied"); }
                 catch (RuntimeException commitFailure) { reloadFailed(commitFailure); }
-            }));
+            })); } catch (RuntimeException synchronousReload) { reloadFailed(synchronousReload); }
         }));
         return result;
     }
@@ -137,37 +138,35 @@ public final class ResourcesManager implements AutoCloseable {
         pointer.addProperty("rollback", rollback == null ? "" : rollback.getFileName().toString());
         ResourceIo.write(library.directory().resolve("active.json"), pointer);
     }
+    private void configureRecovery(Transaction pending, Minecraft mc) {
+        pending.recovery = new ReloadRecovery(mc::execute, () -> {
+            ResourcesPackSource.select(pending.previous);
+            mc.getResourcePackRepository().reload();
+            mc.getResourcePackRepository().setSelected(pending.packs);
+            mc.gui.setOverlay(null);
+            return mc.reloadResourcePacks();
+        }, outcome -> completeRecovery(pending, outcome));
+    }
+    private void completeRecovery(Transaction pending, ReloadRecovery.Outcome outcome) {
+        if (transaction != pending) { return; }
+        transaction = null;
+        pending.commit.accept(false);
+        String original = ResourcesLibrary.message(outcome.original());
+        if (outcome.restored()) {
+            finish(pending.result, false, "Previous resources restored: " + original);
+        } else {
+            finish(pending.result, false, "Resources recovery failed: " + ResourcesLibrary.message(outcome.recovery()) + " · Original failure: " + original);
+        }
+    }
     /** Called by the Minecraft failure adapter before vanilla discards all selected packs. */
     public boolean reloadFailed(Throwable failure) {
-        Transaction t=transaction;if(t==null)return false;
-        if (t.recovering) {
-            transaction = null; t.commit.accept(false);
-            if (failure != t.failure) { failure.addSuppressed(t.failure); }
-            finish(t.result, false, "Resources recovery failed: " + ResourcesLibrary.message(failure)
-                    + " · Original failure: " + ResourcesLibrary.message(t.failure));
-            return false;
-        }
-        t.recovering=true;t.failure=failure;ResourcesPackSource.select(t.previous);
-        var mc=Minecraft.getInstance();mc.getResourcePackRepository().reload();mc.getResourcePackRepository().setSelected(t.packs);mc.gui.setOverlay(null);
-        mc.execute(()->mc.reloadResourcePacks().whenComplete((ignored,error)->mc.execute(()->{
-            if (transaction != t) return;
-            transaction = null;
-            t.commit.accept(false);
-            if (error != null) {
-                if (error != t.failure) { t.failure.addSuppressed(error); }
-                finish(t.result, false, "Resources recovery failed: " + ResourcesLibrary.message(error)
-                        + " · Original failure: " + ResourcesLibrary.message(t.failure));
-            } else {
-                finish(t.result, false, "Previous resources restored: " + ResourcesLibrary.message(t.failure));
-            }
-        })));
-        return true;
+        return transaction != null && transaction.recovery.fail(failure);
     }
     private void finish(CompletableFuture<ApplyResult> result,boolean success,String message){busy=false;status=message;result.complete(new ApplyResult(success,message));}
     @Override public void close() {
         closed = true;
         if (transaction != null) {
-            Transaction pending = transaction; transaction = null;
+            Transaction pending = transaction; transaction = null; pending.recovery.cancel();
             ResourcesPackSource.select(pending.previous); pending.commit.accept(false);
             finish(pending.result, false, "Client stopped during resource reload; prior selection retained");
         }

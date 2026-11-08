@@ -12,13 +12,17 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Screen.class)
-public abstract class MenuScreenMixin {
+public abstract class MenuScreenMixin implements dev.riserecode.ui.component.KeyboardNavigation.ManagedScreen {
+    @org.spongepowered.asm.mixin.Unique private final dev.riserecode.ui.component.KeyboardNavigation riserecode$keyboard = new dev.riserecode.ui.component.KeyboardNavigation();
+    @Override public dev.riserecode.ui.component.KeyboardNavigation riserecode$keyboardNavigation() { return riserecode$keyboard; }
     @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method="extractRenderStateWithTooltipAndSubtitles")
     private void risecode$frame(GuiGraphicsExtractor graphics,int mx,int my,float delta,Operation<Void> original) {
         String previous = dev.riserecode.ui.theme.PageAppearance.context();
         dev.riserecode.ui.theme.PageAppearance.context(MenuTheme.pageId((Screen)(Object)this));
+        var keyboard = dev.riserecode.ui.component.KeyboardNavigation.auxiliary((Screen)(Object)this);
+        if (keyboard != null) { keyboard.begin(); }
         try { MenuTheme.beginScreen((Screen)(Object)this); original.call(graphics,mx,my,delta); }
-        finally { dev.riserecode.ui.theme.PageAppearance.context(previous); }
+        finally { if (keyboard != null) { keyboard.end(); } dev.riserecode.ui.theme.PageAppearance.context(previous); }
     }
 
     @WrapOperation(method="extractRenderStateWithTooltipAndSubtitles",at=@At(value="INVOKE",target="Lnet/minecraft/client/gui/screens/Screen;extractBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V"))

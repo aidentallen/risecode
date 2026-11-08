@@ -33,6 +33,8 @@ public final class ColorPicker extends UIComponent {
     private final Slider spacingSlider;
     private final DoubleSetting[] channels = new DoubleSetting[4];
     private final Slider[] channelSliders = new Slider[4];
+    private final Object[] endpointFocus = {new Object(), new Object()};
+    private final Object modeFocus = new Object(), directionFocus = new Object();
     private boolean expanded;
     private boolean secondary;
     private double hue, saturation, value;
@@ -95,6 +97,10 @@ public final class ColorPicker extends UIComponent {
         try {
             for (int i = 0; i < 2; i++) {
                 double left = x + i * (width / 2 + 2); boolean selected = secondary == (i == 1);
+                final boolean endpoint = i == 1;
+                dev.riserecode.ui.component.KeyboardNavigation.control(graphics, endpointFocus[i], new Bounds(left,y+22,width/2-3,16), alpha,
+                        () -> setting.getName() + ", " + (endpoint ? "end" : "start") + " color, " + (secondary == endpoint ? "selected" : "unselected"),
+                        () -> selectEndpoint(endpoint), direction -> selectEndpoint(direction > 0));
                 RenderUtil.drawRoundedRect(graphics, left, y + 22, width / 2 - 3, 16, 3, Theme.opacity(selected ? Theme.HOVER : Theme.SURFACE, alpha));
                 RenderUtil.text(graphics, font, i == 0 ? "Start" : "End", left + 5, y + 25, 0.76, Theme.opacity(selected ? Theme.accent() : Theme.SECONDARY, alpha));
                 RenderUtil.drawRoundedRect(graphics, left + width / 2 - 17, y + 26, 9, 8, 2, Theme.opacity((i == 0 ? setting.getValue() : setting.getSecondary()) | 0xFF000000, alpha));
@@ -117,6 +123,10 @@ public final class ColorPicker extends UIComponent {
             hex.setBounds(x, y + 108, width, 18);
             RenderUtil.drawRoundedRect(graphics, x, y + 108, width, 18, 3, Theme.opacity(Theme.HOVER, alpha));
             hex.render(graphics, font, mouseX, mouseY, seconds, alpha);
+            dev.riserecode.ui.component.KeyboardNavigation.control(graphics, modeFocus, new Bounds(x,y+129,width,17), alpha,
+                    () -> setting.getName() + ", color mode, " + setting.getMode(), () -> changeMode(1), this::changeMode);
+            dev.riserecode.ui.component.KeyboardNavigation.control(graphics, directionFocus, new Bounds(x,y+148,width,18), alpha,
+                    () -> setting.getName() + ", gradient direction, " + setting.getDirection(), this::changeDirection, ignored -> changeDirection());
             RenderUtil.text(graphics, font, "Mode: " + Theme.displayName(setting.getMode().name()), x + 2, y + 132, 0.79, Theme.opacity(Theme.TEXT, alpha));
             RenderUtil.text(graphics, font, "Direction: " + Theme.displayName(setting.getDirection().name()), x + 2, y + 151, 0.79, Theme.opacity(Theme.SECONDARY, alpha));
             speed.setValue(setting.getSpeed()); spacing.setValue(setting.getSpacing());
@@ -126,6 +136,12 @@ public final class ColorPicker extends UIComponent {
             for(int i=0;i<4;i++){channelSliders[i].setBounds(x,y+216+i*22,width,22);channelSliders[i].render(graphics,font,mouseX,mouseY,seconds,alpha);}
         } finally { RenderUtil.scissorPop(graphics); }
     }
+    private void selectEndpoint(boolean endpoint) { dev.riserecode.ui.component.FocusedInput.commit(); secondary = endpoint; readColor(); }
+    private void changeMode(int direction) {
+        dev.riserecode.ui.component.FocusedInput.commit();
+        var options = ColorSetting.Mode.values(); setting.setMode(options[Math.floorMod(setting.getMode().ordinal()+direction, options.length)]); changed.run(); readColor();
+    }
+    private void changeDirection() { setting.setDirection(setting.getDirection() == ColorUtil.GradientDirection.HORIZONTAL ? ColorUtil.GradientDirection.VERTICAL : ColorUtil.GradientDirection.HORIZONTAL); changed.run(); }
     private void update(double mouseX, double mouseY) {
         if (captured == 1) { saturation = MathUtil.clamp01((mouseX - x) / (width - 20)); value = 1 - MathUtil.clamp01((mouseY - y - 42) / 48); }
         else if (captured == 2) { hue = MathUtil.clamp01((mouseY - y - 42) / 48); }
@@ -138,7 +154,7 @@ public final class ColorPicker extends UIComponent {
         double local = mouseY - y;
         if (local < 22) { setExpanded(!expanded); return true; }
         if (!expanded || opening.getValue() < 0.99) { return true; }
-        if (local >= 22 && local < 39) { secondary = mouseX >= x + width / 2; readColor(); return true; }
+        if (local >= 22 && local < 39) { selectEndpoint(mouseX >= x + width / 2); return true; }
         if (button == 0 && local >= 42 && local <= 90) {
             captured = mouseX >= x + width - 12 ? 2 : mouseX < x + width - 20 ? 1 : 0;
             if (captured != 0) { update(mouseX, mouseY); } return true;
@@ -146,8 +162,8 @@ public final class ColorPicker extends UIComponent {
         if (button == 0 && local >= 93 && local <= 104) { captured = 3; update(mouseX, mouseY); return true; }
         if (!hex.isFocused()) { original = current(); }
         if (hex.mouseClicked(mouseX, mouseY, button)) { return true; }
-        if (local >= 129 && local < 146) { var options = ColorSetting.Mode.values(); setting.setMode(options[Math.floorMod(setting.getMode().ordinal() + (button == 0 ? 1 : -1), options.length)]); changed.run(); return true; }
-        if (local >= 148 && local < 166) { setting.setDirection(setting.getDirection() == ColorUtil.GradientDirection.HORIZONTAL ? ColorUtil.GradientDirection.VERTICAL : ColorUtil.GradientDirection.HORIZONTAL); changed.run(); return true; }
+        if (local >= 129 && local < 146) { changeMode(button == 0 ? 1 : -1); return true; }
+        if (local >= 148 && local < 166) { changeDirection(); return true; }
         for (Slider child : channelSliders) { if (child.mouseClicked(mouseX,mouseY,button)) { capturedChild=child;return true; } }
         for (UIComponent child : new UIComponent[] {speedSlider, spacingSlider}) { if (child.mouseClicked(mouseX, mouseY, button)) { capturedChild = child; return true; } }
         return true;

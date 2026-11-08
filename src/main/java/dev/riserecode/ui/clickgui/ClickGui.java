@@ -103,8 +103,10 @@ public final class ClickGui extends Screen {
         themeEditor = new ThemeEditor(themes, this::notice);
         resourcesEditor = new dev.riserecode.ui.component.ResourcesEditor(Client.INSTANCE.getResourcesManager(), this::notice);
         cosmeticsEditor = new dev.riserecode.ui.component.CosmeticsEditor(Client.INSTANCE.getCosmetics(), this::notice);
-        searchPanel = new Panel(null, modules, saveChanges);
-        for (Category category : Category.values()) { panels.add(new Panel(category, modules, saveChanges)); }
+        var moduleEditors = new dev.riserecode.ui.component.ModuleEditorServices(themes, Client.INSTANCE.getKeybindManager(),
+                dev.riserecode.ui.component.ModuleEditorRegistry.defaults(net.minecraft.client.Minecraft.getInstance()));
+        searchPanel = new Panel(null, modules, saveChanges, moduleEditors);
+        for (Category category : Category.values()) { panels.add(new Panel(category, modules, saveChanges, moduleEditors)); }
         sidebar = new Sidebar(List.of(
                 new Sidebar.Item("Search", Icon.SEARCH), new Sidebar.Item("Combat", Icon.COMBAT),
                 new Sidebar.Item("Movement", Icon.MOVEMENT), new Sidebar.Item("Player", Icon.PLAYER),
@@ -332,7 +334,10 @@ public final class ClickGui extends Screen {
             settingsPopup.render(graphics,font,pointerX,pointerY,seconds,alpha);
         } finally { keyboardNavigation.end(); try{dev.riserecode.ui.render.UiBatch.end();}finally{graphics.pose().popMatrix();} }
     }
-    private void notice(String text) { message = text; messageTime = 3; }
+    private void notice(String text) {
+        message = text; messageTime = 3;
+        if (minecraft != null && minecraft.gui.screen() == this) { minecraft.getNarrator().saySystemNow(text); }
+    }
     private void rebuildActions() {
         actions.clear();
         if (page == Page.SETTINGS) {
@@ -494,18 +499,19 @@ public final class ClickGui extends Screen {
         if (page == Page.COSMETICS && cosmeticsEditor.keyPressed(event)) { return true; }
         if (page == Page.RESOURCES && resourcesEditor.keyPressed(event)) { return true; }
         if (!settingsPopup.isOpen() && keyboardNavigation.key(event)) { return true; }
+        if (event.key() == 258 && event.hasControlDown()) {
+            dev.riserecode.ui.component.FocusedInput.commit();
+            var keyboardPages=sidebar.keyboardItems().stream().map(NAVIGATION_PAGES::get).toList();
+            int current = keyboardPages.indexOf(page) < 0 && event.hasShiftDown() ? 0 : keyboardPages.indexOf(page);
+            int next = Math.floorMod(current + (event.hasShiftDown() ? -1 : 1), keyboardPages.size());
+            selectPage(keyboardPages.get(next)); sidebar.activateSelected(); dev.riserecode.ui.sound.UiSounds.play(); return true;
+        }
         if (dev.riserecode.ui.component.FocusedInput.key(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard)) { return true; }
         if (closing) { return true; }
         if (event.isEscape()) { onClose(); return true; }
         if (event.hasControlDown() && event.key() == 70) { if (page == Page.RESOURCES) { resourcesEditor.search().setFocused(true); resourcesEditor.search().selectAll(); } else { selectPage(Page.SEARCH); field.setFocused(true); } return true; }
         if(page==Page.PERFORMANCE&&getClientSettingsEditor().keyPressed(event,minecraft.keyboardHandler::getClipboard,minecraft.keyboardHandler::setClipboard)){return true;}
         if (!dev.riserecode.ui.component.FocusedInput.active() && (event.key()==262 || event.key()==263)) { if(sidebar.isExpanded() != (event.key()==262)){sidebar.toggleExpanded();} return true; }
-        if (event.key() == 258 && event.hasControlDown()) {
-            var keyboardPages=sidebar.keyboardItems().stream().map(NAVIGATION_PAGES::get).toList();
-            int current = keyboardPages.indexOf(page) < 0 && event.hasShiftDown() ? 0 : keyboardPages.indexOf(page);
-            int next = Math.floorMod(current + (event.hasShiftDown() ? -1 : 1), keyboardPages.size());
-            selectPage(keyboardPages.get(next)); sidebar.activateSelected(); dev.riserecode.ui.sound.UiSounds.play(); return true;
-        }
         if (event.key() == 266 || event.key() == 267) {
             double amount = event.key() == 266 ? 8 : -8;
             var activePanel = getActivePanel();

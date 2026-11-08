@@ -901,7 +901,7 @@
       "tag": "v0.25.0",
       "notes": "docs/releases/v0.25.0.md",
       "changes": [
-        "Use acknowledged placement ownership for BBE geometry, start timing after transfer, and keep double chest halves on one transform. Guard all custom world submissions before shadow passes and publish ESP geometry/submissions together. Bundle Qraftys with attribution, retain Google Sans, and add draw-time Font Boldness plus right-click disclosure/details. Promote Performance to the sidebar with independent world resolution, Bilinear and AMD FSR1 EASU/RCAS. Compose world overlays before upscaling and native HUD/GUI blur; preserve requested settings on compatibility fallbacks and release targets on resize/reload/disable."
+        "Use acknowledged placement ownership for BBE geometry, start timing after transfer, and keep double chest halves on one transform. Guard all custom world submissions before shadow passes and publish ESP geometry/submissions together. Historical behavior (superseded; no Qraftys redistribution permission exists): this build bundled Qraftys. Current distributions exclude that artwork and use optional direct-host acquisition. Retain Google Sans, and add draw-time Font Boldness plus right-click disclosure/details. Promote Performance to the sidebar with independent world resolution, Bilinear and AMD FSR1 EASU/RCAS. Compose world overlays before upscaling and native HUD/GUI blur; preserve requested settings on compatibility fallbacks and release targets on resize/reload/disable."
       ],
       "evidence": [
         "docs/releases/v0.25.0.md"

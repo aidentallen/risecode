@@ -31,6 +31,7 @@ public abstract class BlockFinder extends Finder {
     }
 
     private int scanCursor;
+    private List<BlockPos> completedScan;
     private final List<BlockPos> scanResult = new ArrayList<>();
     @Override
     public List<BlockPos> findInChunk() {
@@ -43,6 +44,7 @@ public abstract class BlockFinder extends Finder {
             scanCursor++;
         }
         // Subclasses filter their result; never expose the retained scan buffer.
-        return new ArrayList<>(scanResult);
+        if (completedScan == null) { completedScan = List.copyOf(scanResult); }
+        return completedScan;
     }
 }

@@ -83,7 +83,7 @@ public final class FlyModule extends Module {
         if (!(event.getPacket() instanceof ClientboundPlayerAbilitiesPacket packet)) return;
         Session current = session;
         // On a hosted world the baseline comes from the server session, not from packets.
-        if (current == null || current.closed || current.server != null) return;
+        if (current == null || current.closed || current.server != null || event.source() != current.connection) return;
         Minecraft client = minecraft;
         FlightFlags flags = new FlightFlags(packet.canFly(), packet.isFlying());
         client.execute(() -> {
@@ -161,6 +161,7 @@ public final class FlyModule extends Module {
         final LocalPlayer player;
         final ClientLevel level;
         final UUID playerId;
+        final net.minecraft.network.Connection connection;
         volatile boolean closed;
         volatile boolean serverReady;
         GameType clientMode;
@@ -172,6 +173,7 @@ public final class FlyModule extends Module {
         Session(Minecraft client, IntegratedServer server) {
             this.server = server;
             serverReady = server == null;
+            connection = client.getConnection() == null ? null : client.getConnection().getConnection();
             player = client.player;
             level = client.level;
             playerId = player.getUUID();
@@ -182,6 +184,7 @@ public final class FlyModule extends Module {
 
         boolean matches(Minecraft client) {
             return client.player == player && client.level == level && client.gameMode != null
+                    && client.getConnection() != null && client.getConnection().getConnection() == connection
                     && client.getSingleplayerServer() == server
                     && player.isAlive() && !player.isRemoved();
         }
