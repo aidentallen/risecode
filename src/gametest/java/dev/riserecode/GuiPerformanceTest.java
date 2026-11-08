@@ -18,13 +18,13 @@ import jdk.jfr.Recording;
 public final class GuiPerformanceTest {
     private static final boolean ACTIVE=Boolean.getBoolean("riserecode.guiPerformanceOnly");
     private static final double[] TIMES=new double[100_000],GPU=new double[100_000],BLUR=new double[100_000];
-    private static final boolean[] PENDING=new boolean[8];
+    private static final boolean[] PENDING=new boolean[8],HAS_BLUR=new boolean[8];
     private static GpuQueryPool queries;
     private static int slot=-1,count,gpuCount,blurCount;
     private static long scrollStarted,lastScroll;
     private static long allocated,cpu;
     public static long guiNanos,elements,draws;
-    private static boolean recording,scrolling;
+    private static boolean recording,scrolling,finished;
     public static boolean freezeTheme;
     public static boolean freezeVersion;
     public static boolean blurPattern,fullBlur;
@@ -43,7 +43,7 @@ public final class GuiPerformanceTest {
     private static int checks;
     private static void check(boolean value,String reason){checks++;if(!value)throw new AssertionError(reason);}
     public static void frame(){
-        if(!ACTIVE)return;
+        if(!ACTIVE||finished)return;
         var mc=Minecraft.getInstance();mc.getFramerateLimitTracker().onInputReceived();
         long now=System.nanoTime();
         if(scrolling&&now-lastScroll>=50_000_000L){lastScroll=now;var panel=Client.INSTANCE.getClickGui().getActivePanel();var b=panel.getBounds();panel.mouseScrolled(b.centerX(),b.centerY(),((now-scrollStarted)/3_000_000_000L&1)==0?-2:2);}
@@ -52,12 +52,18 @@ public final class GuiPerformanceTest {
         if(PENDING[slot]){
             var values=queries.getValues(slot*4,4);
             if(Arrays.stream(values).allMatch(java.util.OptionalLong::isPresent)){
-                if(recording&&gpuCount<GPU.length){GPU[gpuCount++]=(values[3].getAsLong()-values[0].getAsLong())/1e6;BLUR[blurCount++]=(values[2].getAsLong()-values[1].getAsLong())/1e6;}
+                if(recording&&gpuCount<GPU.length){GPU[gpuCount++]=(values[3].getAsLong()-values[0].getAsLong())/1e6;BLUR[blurCount++]=HAS_BLUR[slot]?(values[2].getAsLong()-values[1].getAsLong())/1e6:0;}
                 PENDING[slot]=false;
             }else{slot=-1;}
         }
     }
-    public static void gpu(int phase){if(!ACTIVE||slot<0||queries==null)return;RenderSystem.getDevice().createCommandEncoder().writeTimestamp(queries,slot*4+phase);if(phase==3)PENDING[slot]=true;}
+    public static void gpu(int phase){
+        if(!ACTIVE||finished||slot<0||queries==null)return;
+        var encoder=RenderSystem.getDevice().createCommandEncoder();
+        if(phase==0){HAS_BLUR[slot]=false;encoder.writeTimestamp(queries,slot*4+1);encoder.writeTimestamp(queries,slot*4+2);}
+        if(phase==1){HAS_BLUR[slot]=true;}
+        encoder.writeTimestamp(queries,slot*4+phase);if(phase==3)PENDING[slot]=true;
+    }
     public static void rendered(long nanos,long bytes,long spent){if(recording&&count<TIMES.length){TIMES[count++]=nanos/1e6;allocated+=bytes;cpu+=spent;}}
     private static Path evidence(){return Path.of(System.getProperty("riserecode.guiEvidence","upgrade-evidence/gui"));}
     public static void run(ClientGameTestContext c){
@@ -108,13 +114,15 @@ public final class GuiPerformanceTest {
             c.runOnClient(mc->{recording=false;check(count>100,"enough timed frames");check(mc.getFramerateLimitTracker().getFramerateLimit()==Integer.MAX_VALUE,"identical uncapped limit");check(mc.getFramerateLimitTracker().getThrottleReason().name().equals("NONE"),"no activity throttling");
                 var row=new JsonObject();row.addProperty("label",System.getProperty("riserecode.guiLabel","candidate"));row.addProperty("scene",state);row.addProperty("frames",count);row.addProperty("seconds",(System.nanoTime()-start)/1e9);
                 stats(row,"frame",TIMES,count);stats(row,"gpuGui",GPU,gpuCount);stats(row,"gpuBlur",BLUR,blurCount);
+                row.addProperty("gpuGuiSamples",gpuCount);row.addProperty("gpuBlurSamples",blurCount);
+                if(Boolean.getBoolean("riserecode.reviewFrameOnly")){check(gpuCount>100,"enough actual GUI GPU timestamp samples");}
                 row.addProperty("cpuMsPerFrame",cpu/1e6/count);row.addProperty("allocatedBytesPerFrame",allocated/(double)count);row.addProperty("guiSubmitMsPerFrame",guiNanos/1e6/count);row.addProperty("elementsPerFrame",elements/(double)count);row.addProperty("drawsPerFrame",draws/(double)count);row.addProperty("width",mc.getWindow().getScreenWidth());row.addProperty("height",mc.getWindow().getScreenHeight());row.addProperty("guiScale",mc.getWindow().getGuiScale());
                 try{Files.createDirectories(evidence());Files.writeString(evidence().resolve("frames.jsonl"),row+"\n",java.nio.file.StandardOpenOption.CREATE,java.nio.file.StandardOpenOption.APPEND);}catch(java.io.IOException failure){throw new AssertionError(failure);}Client.INSTANCE.getLogger().info("GUI benchmark {}",row);
             });
             if(Boolean.getBoolean("riserecode.guiProfile")){jfr.stop();Files.createDirectories(evidence());jfr.dump(evidence().resolve(state+".jfr"));}c.takeScreenshot("gui-"+state);
         }catch(Exception failure){throw new AssertionError(failure);}
     }
-    static void closeMeasurements(){if(queries!=null){queries.close();queries=null;}Arrays.fill(PENDING,false);slot=-1;recording=false;}
+    static void closeMeasurements(){finished=true;if(queries!=null){queries.close();queries=null;}Arrays.fill(PENDING,false);Arrays.fill(HAS_BLUR,false);slot=-1;recording=false;}
     private static void stats(JsonObject row,String prefix,double[] values,int size){if(size==0)return;double[] sorted=Arrays.copyOf(values,size);Arrays.sort(sorted);row.addProperty(prefix+"MedianMs",sorted[size/2]);row.addProperty(prefix+"P95Ms",sorted[(int)(size*.95)]);row.addProperty(prefix+"P99Ms",sorted[(int)(size*.99)]);}
     private static void validate(ClientGameTestContext c){
         c.runOnClient(mc->{var gui=Client.INSTANCE.getClickGui();gui.selectPage(ClickGui.Page.SEARCH);gui.getSearchField().setValue("not-a-module-∅∈中文");});c.waitTicks(10);c.takeScreenshot("gui-unicode");
