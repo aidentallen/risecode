@@ -49,6 +49,15 @@ public final class PersistenceChecks {
             }
             check(profiles.saveProfile("good"),"valid profile prepared");
             var good=profiles.loadProfileAsync("good");pump(good,queue);check(good.join()&&config.getActiveProfile().equals("good"),"valid profile applies on the client");
+            String fingerprint=profiles.fingerprintAsync("good").toCompletableFuture().get(2,TimeUnit.SECONDS);
+            Files.writeString(profiles.getFile("good"),"{\"changed\":true}");
+            var staleDelete=profiles.deletePrepared("good",fingerprint).toCompletableFuture();pump(staleDelete,queue);
+            check(!staleDelete.join()&&Files.exists(profiles.getFile("good")),"Deletion refuses a profile changed after confirmation");
+            check(profiles.saveProfile("delete"),"Deletion target saved");
+            fingerprint=profiles.fingerprintAsync("delete").toCompletableFuture().get(2,TimeUnit.SECONDS);
+            var deleted=profiles.deletePrepared("delete",fingerprint).toCompletableFuture();pump(deleted,queue);
+            check(deleted.join()&&!Files.exists(profiles.getFile("delete"))&&config.getActiveProfile()==null,"Confirmed unchanged profile deletes and clears active pointer on client");
+            try(var files=Files.list(profiles.getDirectory())){check(files.anyMatch(path->path.getFileName().toString().startsWith("delete.backup-")),"Deletion retains recoverable profile backup");}
             var previousFile=directory.resolve("config.saved");Files.move(config.getFile(),previousFile);Files.createDirectory(config.getFile());
             try{
                 var failed=config.saveAsync().toCompletableFuture();failed.thenAccept(ok->check(Thread.currentThread()==owner,"I/O failure completion uses client thread"));pump(failed,queue);check(!failed.join(),"atomic write failure resolves false");

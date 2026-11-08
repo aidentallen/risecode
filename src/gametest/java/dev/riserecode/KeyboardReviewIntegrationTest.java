@@ -11,10 +11,10 @@ public final class KeyboardReviewIntegrationTest {
     private static int checks;
     private static void check(boolean value, String message) { checks++; if (!value) { throw new AssertionError(message); } }
     private static ClickGui gui() { return Client.INSTANCE.getClickGui(); }
-    private static void key(ClientGameTestContext context, int key) {
+    static void key(ClientGameTestContext context, int key) {
         context.getInput().pressKey(key); context.waitTicks(2);
     }
-    private static void focus(ClientGameTestContext context, String prefix) {
+    static void focus(ClientGameTestContext context, String prefix) {
         for (int i = 0; i < 100; i++) {
             key(context, InputConstants.KEY_TAB);
             if (context.computeOnClient(mc -> gui().focusedControlLabel().startsWith(prefix))) { return; }
@@ -51,7 +51,7 @@ public final class KeyboardReviewIntegrationTest {
         key(context, InputConstants.KEY_RIGHT);
         context.runOnClient(mc -> check(module.getMode().getValue() != mode, "Arrow changes enum choice"));
         context.runOnClient(mc -> { module.setEnabled(false); mc.gui.setScreen(null); });
-        colorControls(context); configurationFlows(context); auxiliaryControls(context);
+        colorControls(context); configurationFlows(context); auxiliaryControls(context); hudControls(context);
         context.runOnClient(mc->mc.gui.setScreen(null));
         Client.INSTANCE.getLogger().info("Keyboard review native checks passed ({} assertions)", checks);
     }
@@ -76,7 +76,7 @@ public final class KeyboardReviewIntegrationTest {
         colorFocus(context,probe,"Probe, color,");key(context,InputConstants.KEY_SPACE);context.waitTicks(15);
         colorFocus(context,probe,"Probe, end color");key(context,InputConstants.KEY_SPACE);
         colorFocus(context,probe,"AARRGGBB, text");key(context,InputConstants.KEY_RETURN);
-        context.runOnClient(mc->{for(int code:"FF778899".codePoints().toArray()){mc.gui.screen().charTyped(new net.minecraft.client.input.CharacterEvent(code));}});
+        type(context,"FF778899");
         key(context,InputConstants.KEY_RETURN);
         context.runOnClient(mc->check(probe.setting.getSecondary()==0xFF778899&&probe.setting.getValue()==0xFF112233,"Keyboard selects and edits end color without changing start"));
         colorFocus(context,probe,"Probe, start color");key(context,InputConstants.KEY_SPACE);
@@ -89,8 +89,8 @@ public final class KeyboardReviewIntegrationTest {
         context.runOnClient(mc->mc.gui.setScreen(null));
     }
 
-    private static void type(ClientGameTestContext context,String value) {
-        context.runOnClient(mc->{for(int code:value.codePoints().toArray()){mc.gui.screen().charTyped(new net.minecraft.client.input.CharacterEvent(code));}});
+    static void type(ClientGameTestContext context,String value) {
+        context.getInput().typeChars(value);context.waitTicks(2);
     }
     private static void configurationFlows(ClientGameTestContext context) {
         String name="ReviewKeyboard";
@@ -105,6 +105,16 @@ public final class KeyboardReviewIntegrationTest {
         focus(context,"Client: "+name+", button");key(context,InputConstants.KEY_RETURN);
         context.waitFor(mc->Math.abs(module.getBrightness().getValue()-saved)<.0001,240);
         check(true,"Keyboard reloads saved client profile");
+        focus(context,"Delete client: "+name+", button");key(context,InputConstants.KEY_RETURN);
+        context.waitFor(mc->mc.gui.screen() instanceof net.minecraft.client.gui.screens.ConfirmScreen,240);
+        nativeFocus(context,"Cancel");key(context,InputConstants.KEY_RETURN);
+        context.waitFor(mc->mc.gui.screen()==gui(),240);
+        check(java.nio.file.Files.exists(manager.getFile(name)),"Keyboard cancellation preserves profile");
+        focus(context,"Delete client: "+name+", button");key(context,InputConstants.KEY_RETURN);
+        context.waitFor(mc->mc.gui.screen() instanceof net.minecraft.client.gui.screens.ConfirmScreen,240);
+        nativeFocus(context,"Delete");key(context,InputConstants.KEY_RETURN);
+        context.waitFor(mc->!java.nio.file.Files.exists(manager.getFile(name))&&mc.gui.screen()==gui(),240);
+        check(manager.getActiveProfile()==null,"Keyboard confirmation deletes profile and clears active pointer");
         context.runOnClient(mc->gui().selectPage(ClickGui.Page.FRIENDS));context.waitTicks(20);
         focus(context,"Enter a player name...");key(context,InputConstants.KEY_RETURN);type(context,"ReviewTester");
         focus(context,"Add, button");key(context,InputConstants.KEY_RETURN);
@@ -119,6 +129,25 @@ public final class KeyboardReviewIntegrationTest {
             if(context.computeOnClient(mc->{var nav=dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen());return nav!=null&&nav.focusedLabel().startsWith(prefix);})){return;}
         }
         throw new AssertionError("Auxiliary keyboard cannot reach "+prefix);
+    }
+    private static void nativeFocus(ClientGameTestContext context,String name) {
+        for(int i=0;i<12;i++){
+            if(context.computeOnClient(mc->mc.gui.screen().getFocused() instanceof net.minecraft.client.gui.components.AbstractWidget widget&&widget.getMessage().getString().equals(name))){return;}
+            key(context,InputConstants.KEY_TAB);
+        }
+        throw new AssertionError("Cannot focus native confirmation button "+name);
+    }
+    private static void hudControls(ClientGameTestContext context) {
+        var hud=Client.INSTANCE.getHudRenderer();
+        context.runOnClient(mc->mc.gui.setScreen(new dev.riserecode.ui.hud.HudEditorScreen(hud)));context.waitTicks(5);
+        auxiliaryFocus(context,"HUD element, Watermark");key(context,InputConstants.KEY_RETURN);context.waitTicks(15);
+        var element=hud.getElements().stream().filter(e->e.id().equals("watermark")).findFirst().orElseThrow();
+        context.runOnClient(mc->check(((dev.riserecode.ui.hud.HudEditorScreen)mc.gui.screen()).getSelected()==element,"Keyboard selects HUD canvas element"));
+        auxiliaryFocus(context,"Layout & Style, section");
+        if(context.computeOnClient(mc->!((dev.riserecode.ui.hud.HudEditorScreen)mc.gui.screen()).getSettingsSection().isExpanded())){key(context,InputConstants.KEY_SPACE);context.waitTicks(15);}
+        auxiliaryFocus(context,"Position X, slider");double before=element.layout().x();key(context,InputConstants.KEY_RIGHT);
+        check(element.layout().x()>before,"Keyboard moves selected HUD element through layout control");
+        key(context,InputConstants.KEY_ESCAPE);context.runOnClient(mc->check(!(mc.gui.screen() instanceof dev.riserecode.ui.hud.HudEditorScreen),"Keyboard saves and leaves HUD canvas"));
     }
     private static double number(Object owner,String name) {
         try{var field=owner.getClass().getDeclaredField(name);field.setAccessible(true);return field.getDouble(owner);}

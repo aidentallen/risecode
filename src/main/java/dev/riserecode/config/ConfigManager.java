@@ -111,6 +111,9 @@ public final class ConfigManager implements AutoCloseable {
         if (name == null || !name.matches("[A-Za-z0-9][A-Za-z0-9_-]{0,31}")) { throw new IllegalArgumentException("Invalid active profile name"); }
         document.addProperty("activeProfile", name); requestSave();
     }
+    public void clearActiveProfile(String expected) {
+        if (java.util.Objects.equals(getActiveProfile(), expected)) { document.remove("activeProfile"); requestSave(); }
+    }
     /** Editor saves touch only HUD modules/layout and visual policy in the selected profile. */
     public JsonObject withCurrentHudState(JsonObject profile) {
         profile = dev.riserecode.resources.ResourcesMigration.upgrade(profile);

@@ -167,3 +167,8 @@ Explored map terrain stays outside profiles. Imported branding assets live under
 Replace the matching riserecode mod JAR when updating and restart Minecraft.
 Keep your configuration and imported assets. Version-specific migrations and
 compatibility notes are listed in the [release history](releases/README.md).
+
+Client profiles offer **Delete client** with a confirmation screen. Cancel keeps
+the file. Confirm deletes only the unchanged profile you reviewed and retains a
+backup beside it; current live settings stay active. A profile modified while the
+confirmation is open is preserved and deletion must be requested again.

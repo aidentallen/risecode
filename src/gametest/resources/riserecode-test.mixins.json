@@ -33,9 +33,11 @@
     "PanoramaFocusMixin",
     "PanoramaRendererFaultMixin",
     "GlassTimingMixin",
-    "GlassFaultMixin"
+    "GlassFaultMixin",
+    "ReviewShadowMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "plugin": "dev.riserecode.testmixin.ReviewMixinPlugin"
 }

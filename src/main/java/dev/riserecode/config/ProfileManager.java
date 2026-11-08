@@ -38,6 +38,18 @@ public final class ProfileManager implements AutoCloseable {
             } catch (IOException | RuntimeException failure) { logger.warn("Could not save prepared profile {}", name, failure); return false; }
         });
     }
+    public java.util.concurrent.CompletionStage<Boolean> deletePrepared(String name, String expected) {
+        Path file = getFile(name);
+        return submitIo(() -> {
+            try {
+                String current = currentFingerprint(file);
+                if (current.isEmpty() || !current.equals(expected)) { return false; }
+                backupCurrent(file, name, current);
+                Files.delete(file);
+                return true;
+            } catch (IOException | RuntimeException failure) { logger.warn("Could not delete profile {}", name, failure); return false; }
+        }).thenApplyAsync(success -> { if (success) { config.clearActiveProfile(name); } return success; }, config.clientExecutor());
+    }
     public java.util.concurrent.CompletionStage<String> fingerprintAsync(String name) {
         Path file = getFile(name);
         return submitIo(() -> currentFingerprint(file));

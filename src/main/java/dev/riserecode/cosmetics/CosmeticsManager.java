@@ -100,7 +100,7 @@ public final class CosmeticsManager implements AutoCloseable {
             try{if(d.category()==CosmeticCategory.COMPANION){model=CosmeticModel.read(bytes);for(byte[] png:model.images()){images.add(NativeImage.read(png));}}
                 else{CosmeticModel.png(bytes,2048);images.add(NativeImage.read(bytes));}
                 long pixels=0;for(var image:images){pixels+=image.getWidth()*(long)image.getHeight()*4;}
-                var decoded=new Decoded(model,List.copyOf(images),pixels);decodedPending.add(decoded);if(closed){if(decodedPending.remove(decoded)){images.forEach(NativeImage::close);}throw new java.util.concurrent.CancellationException();}return decoded;
+                var decoded=new Decoded(model,List.copyOf(images),pixels);decodedPending.add(decoded);if(closed){decodedPending.remove(decoded);throw new java.util.concurrent.CancellationException();}return decoded;
             }catch(Exception e){images.forEach(NativeImage::close);throw e;}
         }).whenComplete((decoded,error)->{
             if(closed){inFlight.decrementAndGet();if(decoded!=null&&decodedPending.remove(decoded)){decoded.images.forEach(NativeImage::close);}return;}

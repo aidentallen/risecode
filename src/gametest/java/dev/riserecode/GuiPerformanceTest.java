@@ -94,12 +94,12 @@ public final class GuiPerformanceTest {
         }finally{CameraFovClientTest.ownerOnlyShutdown=false;recording=false;}
         Client.INSTANCE.getLogger().info("GUI performance checks passed ({} assertions)",checks);
     }
-    private static void measure(ClientGameTestContext c,String state){
+    static void measure(ClientGameTestContext c,String state){
         if(Boolean.getBoolean("riserecode.guiValidationOnly")){c.waitTicks(5);c.takeScreenshot("gui-"+state);return;}
         String profileScene=System.getProperty("riserecode.guiProfileScene","");
         if(Boolean.getBoolean("riserecode.guiProfile")&&!profileScene.isEmpty()&&!profileScene.equals(state)){c.waitTicks(5);return;}
-        long warmNanos=state.equals("closed-after")?5_000_000_000L:10_000_000_000L;
-        long measureNanos=state.equals("closed-after")?10_000_000_000L:30_000_000_000L;
+        long warmNanos=Boolean.getBoolean("riserecode.reviewFrameOnly")?3_000_000_000L:state.equals("closed-after")?5_000_000_000L:10_000_000_000L;
+        long measureNanos=Boolean.getBoolean("riserecode.reviewFrameOnly")?10_000_000_000L:state.equals("closed-after")?10_000_000_000L:30_000_000_000L;
         long warm=System.nanoTime();c.waitFor(mc->System.nanoTime()-warm>=warmNanos,1800);
         try(var jfr=new Recording(Configuration.getConfiguration("profile"))){
             if(Boolean.getBoolean("riserecode.guiProfile")){jfr.disable("jdk.InitialEnvironmentVariable");jfr.disable("jdk.InitialSystemProperty");jfr.disable("jdk.SystemProcess");jfr.start();}
@@ -114,6 +114,7 @@ public final class GuiPerformanceTest {
             if(Boolean.getBoolean("riserecode.guiProfile")){jfr.stop();Files.createDirectories(evidence());jfr.dump(evidence().resolve(state+".jfr"));}c.takeScreenshot("gui-"+state);
         }catch(Exception failure){throw new AssertionError(failure);}
     }
+    static void closeMeasurements(){if(queries!=null){queries.close();queries=null;}Arrays.fill(PENDING,false);slot=-1;recording=false;}
     private static void stats(JsonObject row,String prefix,double[] values,int size){if(size==0)return;double[] sorted=Arrays.copyOf(values,size);Arrays.sort(sorted);row.addProperty(prefix+"MedianMs",sorted[size/2]);row.addProperty(prefix+"P95Ms",sorted[(int)(size*.95)]);row.addProperty(prefix+"P99Ms",sorted[(int)(size*.99)]);}
     private static void validate(ClientGameTestContext c){
         c.runOnClient(mc->{var gui=Client.INSTANCE.getClickGui();gui.selectPage(ClickGui.Page.SEARCH);gui.getSearchField().setValue("not-a-module-∅∈中文");});c.waitTicks(10);c.takeScreenshot("gui-unicode");

@@ -28,6 +28,23 @@ class ProvenanceChecks(unittest.TestCase):
                 else:
                     with self.assertRaises(RuntimeError): provenance.license_inventory(root, artifact)
 
+    def test_nested_dependency_notice_cannot_disappear_or_change(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md', 'credits.txt'): (root/name).write_text(name)
+            notice = root/'licenses/vendor/NOTICE.txt'
+            notice.parent.mkdir(parents=True); notice.write_text('Vendor attribution')
+            for suffix in ('.jar', '-sources.jar'):
+                artifact = root/('mod'+suffix)
+                source = suffix == '-sources.jar'
+                for mode in ('valid', 'missing', 'changed'):
+                    with zipfile.ZipFile(artifact, 'w') as archive:
+                        for local, binary in [('LICENSE', 'licenses/risecode-MIT.txt'), ('THIRD_PARTY_NOTICES.md', 'licenses/THIRD_PARTY_NOTICES.md'), ('credits.txt', 'licenses/credits.txt')]: archive.writestr(local if source else binary, local)
+                        if mode != 'missing': archive.writestr('licenses/vendor/NOTICE.txt', 'altered' if mode == 'changed' else 'Vendor attribution')
+                    if mode == 'valid': self.assertIn('licenses/vendor/NOTICE.txt', provenance.license_inventory(root, artifact))
+                    else:
+                        with self.assertRaises(RuntimeError): provenance.license_inventory(root, artifact)
+
     def test_failed_verification_keeps_actual_exit_and_log_digest(self):
         import subprocess
         import sys

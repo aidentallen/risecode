@@ -241,12 +241,15 @@ public final class CustomTextRenderer {
                     for(int y=0;y<gh.get(0);y++){for(int x=0;x<gw.get(0);x++){int px=left+x,py=top+y;if(px>=0&&px<w&&py>=0&&py<h){int index=py*w+px;pixels.put(index,(byte)Math.max(pixels.get(index)&255,bitmap.get(y*gw.get(0)+x)&255));}}}
                 }finally{STBTruetype.stbtt_FreeBitmap(bitmap);}
             }
-            GpuTexture texture=RenderSystem.getDevice().createTexture(()->"risecode title coverage",GpuTexture.USAGE_TEXTURE_BINDING|GpuTexture.USAGE_COPY_DST,GpuFormat.R8_UNORM,w,h,1,1);
-            try(GpuBuffer upload=RenderSystem.getDevice().createBuffer(()->"risecode title upload",GpuBuffer.USAGE_COPY_SRC,pixels)){
-                RenderSystem.getDevice().createCommandEncoder().copyBufferToTexture(upload.slice(),0,0,w,h,texture,0,0,w,h,0,0);
-            }catch(RuntimeException error){texture.close();throw error;}
-            BrandRaster result=new BrandRaster(texture,RenderSystem.getDevice().createTextureView(texture),w,h,density);
-            if(BRANDS.size()>=8){BrandKey first=BRANDS.keySet().iterator().next();BRANDS.remove(first).close();}BRANDS.put(key,result);return result;
+            try(var gpu=new dev.riserecode.util.AllocationScope()) {
+                GpuTexture texture=gpu.own(RenderSystem.getDevice().createTexture(()->"risecode title coverage",GpuTexture.USAGE_TEXTURE_BINDING|GpuTexture.USAGE_COPY_DST,GpuFormat.R8_UNORM,w,h,1,1),GpuTexture::close);
+                try(GpuBuffer upload=RenderSystem.getDevice().createBuffer(()->"risecode title upload",GpuBuffer.USAGE_COPY_SRC,pixels)){
+                    RenderSystem.getDevice().createCommandEncoder().copyBufferToTexture(upload.slice(),0,0,w,h,texture,0,0,w,h,0,0);
+                }
+                var view=gpu.own(RenderSystem.getDevice().createTextureView(texture),GpuTextureView::close);
+                BrandRaster result=new BrandRaster(texture,view,w,h,density);
+                if(BRANDS.size()>=8){BrandKey first=BRANDS.keySet().iterator().next();BRANDS.remove(first).close();}BRANDS.put(key,result);gpu.commit();return result;
+            }
         }finally{MemoryUtil.memFree(pixels);}
     }
     private CustomTextRenderer() { }

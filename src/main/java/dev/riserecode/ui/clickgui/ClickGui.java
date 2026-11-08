@@ -363,6 +363,7 @@ public final class ClickGui extends Screen {
             }));
             for (String profile : Client.INSTANCE.getProfileManager().getProfiles()) {
                 actions.add(new ActionButton("Client: " + profile, () -> { notice("Loading " + profile); Client.INSTANCE.getProfileManager().loadProfileAsync(profile).thenAccept(success -> notice(success ? "Loaded " + profile : "Could not load " + profile)); }));
+                actions.add(new ActionButton("Delete client: " + profile, () -> confirmDeleteProfile(profile)));
             }
             actions.add(new ActionButton("Save appearance profile", () -> {
                 try { notice(themes.saveProfile(field.getValue()) ? "Appearance profile saved" : "Could not save appearance profile"); rebuildActions(); }
@@ -381,6 +382,23 @@ public final class ClickGui extends Screen {
             }
 
         }
+    }
+    private void confirmDeleteProfile(String name) {
+        var profiles = Client.INSTANCE.getProfileManager();
+        profiles.fingerprintAsync(name).whenCompleteAsync((fingerprint, failure) -> {
+            if (minecraft.gui.screen() != this || page != Page.PROFILES) { return; }
+            if (failure != null || fingerprint.isEmpty()) { notice("Could not read profile for deletion"); return; }
+            minecraft.gui.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(confirmed -> {
+                minecraft.gui.setScreen(this);
+                if (!confirmed) { notice("Profile deletion cancelled"); return; }
+                profiles.deletePrepared(name, fingerprint).whenCompleteAsync((deleted, error) -> {
+                    notice(error == null && Boolean.TRUE.equals(deleted) ? "Deleted " + name + "; backup retained" : "Profile changed or could not be deleted");
+                    rebuildActions();
+                }, minecraft::execute);
+            }, net.minecraft.network.chat.Component.literal("Delete client profile?"),
+                    net.minecraft.network.chat.Component.literal(name + " — current client settings stay active. A backup is retained."),
+                    net.minecraft.network.chat.Component.literal("Delete"), net.minecraft.network.chat.Component.literal("Cancel")));
+        }, minecraft::execute);
     }
     private void renderUtility(GuiGraphicsExtractor graphics, double mouseX, double mouseY, double seconds, double alpha) {
         double left = contentBounds.x(); double top = contentBounds.y() + pageShift();

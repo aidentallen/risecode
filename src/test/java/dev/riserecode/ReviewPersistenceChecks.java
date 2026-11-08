@@ -45,7 +45,7 @@ public final class ReviewPersistenceChecks {
             Files.writeString(file," ".repeat(100));
             boolean capped = false; try { JsonStorage.read(file,32); } catch (java.io.IOException expected) { capped = true; }
             check(capped,"Local JSON acquisition is bounded before parse");
-            candidateAndAllocation(); recovery(); boundedCaches(directory);
+            candidateAndAllocation(); recovery(); boundedCaches(directory); cosmeticsShutdown(directory);
         } finally { completions.poll(); executor.shutdownNow(); executor.awaitTermination(2,TimeUnit.SECONDS); try (var files=Files.walk(directory)) { for(Path path:files.sorted(Comparator.reverseOrder()).toList()){Files.deleteIfExists(path);} } }
         check(RendererCapabilities.resolveMotion(null,null,true), "Vanilla motion supported");
         check(!RendererCapabilities.resolveMotion("unsupported",null,true), "Unsupported Sodium disables shared motion");
@@ -103,6 +103,40 @@ public final class ReviewPersistenceChecks {
             check(Arrays.equals(Files.readAllBytes(root.resolve("objects").resolve(hash)),valid),"Repair replaces only owned corrupt object atomically");
         }
         check(dev.riserecode.util.BoundedInput.read(new java.io.ByteArrayInputStream(new byte[8192]),8192).length==8192,"Exactly maximum sized input remains valid");
+    }
+    private static void cosmeticsShutdown(Path directory) throws Exception {
+        Path source=directory.resolve("valid-cape.png");
+        Files.write(source,dev.riserecode.cosmetics.CosmeticsLibrary.bundled("capes/gradient.png"));
+        Path queuedRoot=directory.resolve("queued-cosmetics");
+        var queued=new dev.riserecode.cosmetics.CosmeticsLibrary(queuedRoot);
+        var entered=new CountDownLatch(1);var release=new CountDownLatch(1);
+        var running=queued.work(()->{entered.countDown();release.await();return 1;});
+        check(entered.await(2,TimeUnit.SECONDS),"Actual Cosmetics single work lane blocked");
+        var imported=queued.importCape(source);var generic=queued.work(()->2);queued.close();
+        check(imported.isDone()&&generic.isDone()&&running.isDone(),"Close terminates all admitted Cosmetics futures without client callbacks");
+        check(queued.work(()->3).isCompletedExceptionally(),"Post-close Cosmetics admission is terminal rejection");
+        release.countDown();
+        check(!Files.exists(queuedRoot.resolve("imports.json")),"Queued import never commits after close");
+        Path runningRoot=directory.resolve("running-cosmetics");
+        var library=new dev.riserecode.cosmetics.CosmeticsLibrary(runningRoot);
+        Thread worker=library.work(Thread::currentThread).get(2,TimeUnit.SECONDS);
+        synchronized(library) {
+            var result=library.importCape(source);
+            long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(2);
+            while(worker.getState()!=Thread.State.BLOCKED&&System.nanoTime()<deadline){Thread.sleep(1);}
+            check(worker.getState()==Thread.State.BLOCKED,"Real decoded import pauses at commit monitor");
+            library.close();check(result.isDone(),"Close terminates running import while commit is blocked");
+        }
+        var field=library.getClass().getDeclaredField("worker");field.setAccessible(true);
+        check(((ExecutorService)field.get(library)).awaitTermination(2,TimeUnit.SECONDS),"Blocked import exits after close releases monitor");
+        check(!Files.exists(runningRoot.resolve("imports.json"))&&!Files.exists(runningRoot.resolve("imports"))&&library.definitions().stream().noneMatch(d->d.id().startsWith("import-")),"No asset, metadata or definitions commit crosses closed monitor");
+        var manager=new dev.riserecode.cosmetics.CosmeticsManager(directory.resolve("manager-cosmetics"));
+        var blocked=new CountDownLatch(1);var unblock=new CountDownLatch(1);
+        manager.library().work(()->{blocked.countDown();unblock.await();return 1;});
+        check(blocked.await(2,TimeUnit.SECONDS),"Manager decode worker occupied");
+        manager.request("cape-gradient");check(manager.statistics().pending()==1,"Manager owns queued decode request");
+        manager.close();unblock.countDown();
+        check(manager.statistics().pending()==0&&manager.statistics().nativeImageBytes()==0,"Manager queued close releases inFlight with no orphaned image");
     }
     private static void recovery() {
         for (boolean succeed : new boolean[]{true,false}) {

@@ -60,6 +60,11 @@ public final class ClientIntegrationTest implements FabricClientGameTest {
         if(Boolean.getBoolean("riserecode.baseFinderOnly")){BaseFinderIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.seedCrackerOnly")){SeedCrackerIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.glassOnly")){GlassIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.reviewBbeOnly")){ReviewBbeIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.reviewResourcesOnly")){ReviewResourcesIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.reviewFrameOnly")){ReviewFrameIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.reviewCollectionOnly")){ReviewCollectionIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.reviewGpuOnly")){ReviewGpuIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.reviewOverlayOnly")){ReviewOverlayIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.reviewRaceOnly")){ReviewRaceIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.keyboardReviewOnly")){KeyboardReviewIntegrationTest.run(context);return;}

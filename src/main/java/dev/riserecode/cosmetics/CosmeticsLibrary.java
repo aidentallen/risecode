@@ -82,15 +82,39 @@ public final class CosmeticsLibrary implements AutoCloseable {
         return path;
     }
     public static void atomic(Path path,byte[] bytes)throws IOException{Files.createDirectories(path.getParent());Path tmp=Files.createTempFile(path.getParent(),"cosmetic-",".tmp");try{Files.write(tmp,bytes);Files.move(tmp,path,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);}finally{Files.deleteIfExists(tmp);}}
-    public CompletableFuture<CosmeticDefinition> importCape(Path path){return CompletableFuture.supplyAsync(()->{try{
-        byte[] bytes=dev.riserecode.util.BoundedInput.read(path,16_777_216);CosmeticModel.png(bytes,2048);var header=java.nio.ByteBuffer.wrap(bytes);int w=header.getInt(16),h=header.getInt(20);
-        if(w<64||w%64!=0||h!=w/2){throw new IOException("Use a 64×32 cape or an integer-scaled equivalent");}
-        // Decode before committing the import; a valid header alone is insufficient.
-        var image=javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes));if(image==null||image.getWidth()!=w||image.getHeight()!=h){throw new IOException("Invalid cape PNG");}
-        String hash=hash(bytes);var d=new CosmeticDefinition("import-"+hash,"Imported cape "+hash.substring(0,6),CosmeticCategory.CAPE,"cape","imports/"+hash+".png",hash,bytes.length,"Local import","local","User supplied");
-        atomic(child(d.asset()),bytes);synchronized(this){definitions=merge(definitions,List.of(d));var doc=new com.google.gson.JsonObject();doc.addProperty("version",1);doc.add("entries",new Gson().toJsonTree(definitions.stream().filter(e->e.id().startsWith("import-")).toList()));atomic(child("imports.json"),new Gson().toJson(doc).getBytes(java.nio.charset.StandardCharsets.UTF_8));}return d;
-        }catch(IOException|RuntimeException e){throw new CompletionException(e);}},worker);}
-    public <T> CompletableFuture<T> work(Callable<T> work){return CompletableFuture.supplyAsync(()->{try{return work.call();}catch(Exception e){throw new CompletionException(e);}},worker);}
+    private final Set<CompletableFuture<?>> workResults=ConcurrentHashMap.newKeySet();
+    public synchronized CompletableFuture<CosmeticDefinition> importCape(Path path){
+        long token=generation.get();
+        return work(()->{
+            byte[] bytes=dev.riserecode.util.BoundedInput.read(path,16_777_216);CosmeticModel.png(bytes,2048);
+            var header=java.nio.ByteBuffer.wrap(bytes);int w=header.getInt(16),h=header.getInt(20);
+            if(w<64||w%64!=0||h!=w/2){throw new IOException("Use a 64×32 cape or an integer-scaled equivalent");}
+            var image=javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes));
+            if(image==null){throw new IOException("Invalid cape PNG");}
+            try{if(image.getWidth()!=w||image.getHeight()!=h){throw new IOException("Invalid cape PNG");}}
+            finally{image.flush();}
+            String hash=hash(bytes);
+            var definition=new CosmeticDefinition("import-"+hash,"Imported cape "+hash.substring(0,6),CosmeticCategory.CAPE,"cape","imports/"+hash+".png",hash,bytes.length,"Local import","local","User supplied");
+            synchronized(this){
+                check(token);
+                var next=merge(definitions,List.of(definition));
+                var doc=new com.google.gson.JsonObject();doc.addProperty("version",1);
+                doc.add("entries",new Gson().toJsonTree(next.stream().filter(e->e.id().startsWith("import-")).toList()));
+                atomic(child(definition.asset()),bytes);
+                atomic(child("imports.json"),new Gson().toJson(doc).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                definitions=next;
+            }
+            return definition;
+        });
+    }
+    public synchronized <T> CompletableFuture<T> work(Callable<T> action){
+        var result=new CompletableFuture<T>();
+        if(closed){result.completeExceptionally(new RejectedExecutionException("Cosmetics library closed"));return result;}
+        workResults.add(result);result.whenComplete((value,error)->workResults.remove(result));
+        try{worker.execute(()->{if(result.isDone()){return;}try{result.complete(action.call());}catch(Exception failure){result.completeExceptionally(failure);}});}
+        catch(RejectedExecutionException rejected){result.completeExceptionally(rejected);}
+        return result;
+    }
     private static byte[] http(String relative,int limit)throws Exception{
         if(!relative.matches("[a-z0-9_/.-]{1,180}")||!CosmeticDefinition.validAssetPath(relative)){throw new IOException("Invalid catalog path");}
         var request=HttpRequest.newBuilder(URI.create(BASE+relative)).timeout(Duration.ofSeconds(30)).header("User-Agent","risecode-cosmetics/1").GET().build();
@@ -98,5 +122,5 @@ public final class CosmeticsLibrary implements AutoCloseable {
             var response=client.send(request,HttpResponse.BodyHandlers.ofInputStream());try(var in=response.body()){
                 if(response.statusCode()!=200){throw new IOException("Catalog HTTP "+response.statusCode());}byte[] bytes=in.readNBytes(limit+1);if(bytes.length>limit){throw new IOException("Download exceeds size limit");}return bytes;}}
     }
-    @Override public void close(){closed=true;cancel();worker.shutdownNow();}
+    @Override public synchronized void close(){closed=true;cancel();for(var result:List.copyOf(workResults)){result.cancel(true);}worker.shutdownNow();}
 }

@@ -214,6 +214,11 @@ loom.runs.clientGameTest {
     if (providers.gradleProperty('seedCrackerRecovery').isPresent()) { vmArg '-Driserecode.seedCrackerRecovery=true' }
     if (providers.gradleProperty('glassOnly').isPresent()) { vmArg '-Driserecode.glassOnly=true' }
     if (providers.gradleProperty('requireNarrator').isPresent()) { vmArg '-Driserecode.requireNarrator=true' }
+    if (providers.gradleProperty('reviewBbeOnly').isPresent()) { vmArg '-Driserecode.reviewBbeOnly=true' }
+    if (providers.gradleProperty('reviewResourcesOnly').isPresent()) { vmArg '-Driserecode.reviewResourcesOnly=true'; vmArg '-Dorg.lwjgl.util.DebugAllocator=true' }
+    if (providers.gradleProperty('reviewFrameOnly').isPresent()) { vmArg '-Driserecode.reviewFrameOnly=true'; vmArg '-Driserecode.guiPerformanceOnly=true'; vmArg '-Driserecode.guiEvidence='+layout.projectDirectory.dir('upgrade-evidence/review-loop/round5-frame').asFile.absolutePath; vmArg '-Xmx4G'; vmArg '-XX:ActiveProcessorCount=8' }
+    if (providers.gradleProperty('reviewCollectionOnly').isPresent()) { vmArg '-Driserecode.reviewCollectionOnly=true' }
+    if (providers.gradleProperty('reviewGpuOnly').isPresent()) { vmArg '-Driserecode.reviewGpuOnly=true'; vmArg '-Dorg.lwjgl.util.DebugAllocator=true' }
     if (providers.gradleProperty('reviewOverlayOnly').isPresent()) { vmArg '-Driserecode.reviewOverlayOnly=true' }
     if (providers.gradleProperty('reviewRaceOnly').isPresent()) { vmArg '-Driserecode.reviewRaceOnly=true' }
     if (providers.gradleProperty('keyboardReviewOnly').isPresent()) { vmArg '-Driserecode.keyboardReviewOnly=true' }
@@ -251,12 +256,13 @@ loom.runs.clientGameTest {
 // they remain local to development and never enter either distributable JAR.
 tasks.named('runClientGameTest') {
     doFirst {
-        if (providers.gradleProperty('resourcesOnly').isPresent() || providers.gradleProperty('remediationOnly').isPresent() || providers.gradleProperty('release016Only').isPresent()) {
+        if (providers.gradleProperty('resourcesOnly').isPresent() || providers.gradleProperty('reviewResourcesOnly').isPresent() || providers.gradleProperty('remediationOnly').isPresent() || providers.gradleProperty('release016Only').isPresent()) {
             copy { from providers.gradleProperty('resourcesCacheDir').getOrElse('.tooling/resources-cache/26.2'); into clientTestDirectory+'/config/riserecode/resources/26.2' }
         }
         if (providers.gradleProperty('withEntityFeatures').isPresent()) { copy { from fileTree('dependencies') { include 'entity_model_features-*.jar', 'entity_texture_features-*.jar' }; into clientTestDirectory+'/mods' } }
         if (providers.gradleProperty('withBaritone').isPresent()) { copy { from 'dependencies/baritone-api-fabric-1.19.0.jar'; into clientTestDirectory+'/mods' } }
         if (providers.gradleProperty('withShaderPack').isPresent()) { copy { from providers.gradleProperty('testShaderPacksDir').getOrElse('/home/toast/.local/share/ModrinthApp/profiles/Fabric 26.2/shaderpacks') + '/' + providers.gradleProperty('testShaderPack').getOrElse('ComplementaryUnbound_r5.9.3.zip'); into clientTestDirectory+'/shaderpacks' } }
+        if (providers.gradleProperty('withBbe').isPresent()) { copy { from 'dependencies/bbe-fabric-1.3.9+mc26.2-mod.jar'; into clientTestDirectory+'/mods' } }
         if (providers.gradleProperty('rendererStack').isPresent()) { copy { from fileTree('dependencies') { include 'sodium-fabric-*.jar'; if (!providers.gradleProperty('withoutIris').isPresent()) { include 'iris-fabric-*.jar' } }; into clientTestDirectory+'/mods' } }
         if (providers.gradleProperty('installedStack').isPresent()) {
             copy {
