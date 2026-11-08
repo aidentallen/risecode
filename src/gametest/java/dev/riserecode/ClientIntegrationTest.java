@@ -48,6 +48,7 @@ public final class ClientIntegrationTest implements FabricClientGameTest {
         context.getInput().resizeWindow(2048, 1152);
         context.runOnClient(minecraft -> minecraft.options.guiScale().set(2));
         if(Boolean.getBoolean("riserecode.mapOnly")){MapIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.maceOnly")){MaceIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.seedCrackerOnly")){SeedCrackerIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.glassOnly")){GlassIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.panoramaOnly")){PanoramaIntegrationTest.run(context);return;}

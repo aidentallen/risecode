@@ -238,6 +238,7 @@ loom.runs.clientGameTest {
     if (providers.gradleProperty('colorOutlineOnly').isPresent()) { vmArg '-Driserecode.colorOutlineOnly=true' }
     if (providers.gradleProperty('keybindOnly').isPresent()) { vmArg '-Driserecode.keybindOnly=true' }
     if (providers.gradleProperty('mapOnly').isPresent()) { vmArg '-Driserecode.mapOnly=true' }
+    if (providers.gradleProperty('maceOnly').isPresent()) { vmArg '-Driserecode.maceOnly=true' }
 }
 
 // The test instance is disposable. Copy only optional, user-installed font assets after cleanup;

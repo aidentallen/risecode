@@ -84,6 +84,12 @@ public final class ModuleManager {
         register(new SprintModule(eventBus, minecraft));
         register(new KillAuraModule(eventBus, minecraft, friends, rotations, attacks));
         register(new dev.riserecode.module.modules.AimLockModule(eventBus, minecraft, friends, rotations));
+        register(new dev.riserecode.module.modules.MaceAssistModule(eventBus, minecraft, friends, rotations, attacks));
+        register(new dev.riserecode.module.modules.ReachModule(eventBus));
+        register(new dev.riserecode.module.modules.FastPlaceModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.AirPlaceModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.CageModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.CriticalsModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.AutoBowModule(eventBus, minecraft, friends, trajectories, rotations));
         register(new TracersModule(eventBus, minecraft, friends));
         register(new NoFallModule(eventBus, minecraft));
