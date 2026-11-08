@@ -75,7 +75,8 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
                 RenderUtil.drawRoundedRect(graphics, cursor, top, 0.6, textHeight, 0.3, Theme.opacity(Theme.TEXT, opacity * alpha));
             }
         } finally { RenderUtil.scissorPop(graphics); }
-        if (!validation.isEmpty() && focused) {
+        if (!validation.isEmpty()) {
+            if(contains(mouseX,mouseY)){graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(validation)),java.util.Optional.empty(),(int)mouseX,(int)mouseY);}
             RenderUtil.drawRoundedBorder(graphics, x, y, width, height, 2, Theme.opacity(0xFFFF6677, opacity), 0.7);
             RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, validation, width / 0.55), x, y + height - 5, 0.55, Theme.opacity(0xFFFF6677, opacity));
         }

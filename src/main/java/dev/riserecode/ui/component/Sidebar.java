@@ -27,6 +27,7 @@ public final class Sidebar extends UIComponent {
     private final Animation arrowHover = Animation.ui(ThemeManager.Channel.HOVER,0,.16,MathUtil.Easing.OUT_QUART);
     private final Animation selectedY = Animation.ui(ThemeManager.Channel.NAVIGATION, 0, .2, MathUtil.Easing.OUT_QUART);
     private final Animation selectedWidth = Animation.ui(ThemeManager.Channel.NAVIGATION, 52, .2, MathUtil.Easing.OUT_QUART);
+    private final Object utilitiesFocus = new Object();
     private boolean expanded;
     private int selected;
     private boolean reveal;
@@ -80,6 +81,10 @@ public final class Sidebar extends UIComponent {
                 if(i>=PRIMARY&&expandedAmount<.001){break;}Bounds b=getItemBounds(i);
                 double utilityClip=y+43+(PRIMARY+1)*ROW-scroll.getValue()+(items.size()-PRIMARY)*ROW*expandedAmount;
                 if(i>=PRIMARY&&b.y()+b.height()>utilityClip){continue;}
+                final int index=i;
+                KeyboardNavigation.control(g,items.get(i),b,alpha*(i>=PRIMARY?expandedAmount:1),
+                        () -> Theme.label(items.get(index).label()) + (selected==index ? ", selected page" : ", page"),
+                        () -> { presses.get(index).activate(); selectedAction.accept(index); dev.riserecode.ui.sound.UiSounds.play(); },null);
                 boolean over=contains(mx,my)&&my>=y+40&&mx>=b.x()&&mx<b.x()+b.width()&&my>=b.y()&&my<b.y()+b.height();
                 hovers.get(i).animateTo(over?1:0); double hovered=hovers.get(i).update(dt);
                 double press=presses.get(i).scale();g.pose().pushMatrix();
@@ -92,6 +97,7 @@ public final class Sidebar extends UIComponent {
                 g.pose().popMatrix();
             }
             Bounds arrow=getArrowBounds();
+            KeyboardNavigation.control(g,utilitiesFocus,arrow,alpha,() -> "Utilities, " + (expanded ? "expanded" : "collapsed"),this::toggleExpanded,null);
             double arrowScale=arrowPress.scale();g.pose().pushMatrix();g.pose().translate((float)arrow.centerX(),(float)arrow.centerY());g.pose().scale((float)arrowScale,(float)arrowScale);g.pose().translate((float)-arrow.centerX(),(float)-arrow.centerY());
             arrowHover.animateTo(contains(mx,my)&&my>=arrow.y()&&my<arrow.y()+arrow.height()?1:0);
             double arrowAmount=arrowHover.update(dt);

@@ -23,6 +23,7 @@ import net.minecraft.network.chat.Component;
 public final class HudEditorScreen extends Screen {
     private record Guide(double value, boolean vertical) { }
     private final HudRenderer hud;
+    private final dev.riserecode.ui.component.ActionButton done=new dev.riserecode.ui.component.ActionButton("Done",this::onClose);
     private final List<Guide> guides = new ArrayList<>();
     private final List<UIComponent> controls = new ArrayList<>();
     private final Animation contextOpening = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.EXPANSION, 0, 0.18, MathUtil.Easing.OUT_QUART);
@@ -32,8 +33,10 @@ public final class HudEditorScreen extends Screen {
     private UIComponent captured;
     private double dragX, dragY, panelX, panelY, panelHeight, contextMaxScroll;
     private final Animation contextScroll = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.SCROLLING, 0, 0.15, MathUtil.Easing.OUT_QUART);
+    private final net.minecraft.client.gui.screens.Screen parent;
     private long previousFrame;
-    public HudEditorScreen(HudRenderer hud) { super(Component.literal("risecode HUD editor")); this.hud = hud; }
+    public HudEditorScreen(HudRenderer hud) { this(hud,null); }
+    public HudEditorScreen(HudRenderer hud, net.minecraft.client.gui.screens.Screen parent) { super(Component.literal("risecode HUD editor")); this.hud = hud; this.parent=parent; }
     public dev.riserecode.ui.component.SettingsSection getSettingsSection(){return settingsSection;}
     public HudElement getSelected() { return selected; }
     public boolean isDraggingElement() { return dragging != null; }
@@ -77,6 +80,7 @@ public final class HudEditorScreen extends Screen {
             if (guide.vertical()) { RenderUtil.line(g, guide.value(), 0, guide.value(), height, 0.8, Theme.opacity(Theme.accent(), 0.7)); }
             else { RenderUtil.line(g, 0, guide.value(), width, guide.value(), 0.8, Theme.opacity(Theme.accent(), 0.7)); }
         }
+        done.setBounds(width-72,8,64,21);done.render(g,font,mouseX,mouseY,seconds,1);
         String hint = "HUD Editor  ·  Drag to move  ·  Right click to customize  ·  G: grid  ·  Esc: save";
         double hintWidth = RenderUtil.textWidth(font, hint, false) * 0.9 + 22;
         RenderUtil.drawRoundedRect(g, (width - hintWidth) / 2, height - 26, hintWidth, 21, 6, 0xDF111820);
@@ -102,6 +106,7 @@ public final class HudEditorScreen extends Screen {
         }
     }
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
+        if(done.mouseClicked(event.x(),event.y(),event.button())){return true;}
         dev.riserecode.ui.component.FocusedInput.pointer(event.x(),event.y());
         controls.forEach(control -> { if (control instanceof ColorPicker picker) { picker.pointerFocus(event.x(), event.y()); } });
         if (selected != null && event.x() >= panelX && event.x() <= panelX + 190 && event.y() >= panelY && event.y() <= panelY + panelHeight) {
@@ -159,7 +164,7 @@ public final class HudEditorScreen extends Screen {
         if (event.key() == 71) { hud.getSnap().setValue(!hud.getSnap().getValue()); changed(); return true; }
         return super.keyPressed(event);
     }
-    @Override public void onClose() { minecraft.gui.setScreen(null); }
+    @Override public void onClose() { minecraft.gui.setScreen(parent); }
     @Override public void removed() { dev.riserecode.ui.component.FocusedInput.commit(); Client.INSTANCE.getConfigManager().save(); Client.INSTANCE.getProfileManager().saveActiveHudLayout(); }
     @Override public boolean isPauseScreen() { return true; }
     private static double controlHeight(UIComponent control) { return control instanceof ColorPicker picker ? picker.getPreferredHeight() + 3 : 28; }

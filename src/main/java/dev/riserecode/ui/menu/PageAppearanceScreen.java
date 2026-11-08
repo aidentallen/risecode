@@ -25,17 +25,20 @@ public final class PageAppearanceScreen extends Screen {
     private double visualScale=1;
     private double px(double x){return width-16+(x-width+16)/visualScale;}
     private double py(double y){return 16+(y-16)/visualScale;}
+    private boolean choosing;
+    public void suspendForChoice(){choosing=true;}
+    public void resumeFromChoice(){choosing=false;}
     private String message="";
     private UIComponent.Bounds panel;
     private double titleY;
     public PageAppearanceScreen(Screen parent,String target){super(Component.literal("Page appearance"));this.parent=parent;this.target=target;}
     public String target(){return target;}
-    private void reset(){Client.INSTANCE.getThemeManager().resetPage(target);init();}
+    private void reset(){editor=null;Client.INSTANCE.getThemeManager().resetPage(target);init();}
     @Override protected void init(){
         var manager=Client.INSTANCE.getThemeManager();var page=manager.page(target);
         var controls=new java.util.ArrayList<>(page.controls());
         if(target.equals(net.minecraft.client.gui.screens.TitleScreen.class.getName()))manager.getControls().stream().filter(c->c.group().equals("Living Panorama")).forEach(controls::add);
-        editor=new ThemeEditor(manager,text->message=text,controls,true).sectionKey("page:"+target);
+        if(editor==null){editor=new ThemeEditor(manager,text->message=text,controls,true).sectionKey("page:"+target);
         editor.replaceActions("Background File",java.util.List.of(new ActionButton("Import Image",()->{
             FocusedInput.commit();try{
                 StringSetting file=(StringSetting)page.get("Background File");
@@ -43,6 +46,7 @@ public final class PageAppearanceScreen extends Screen {
                 ThemeManager.assign(page.get("Background"),ThemeManager.Background.LOCAL_IMAGE);manager.changed();message="Image imported";
             }catch(java.io.IOException|RuntimeException invalid){message=invalid.getMessage();}
         })));
+        }
         double w = Math.min(470, width - 32), left = (width - w) / 2;
         titleY = 10;
         double panelTop = titleY + 9 * Theme.number("Font Scale", 1) * .9 + 8;
@@ -84,5 +88,5 @@ public final class PageAppearanceScreen extends Screen {
     @Override public boolean isPauseScreen(){return !(parent instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);}
     @Override public void tick(){if(parent instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> container&&(minecraft.player==null||!minecraft.player.isAlive()||minecraft.player.containerMenu!=container.getMenu())){minecraft.gui.setScreen(null);}}
     @Override public void onClose(){if(suspendedContainer==parent){suspendedContainer=null;}FocusedInput.commit();editor.unfocus();Client.INSTANCE.getThemeManager().save();minecraft.gui.setScreen(parent);}
-    @Override public void removed(){if(suspendedContainer==parent){suspendedContainer=null;parent.removed();}FocusedInput.commit();editor.unfocus();Client.INSTANCE.getThemeManager().save();}
+    @Override public void removed(){if(choosing){return;}if(suspendedContainer==parent){suspendedContainer=null;parent.removed();}FocusedInput.commit();editor.unfocus();Client.INSTANCE.getThemeManager().save();}
 }

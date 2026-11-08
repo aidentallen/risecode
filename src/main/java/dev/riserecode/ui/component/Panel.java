@@ -32,6 +32,11 @@ public final class Panel extends UIComponent {
 
     private double maxScroll;
     private ModuleButton captured;
+    private boolean scrollbarDragging;
+    private double scrollbarGrab;
+    private double thumbHeight(){return Math.max(18,height*height/(height+maxScroll));}
+    private void dragScrollbar(double mouseY){double travel=Math.max(1,height-thumbHeight());scroll.reset(Math.clamp((mouseY-y-scrollbarGrab)/travel,0,1)*maxScroll);}
+    public void scrollToBoundary(boolean end){scroll.animateTo(end?maxScroll:0);}
 
     /** A null category represents the global Search page. */
     private final ModuleEditorServices services;
@@ -51,12 +56,12 @@ public final class Panel extends UIComponent {
     public void setQuery(String value) {
         String next = value.strip().toLowerCase(Locale.ROOT);
         if (next.equals(query)) { return; }
-        query = next; filterDirty = true; mouseReleased(0, 0, 0); scroll.reset(0); open();
+        query = next; filterDirty = true; mouseReleased(0, 0, 0); scroll.reset(0);
     }
     private boolean matches(ModuleButton button) {
         if (!group.test(button.getModule())) { return false; }
         String haystack = (button.getModule().getName() + " " + Theme.displayName(button.getModule().getName()) + " "
-                + (button.getModule() instanceof dev.riserecode.module.modules.NoFallModule ? "NoFall " : "") + button.getModule().getDescription() + " " + button.getModule().getCategory().getDisplayName()).toLowerCase(Locale.ROOT);
+                + (button.getModule() instanceof dev.riserecode.module.modules.NoFallModule ? "NoFall " : "") + button.getModule().getSettings().stream().map(s -> s.getName()).collect(java.util.stream.Collectors.joining(" ")) + " " + button.getModule().getDescription() + " " + button.getModule().getCategory().getDisplayName()).toLowerCase(Locale.ROOT);
         for (String word : query.split("\\s+")) { if (!haystack.contains(word)) { return false; } }
         return true;
     }
@@ -95,27 +100,31 @@ public final class Panel extends UIComponent {
             if (visible.isEmpty()) {
                 RenderUtil.text(graphics, font, Theme.label(query.isEmpty() ? "No modules in this category" : "No matching modules"),
                         x + 7, y + 9, 0.85, Theme.opacity(Theme.SECONDARY, opacity * amount));
+                RenderUtil.text(graphics, font, Theme.isGerman() ? "Suche kürzen oder löschen" : "Try fewer words or clear the search",
+                        x + 7, y + 25, .75, Theme.opacity(Theme.SECONDARY, opacity));
             }
         } finally { RenderUtil.scissorPop(graphics); }
         if (maxScroll > 0) {
-            double thumb = Math.max(14, height * height / (height + maxScroll));
-            RenderUtil.drawRoundedRect(graphics, x + width - 2, y + (height - thumb) * scroll.getValue() / maxScroll,
-                    1.5, thumb, 0.75, Theme.opacity(Theme.accent(), opacity * 0.25));
+            double thumb = thumbHeight();
+            RenderUtil.drawRoundedRect(graphics, x + width - 5, y + (height - thumb) * scroll.getValue() / maxScroll,
+                    4, thumb, 2, Theme.opacity(Theme.accent(), opacity * (scrollbarDragging?.95:.65)));
         }
     }
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         getVisibleButtons().forEach(child -> child.pointerFocus(mouseX, mouseY));
         if (!contains(mouseX, mouseY)) { return false; }
+        if(button==0&&maxScroll>0&&mouseX>=x+width-8){double thumbY=y+(height-thumbHeight())*scroll.getValue()/maxScroll;scrollbarGrab=mouseY>=thumbY&&mouseY<thumbY+thumbHeight()?mouseY-thumbY:thumbHeight()/2;scrollbarDragging=true;dragScrollbar(mouseY);return true;}
         for (ModuleButton child : getVisibleButtons()) {
             if (child.mouseClicked(mouseX, mouseY, button)) { captured = child; return true; }
         }
         return true;
     }
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button) { return captured != null && captured.mouseDragged(mouseX, mouseY, button); }
+    public boolean mouseDragged(double mouseX, double mouseY, int button) { if(scrollbarDragging){dragScrollbar(mouseY);return true;}return captured != null && captured.mouseDragged(mouseX, mouseY, button); }
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if(scrollbarDragging){scrollbarDragging=false;return true;}
         if (captured == null) { return false; }
         boolean consumed = captured.mouseReleased(mouseX, mouseY, button); captured = null; return consumed;
     }

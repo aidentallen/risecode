@@ -35,7 +35,7 @@ public final class ResourcesEditor extends UIComponent {
     private long menuOpened;
     private double menuScale=1;
     private double menuX(double mx){return x+width/2+(mx-x-width/2)/menuScale;}
-    private double menuY(double my){double center=y+28+Math.max(1,height-64)/2;return center+(my-center)/menuScale;}
+    private double menuY(double my){double center=y+(width<260?53:28)+Math.max(1,height-(width<260?103:78))/2;return center+(my-center)/menuScale;}
     private double scroll, maxScroll;
     private final dev.riserecode.ui.animation.Animation scrolling = dev.riserecode.ui.animation.Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.SCROLLING, 0, 0.18, dev.riserecode.util.MathUtil.Easing.OUT_QUART);
     public double scrollPosition() { return scroll; }
@@ -68,6 +68,7 @@ public final class ResourcesEditor extends UIComponent {
         resetDraft();
     }
     public TextField search() { return search; }
+    public boolean isDirty() { return !selected.equals(manager.state().selected()); }
     public ResourcesState draft() { return selected.isEmpty() ? ResourcesState.empty() : new ResourcesState(revision, selected); }
     public ActionButton getToolsButton(){return tools;}
     public SettingsSection getToolsSection(){return maintenanceSection;}
@@ -133,12 +134,14 @@ public final class ResourcesEditor extends UIComponent {
     public void setCategory(String name) { categoryName = name; categoryMenu = false; toolsMenu=false; showSelected = false; detail = null; resetScroll(); rebuild(); }
     @Override public void render(GuiGraphicsExtractor g, Font font, double mx, double my, double seconds, double alpha) {
         if (known != manager.library().catalog() || !query.equals(search.getValue())) { query = search.getValue(); rebuild(); }
+        boolean compact=width<260;
         double categoryWidth=70,selectedWidth=74;
         search.setBounds(x,y,Math.max(40,width-categoryWidth-selectedWidth-48),21);
         category.setBounds(x+width-categoryWidth-selectedWidth-42,y,categoryWidth,21);
         selectedView.setBounds(x+width-selectedWidth-39,y,selectedWidth,21); tools.setBounds(x+width-36,y,36,21);
+        if(compact){search.setBounds(x,y,width,21);category.setBounds(x,y+25,categoryWidth,21);selectedView.setBounds(x+76,y+25,selectedWidth,21);tools.setBounds(x+width-36,y+25,36,21);}
         for (var control : List.of(search,category,selectedView,tools)) { control.render(g,font,mx,my,seconds,alpha); }
-        double top=y+28,available=Math.max(1,height-64),bottom=top+available;
+        double top=y+(compact?53:28),available=Math.max(1,height-(compact?103:78)),bottom=top+available;
         int columns=Math.clamp((int)((width+8)/140),1,6);
         if (categoryMenu) { maxScroll = Math.max(0, categoryButtons.size() * 24 - available); }
         else if (detail != null) { layoutDetail(font); maxScroll = Math.max(0, 127 + detailLines.size() * 12 - available); }
@@ -189,13 +192,16 @@ public final class ResourcesEditor extends UIComponent {
         if (maxScroll > 0) { double thumb = Math.max(12, available * available / (available + maxScroll)); RenderUtil.drawRoundedRect(g, x + width - 2, top + scroll / maxScroll * (available - thumb), 1.5, thumb, 0.75, Theme.opacity(Theme.accent(), alpha * 0.6)); }
         var progress = manager.library().progress(); String status = manager.busy() ? manager.status() : progress.phase();
         if (progress.running() && progress.total() > 0) { status = (progress.paused() ? "Paused · " : "") + progress.phase() + " " + progress.completed() + "/" + progress.total(); }
-        RenderUtil.text(g, font, RenderUtil.ellipsize(font, status, width / 0.6), x, y + height - 32, 0.6, Theme.opacity(Theme.SECONDARY, alpha));
+        RenderUtil.text(g, font, RenderUtil.ellipsize(font, status, width / 0.7), x, y + height - 46, 0.7, Theme.opacity(Theme.SECONDARY, alpha));
         if (progress.running() && progress.total() > 0) {
             RenderUtil.drawRoundedRect(g, x, y + height - 24, width, 2, 1, Theme.opacity(Theme.SURFACE, alpha));
             RenderUtil.drawRoundedRect(g, x, y + height - 24, width * Math.clamp(progress.completed() / (double) progress.total(), 0, 1), 2, 1, Theme.opacity(Theme.accent(), alpha));
         }
+        String applyHelp=manager.busy()?"Applying resources…":!selected.isEmpty()&&!manager.library().progress().ready()?"Cache resources in Tools before Apply":isDirty()?"Unapplied changes":"Applied";
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,applyHelp,Math.max(1,width-110)/.7),x,y+height-16,.7,Theme.opacity(Theme.SECONDARY,alpha));
+        if(mx>=x&&mx<x+width-107&&my>=y+height-22){g.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(applyHelp)),java.util.Optional.empty(),(int)mx,(int)my);}
         apply.setBounds(x + width - 103, y + height - 21, 49, 19); cancel.setBounds(x + width - 49, y + height - 21, 49, 19);
-        RenderUtil.text(g, font, "Vanilla Tweaks · vanillatweaks.net", x, y + height - 12, 0.5, Theme.opacity(Theme.SECONDARY, alpha));
+        RenderUtil.text(g, font, "Vanilla Tweaks · vanillatweaks.net", x, y + height - 32, 0.7, Theme.opacity(Theme.SECONDARY, alpha));
         apply.render(g, font, mx, my, seconds, alpha); cancel.render(g, font, mx, my, seconds, alpha);
     }
     private void renderSelected(GuiGraphicsExtractor g, Font font, double mx, double my, double seconds, double alpha, double top, double available) {
@@ -241,7 +247,7 @@ public final class ResourcesEditor extends UIComponent {
         if (!contains(mx, my)) { return false; }
         if (search.mouseClicked(mx, my, button)) { return true; }
         for (var action : List.of(selectedView, category, tools, apply, cancel)) { if (action.mouseClicked(mx, my, button)) { return true; } }
-        double top = y + 28, bottom = y + height - 36; if (my < top || my >= bottom) { return true; }
+        double top = y + (width<260?53:28), bottom = y + height - 50; if (my < top || my >= bottom) { return true; }
         if(toolsMenu||categoryMenu){mx=menuX(mx);my=menuY(my);}
         if (toolsMenu) { if(maintenanceSection.mouseClicked(mx,my,button)){return true;}if(!maintenanceSection.isExpanded()){return true;}for (var action : List.of(cache,stop,refresh)) { if(action.getBounds().y()+action.getBounds().height()<=top+SettingsSection.HEADER+maintenanceSection.bodyHeight(104)&&action.mouseClicked(mx,my,button)){return true;} } }
         else if (categoryMenu) { for (var action : categoryButtons) { if (action.mouseClicked(mx, my, button)) { return true; } } }
@@ -261,7 +267,7 @@ public final class ResourcesEditor extends UIComponent {
     }
     @Override public boolean mouseDragged(double mx, double my, int button) {
         if (dragging == null || button != 0 || !showSelected) { return false; }
-        int index = selected.indexOf(dragging), target = Math.clamp((int) ((my - y - 53 + scroll) / 46), 0, selected.size() - 1);
+        int index = selected.indexOf(dragging), target = Math.clamp((int) ((my - y - (width<260?78:53) + scroll) / 46), 0, selected.size() - 1);
         if (index != target) { selected.remove(index); selected.add(target, dragging); rebuild(); } return true;
     }
     @Override public boolean mouseReleased(double mx, double my, int button) { boolean captured = dragging != null; dragging = null; return captured; }

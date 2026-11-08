@@ -13,13 +13,14 @@ import net.minecraft.network.chat.Component;
 import java.util.*;
 
 public final class WaypointScreen extends Screen {
+    private final dev.riserecode.ui.component.KeyboardNavigation navigation = new dev.riserecode.ui.component.KeyboardNavigation();
     private final Screen parent;private final MapService maps;private final List<ActionButton> rows=new ArrayList<>(),toolbar;
     private final Animation scroll=Animation.ui(ThemeManager.Channel.SCROLLING,0,.18,MathUtil.Easing.OUT_QUART);
     private long revision=-1,last;private double maximum;private int page=-1,request;private boolean confirmClear;
     private List<WaypointStore.Waypoint> history=List.of();
     public WaypointScreen(Screen parent,MapService maps){
         super(Component.literal("Waypoints"));this.parent=parent;this.maps=maps;
-        toolbar=List.of(new ActionButton("Add",()->{var point=maps.addAtPlayer();if(point!=null){minecraft.gui.setScreen(new WaypointEditScreen(this,maps,point));}}),
+        toolbar=List.of(new ActionButton("Add",()->{var player=maps.minecraft().player;var point=player==null||!maps.ready()?null:new WaypointStore.Waypoint(UUID.randomUUID(),"Waypoint "+(maps.waypoints().all().size()+1),player.blockPosition().getX(),player.blockPosition().getY(),player.blockPosition().getZ(),maps.dimension(),"",0xFF64D8C4,true,false,false);if(point!=null){minecraft.gui.setScreen(new WaypointEditScreen(this,maps,point));}}),
                 new ActionButton(()->maps.waypoints().hideReached()?"Show reached":"Hide reached",()->maps.waypoints().hideReached(!maps.waypoints().hideReached())),
                 new ActionButton(()->page<0?"History":"Recent",this::history),
                 new ActionButton("Next page",this::next),
@@ -37,11 +38,12 @@ public final class WaypointScreen extends Screen {
             }).enabled(()->page<0));
             rows.add(new ActionButton(p.visible()?"Visible":"Hidden",()->maps.waypoints().put(p.visible(!p.visible()))).enabled(()->page<0));
             rows.add(new ActionButton(p.tracked()?"Tracking":"Track",()->maps.waypoints().put(p.tracked(!p.tracked()))).enabled(()->page<0));
-            rows.add(new ActionButton("Delete",()->maps.waypoints().remove(p.id())).enabled(()->page<0));
+            rows.add(new ActionButton("Delete",()->minecraft.gui.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(confirmed->{if(confirmed){maps.waypoints().remove(p.id());maps.saveWaypoints();}minecraft.gui.setScreen(this);},Component.literal("Delete waypoint?"),Component.literal(p.name())))).enabled(()->page<0));
         }revision=maps.waypoints().revision();
     }
     @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta){dev.riserecode.ui.menu.MenuBackdrop.draw(g);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
+        navigation.begin(); try {
         if(revision!=maps.waypoints().revision()){rebuild();}long now=System.nanoTime();double dt=last==0?.016:Math.min(.1,(now-last)*1e-9);last=now;
         maximum=Math.max(0,rows.size()/4*54-(height-78));if(scroll.getValue()>maximum){scroll.reset(maximum);}scroll.animateTo(Math.clamp(scroll.getTarget(),0,maximum));double offset=scroll.update(dt);
         RenderUtil.text(g,font,page<0?"Waypoints · recent deaths":("Death history · page "+(page+1)+" / "+maps.waypoints().archivePages()),12,10,1,Theme.TEXT);
@@ -50,9 +52,11 @@ public final class WaypointScreen extends Screen {
         try{for(int i=0;i<rows.size();i++){int row=i/4,col=i%4;var b=rows.get(i);double top=58+row*54-offset,left=col==0?12:12+(col-1)*90;
             b.setBounds(left,col==0?top:top+24,col==0?width-24:86,21);if(b.getBounds().y()+21>=56&&b.getBounds().y()<height-10){b.render(g,font,mx,my,dt,1);}
         }}finally{RenderUtil.scissorPop(g);}
+        } finally { navigation.end(); }
     }
     @Override public boolean mouseClicked(MouseButtonEvent e,boolean twice){for(var b:toolbar){if(b.mouseClicked(e.x(),e.y(),e.button())){return true;}}if(e.y()>=56&&e.y()<height-10){for(var b:List.copyOf(rows)){if(b.mouseClicked(e.x(),e.y(),e.button())){return true;}}}return true;}
     @Override public boolean mouseScrolled(double x,double y,double h,double v){scroll.animateTo(Math.clamp(scroll.getTarget()-v*24,0,maximum));return true;}
+    @Override public boolean keyPressed(KeyEvent e){if(navigation.key(e)){return true;}if(e.key()==266||e.key()==267){scroll.animateTo(Math.clamp(scroll.getTarget()+(e.key()==266?-1:1)*(height-90),0,maximum));return true;}return super.keyPressed(e);}
     @Override public void onClose(){maps.saveWaypoints();minecraft.gui.setScreen(parent);}
     @Override public boolean isPauseScreen(){return false;}
 }

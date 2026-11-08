@@ -41,7 +41,7 @@ public final class ActionButton extends UIComponent {
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
         fit(font);boolean active=isEnabled();
-        if (active) { keyboard(graphics, opacity, () -> (accessibleLabel == null ? label.get() : accessibleLabel.get()) + ", button", () -> { action.run(); dev.riserecode.ui.sound.UiSounds.play(); }, null); }
+        if (active) { keyboard(graphics, opacity, () -> (accessibleLabel == null ? label.get() : accessibleLabel.get()) + ", button", () -> { press.activate(); if (clickSound) { dev.riserecode.ui.sound.UiSounds.play(); } action.run(); }, null); }
         double hovered = updateHover(active?mouseX:-1e6, active?mouseY:-1e6, deltaSeconds);
         if(!active){opacity*=0.5;}
         double compression = press.scale();

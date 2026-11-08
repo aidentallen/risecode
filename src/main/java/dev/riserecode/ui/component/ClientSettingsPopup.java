@@ -43,9 +43,10 @@ public final class ClientSettingsPopup extends UIComponent {
     private double pointerY(double my){double bottom=popup.y()+popup.height();return bottom+(my-bottom-entranceOffset())/popupScale();}
     public Bounds rowBounds(int i){return new Bounds(popup.x()+6,popup.y()+8+i*22,popup.width()-12,ButtonMetrics.HEIGHT);}
     public void viewport(double w,double h){maxWidth=w;maxHeight=h;}
-    public void toggle(){open=!open;opening.animateTo(open?1:0);if(open){FocusedInput.commit();}else{Client.INSTANCE.getKeybindManager().cancelCapture();}}
+    public void toggle(){open=!open;opening.animateTo(open?1:0);if(open){FocusedInput.commit();announce();}else{Client.INSTANCE.getKeybindManager().cancelCapture();}}
     public void close(){open=false;opening.animateTo(0);Client.INSTANCE.getKeybindManager().cancelCapture();}
     private static boolean inside(Bounds b,double px,double py){return px>=b.x()&&px<b.x()+b.width()&&py>=b.y()&&py<b.y()+b.height();}
+    private void announce(){Minecraft.getInstance().getNarrator().saySystemNow(label(selected)+", "+value(selected)+". Up or Down to navigate, Enter to activate, Right for details, Escape to close.");}
     private String label(int row){
         var client=Client.INSTANCE;var prefs=client.getClientPreferences();var keys=client.getKeybindManager();
         return switch(row){case 0->"Profiles";case 1->"Friends";case 2->"Client Sounds";case 3->"Command Suggestions";case 4->"Discord Activity";case 5->keys.isMenuCapturing()?"Press a key · Esc cancels":"Menu Keybind";case 6->"GUI Scale";default->"Performance";};
@@ -55,8 +56,9 @@ public final class ClientSettingsPopup extends UIComponent {
         if(mx!=lastX||my!=lastY){keyboard=false;lastX=mx;lastY=my;}
         double amount=opening.update(dt);hover.animateTo(contains(mx,my)?1:0);double over=hover.update(dt);
         double triggerScale=triggerPress.scale();g.pose().pushMatrix();g.pose().translate((float)(x+width/2),(float)(y+height/2));g.pose().scale((float)triggerScale,(float)triggerScale);g.pose().translate((float)(-x-width/2),(float)(-y-height/2));
-        RenderUtil.drawButton(g,x,y,width,height,over,alpha);Icon.PLAYER.draw(g,x+4,y+3,Theme.opacity(Theme.accent(),alpha));
-        String name=Minecraft.getInstance().getUser().getName();
+        if (!open) { keyboard(g,alpha,() -> "Client settings, menu",this::toggle,null); }
+        RenderUtil.drawButton(g,x,y,width,height,over,alpha);Icon.GEAR.draw(g,x+4,y+3,Theme.opacity(Theme.accent(),alpha));
+        String name=Theme.isGerman()?"Einstellungen":"Settings";
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,name,(width-30)/.72),x+18,y+5,.72,Theme.opacity(Theme.TEXT,alpha));
         RenderUtil.text(g,font,"›",x+width-10,y+4,.8,Theme.opacity(Theme.SECONDARY,alpha));g.pose().popMatrix();
         double w=Math.min(206,Math.max(1,maxWidth-16)),h=ROWS*22+12;
@@ -107,7 +109,7 @@ public final class ClientSettingsPopup extends UIComponent {
         if(!open){return false;}
         keyboard=true;
         if(e.isEscape()){close();return true;}
-        if(e.key()==264||e.key()==265||e.key()==258){selected=Math.floorMod(selected+(e.key()==265||e.key()==258&&e.hasShiftDown()?-1:1),ROWS);return true;}
-        if(e.isConfirmation()||e.key()==262){activate(selected,e.key()==262);UiSounds.play();return true;}return true;
+        if(e.key()==264||e.key()==265||e.key()==258){selected=Math.floorMod(selected+(e.key()==265||e.key()==258&&e.hasShiftDown()?-1:1),ROWS);announce();return true;}
+        if(e.isConfirmation()||e.key()==262){activate(selected,e.key()==262);if(open){announce();}UiSounds.play();return true;}return true;
     }
 }

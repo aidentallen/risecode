@@ -62,9 +62,24 @@ public final class ThemeEditor extends UIComponent {
     public SettingsSection section(String name){return sections.computeIfAbsent(name,key->new SettingsSection(sectionKey+":"+key,key,this::unfocus).card(cards));}
     private final Map<String,dev.riserecode.setting.Setting<?>> settingsByName=new LinkedHashMap<>();
     private dev.riserecode.setting.Setting<?> setting(String name){return settingsByName.getOrDefault(name,manager.getSetting(name));}
+    private String query="";
+    private final Map<String,Boolean> beforeSearch=new LinkedHashMap<>();
+    public void setQuery(String value){
+        String next=value.strip().toLowerCase(java.util.Locale.ROOT);if(next.equals(query)){return;}
+        unfocus();
+        if(query.isEmpty()&&!next.isEmpty()){groups.keySet().forEach(name->beforeSearch.put(name,section(name).isExpanded()));}
+        query=next;
+        if(query.isEmpty()){beforeSearch.forEach((name,expanded)->section(name).setExpanded(expanded));beforeSearch.clear();}
+        else{groups.forEach((name,values)->{if(values.stream().anyMatch(c->matches(name,c))){section(name).setExpanded(true);}});}
+        scroll.reset(0);
+    }
+    private boolean matches(String group,Control control){
+        String text=(group+" "+control.model.setting().getName()+" "+Theme.displayName(control.model.setting().getName())+" "+control.model.setting().getDescription()).toLowerCase(java.util.Locale.ROOT);
+        return control.model.setting().isVisible() && java.util.Arrays.stream(query.split("\\s+")).allMatch(text::contains);
+    }
     public double preferredHeight(double available){
         double result=0;for(var entry:groups.entrySet()){
-            var values=entry.getValue().stream().filter(c->c.model.setting().isVisible()).toList();if(values.isEmpty()){continue;}
+            var values=entry.getValue().stream().filter(c->matches(entry.getKey(),c)).toList();if(values.isEmpty()){continue;}
             result+=sectionHeight()+section(entry.getKey()).bodyHeight(groupContent(values,entry.getKey(),available))+manager.number("Content Padding");
         }return Math.max(1,result);
     }
@@ -147,10 +162,14 @@ public final class ThemeEditor extends UIComponent {
         maxScroll=Math.max(0,preferredHeight(width)-viewportHeight);
         if(scroll.getValue()>maxScroll){scroll.reset(maxScroll);}scroll.animateTo(Math.clamp(scroll.getTarget(),0,maxScroll));double offset=Math.max(0,scroll.update(seconds));
         double top=y-offset;
+        if(!query.isEmpty()&&groups.entrySet().stream().noneMatch(entry->entry.getValue().stream().anyMatch(c->matches(entry.getKey(),c)))){
+            RenderUtil.text(graphics,font,Theme.isGerman()?"Keine passenden Einstellungen":"No matching appearance settings",x+6,y+10,.85,Theme.opacity(Theme.TEXT,opacity));
+            RenderUtil.text(graphics,font,Theme.isGerman()?"Suche kürzen oder löschen":"Try fewer words or Clear. Sounds and scale are in Settings.",x+6,y+27,.7,Theme.opacity(Theme.SECONDARY,opacity));
+        }
         RenderUtil.scissorPush(graphics,x,y,width,height);
         try{
             for(var entry:groups.entrySet()){
-                String group=entry.getKey();var values=entry.getValue().stream().filter(c->c.model.setting().isVisible()).toList();if(values.isEmpty()){continue;}
+                String group=entry.getKey();var values=entry.getValue().stream().filter(c->matches(entry.getKey(),c)).toList();if(values.isEmpty()){continue;}
                 var header=section(group);double content=groupContent(values,group,width),body=header.bodyHeight(content),cardHeight=sectionHeight()+body;
                 header.setBounds(x,top,width-4,sectionHeight());
                 drawingTransform=new CardTransform(x+(width-4)/2,top+cardHeight/2,header.feedbackScale());
@@ -211,7 +230,7 @@ public final class ThemeEditor extends UIComponent {
     public boolean charTyped(CharacterEvent event) { return visibleControls.stream().anyMatch(c -> c.view instanceof ColorPicker picker && picker.charTyped(event)); }
     public boolean keyPressed(KeyEvent event, Supplier<String> clipboard, Consumer<String> copy) {
         if(sectionKey.equals("client:PERFORMANCE")){
-            var options=groups.values().stream().flatMap(List::stream).filter(c->c.model.setting().isVisible()).toList();
+            var options=groups.entrySet().stream().flatMap(entry->entry.getValue().stream().filter(c->matches(entry.getKey(),c))).toList();
             if(!options.isEmpty()){
                 int index=0;for(int i=0;i<options.size();i++){if(options.get(i).model.setting().getName().equals(keyboardSetting)){index=i;break;}}
                 int key=event.key();

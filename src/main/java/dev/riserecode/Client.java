@@ -187,7 +187,7 @@ public enum Client {
         catch (RuntimeException failure) { logger.error("Shutdown cleanup failed for {}", owner, failure); }
     }
 
-    public void openHudEditor() { Minecraft.getInstance().gui.setScreen(new HudEditorScreen(hudRenderer)); }
+    public void openHudEditor() { Minecraft.getInstance().gui.setScreen(new HudEditorScreen(hudRenderer, Minecraft.getInstance().gui.screen())); }
 
     public dev.riserecode.util.CameraEffectsManager getCameraEffects() { return cameraEffects; }
     public boolean isInitialized() { return initialized; }

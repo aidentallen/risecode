@@ -69,7 +69,9 @@ public final class Slider extends UIComponent {
         if (cachedNumber != setting.getValue()) { cachedNumber = setting.getValue(); cachedValue = String.format(Locale.ROOT, step == 1 ? "%.0f" : "%.2f", cachedNumber); }
         String value = cachedValue;
         String label = Theme.displayName(setting.getName()) + ": " + value;
-        double labelScale = Math.min(0.88, (width - 4) / Math.max(1, RenderUtil.textWidth(font, label, false)));
+        double labelScale=.88;
+        String fullLabel=label;label=RenderUtil.ellipsize(font,label,(width-4)/labelScale);
+        if(contains(mouseX,mouseY)){graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(fullLabel),net.minecraft.network.chat.Component.literal(setting.getDescription())),java.util.Optional.empty(),(int)mouseX,(int)mouseY);}
         RenderUtil.text(graphics, font, label,
                 x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), y + 1, labelScale, Theme.opacity(Theme.TEXT, opacity));
         input.setBounds(x, y, width, Math.max(12, height - 9));

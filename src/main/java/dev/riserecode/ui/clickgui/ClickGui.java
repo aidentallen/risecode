@@ -46,6 +46,7 @@ public final class ClickGui extends Screen {
     private final dev.riserecode.ui.component.ClientSettingsPopup settingsPopup=new dev.riserecode.ui.component.ClientSettingsPopup(this);
     public dev.riserecode.ui.component.ClientSettingsPopup getSettingsPopup(){return settingsPopup;}
     private final TextField field = new TextField(this::placeholder);
+    private final ActionButton clearSearch = new ActionButton("Clear", () -> { field.setValue(""); field.setFocused(true); });
     private final ToggleSwitch hudToggle;
     private final ActionButton editHud = new ActionButton("Edit HUD", () -> Client.INSTANCE.openHudEditor());
     private final Runnable saveChanges;
@@ -74,11 +75,27 @@ public final class ClickGui extends Screen {
     private final dev.riserecode.ui.component.ResourcesEditor resourcesEditor;
     private final dev.riserecode.ui.component.CosmeticsEditor cosmeticsEditor;
     public dev.riserecode.ui.component.CosmeticsEditor getCosmeticsEditor(){return cosmeticsEditor;}
-    private final ActionButton pageGear=new ActionButton("",()->minecraft.gui.setScreen(new dev.riserecode.ui.menu.PageAppearanceScreen(this,dev.riserecode.ui.menu.MenuTheme.pageId(this)))).icon(Icon.GEAR);
+    private final ActionButton pageGear=new ActionButton("",this::openPageAppearance).icon(Icon.GEAR).accessibleLabel(() -> "Page appearance");
     private dev.riserecode.ui.component.HeaderLayout header;
     private UIComponent.Bounds contentBounds;
     public dev.riserecode.ui.component.HeaderLayout getHeaderLayout() { return header; }
+    private boolean confirmingDraft;
     private boolean closing;
+    private void openPageAppearance(){if(!guardDraft(this::openPageAppearance)){minecraft.gui.setScreen(new dev.riserecode.ui.menu.PageAppearanceScreen(this,dev.riserecode.ui.menu.MenuTheme.pageId(this)));}}
+    private boolean guardDraft(Runnable leave) {
+        dev.riserecode.ui.component.FocusedInput.commit();
+        boolean dirty = page==Page.COSMETICS ? cosmeticsEditor.isDirty() : page==Page.RESOURCES && resourcesEditor.isDirty();
+        if (!dirty) { return false; }
+        confirmingDraft=true;
+        minecraft.gui.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(discard -> finishDraftConfirmation(discard,leave),Component.literal("Unapplied changes"),Component.literal("Return to apply your changes, or discard them and continue."),Component.literal("Discard and continue"),Component.literal("Keep editing")) {
+            @Override public void onClose(){finishDraftConfirmation(false,leave);}
+        });
+        return true;
+    }
+    private void finishDraftConfirmation(boolean discard,Runnable leave){
+        minecraft.gui.setScreen(this);confirmingDraft=false;
+        if(discard){if(page==Page.COSMETICS){cosmeticsEditor.discard();}else{resourcesEditor.resetDraft();}leave.run();}
+    }
     private boolean dragging;
     private double dragX;
     private double dragY;
@@ -178,6 +195,7 @@ public final class ClickGui extends Screen {
         next = switch (next) { case GAMEPLAY -> Page.COMBAT; case VISUALS -> Page.RENDER; default -> next; };
         if (next == Page.SETTINGS) { sidebar.toggleExpanded(); return; }
         if (closing || next == page) { return; }
+        Page destination=next; if (guardDraft(() -> selectPage(destination))) { return; }
         keyboardNavigation.clear();
         Client.INSTANCE.getKeybindManager().cancelCapture();
         if(page==Page.COSMETICS){cosmeticsEditor.discard();}
@@ -194,7 +212,7 @@ public final class ClickGui extends Screen {
         if(!Client.INSTANCE.resourcesReady()||minecraft.gui.overlay()!=null){return;}
         this.parent = parent; closing = false; previousFrame = System.nanoTime(); resourcesEditor.resetDraft();
         opening.reset(0); opening.animateTo(1); searchPanel.open(); panels.forEach(Panel::open);
-        field.setFocused(page == Page.SEARCH || page == Page.PROFILES || page == Page.FRIENDS);
+        field.setFocused(page == Page.SEARCH || page == Page.APPEARANCE || page == Page.PROFILES || page == Page.FRIENDS);
         if (page == Page.RESOURCES) { resourcesEditor.open(); }
         if (page == Page.COSMETICS) { cosmeticsEditor.open(); }
         minecraft.gui.setScreen(this);
@@ -209,7 +227,7 @@ public final class ClickGui extends Screen {
         positionX.reset(windowX); positionY.reset(windowY); layout(); rebuildActions();
     }
     private double fittedScale() {
-        return Math.max(0.01, Math.min(preferredScale * height / 576.0, Math.min((width - 20.0) / windowWidth, (height - 20.0) / windowHeight)));
+        return Math.max(0.01, Math.min(preferredScale, Math.min((width - 20.0) / windowWidth, (height - 20.0) / windowHeight)));
     }
     private void clampOffsets() {
         offsetX = Math.max(-(canvasWidth - windowWidth) / 2 + 8, Math.min((canvasWidth - windowWidth) / 2 - 8, offsetX));
@@ -231,24 +249,25 @@ public final class ClickGui extends Screen {
         double pad = themes.number("Content Padding");
         double left = windowX + 107 + pad, contentWidth = windowWidth - 107 - pad * 2;
         double rowHeight = dev.riserecode.ui.component.ButtonMetrics.HEIGHT;
-        double actionWidth = page == Page.HUD ? dev.riserecode.ui.component.ButtonMetrics.width(font,"Edit HUD") : 0;
+        double actionWidth = (page == Page.SEARCH || page == Page.APPEARANCE) ? dev.riserecode.ui.component.ButtonMetrics.width(font,"Clear") : page == Page.HUD ? dev.riserecode.ui.component.ButtonMetrics.width(font,"Edit HUD") : 0;
         header = dev.riserecode.ui.component.HeaderLayout.at(left, windowY + pad, contentWidth, rowHeight, actionWidth);
         var label = header.label(); var gear = header.gear();
         field.setBounds(label.x(), label.y(), label.width(), label.height());
         pageGear.setBounds(gear.x(), gear.y(), gear.width(), gear.height());
-        if (header.action() != null) { var action = header.action(); editHud.setBounds(action.x(), action.y(), action.width(), action.height()); }
+        if (header.action() != null) { var action = header.action(); editHud.setBounds(action.x(), action.y(), action.width(), action.height()); clearSearch.setBounds(action.x(), action.y(), action.width(), action.height()); }
         double bodyY = windowY + pad + rowHeight + pad;
         contentBounds = new UIComponent.Bounds(left, bodyY, contentWidth, Math.max(1, windowY + windowHeight - pad - bodyY));
-        searchPanel.setBounds(left, bodyY, contentWidth, contentBounds.height());
-        for (Panel panel : panels) { panel.setBounds(left, bodyY, contentWidth, contentBounds.height()); }
+        searchPanel.setBounds(left, bodyY, contentWidth, Math.max(1,contentBounds.height()-18));
+        for (Panel panel : panels) { panel.setBounds(left, bodyY, contentWidth, Math.max(1,contentBounds.height()-18)); }
         resourcesEditor.setBounds(left, bodyY + pageShift(), contentWidth, contentBounds.height());
         cosmeticsEditor.setBounds(left, bodyY + pageShift(), contentWidth, contentBounds.height());
-        themeEditor.setBounds(left, bodyY + pageShift(), contentWidth, contentBounds.height());
+        themeEditor.setBounds(left, bodyY + pageShift(), contentWidth, Math.max(1,contentBounds.height()-16));
         var clientEditor=getClientSettingsEditor();if(clientEditor!=null){clientEditor.setBounds(left,bodyY+pageShift(),contentWidth,contentBounds.height());}
         hudToggle.setBounds(windowX + 129, windowY + 234, 265, 17);
     }
     private String placeholder() {
         return switch (page) {
+            case APPEARANCE -> Theme.isGerman()?"Darstellung durchsuchen...":"Search appearance...";
             case SEARCH -> Theme.label("Start typing to search...");
             case PROFILES -> Theme.isGerman() ? "Profilname eingeben..." : "Enter a profile name...";
             case FRIENDS -> Theme.isGerman() ? "Spielername eingeben..." : "Enter a player name...";
@@ -257,6 +276,8 @@ public final class ClickGui extends Screen {
             case GUI_SCALE -> "GUI Scale";
             case PERFORMANCE -> "Performance";
             case HUD -> "HUD";
+            case COSMETICS -> cosmeticsEditor.isDirty()?"Cosmetics · Unapplied changes":"Cosmetics";
+            case RESOURCES -> resourcesEditor.isDirty()?"Resources · Unapplied changes":"Resources";
             case MAP_SETTINGS -> "Map settings";
             default -> Theme.label(page.name().substring(0, 1) + page.name().substring(1).toLowerCase(java.util.Locale.ROOT));
         };
@@ -307,8 +328,9 @@ public final class ClickGui extends Screen {
             sidebar.render(graphics, font, pointerX, pointerY, seconds, alpha);
             pageGear.render(graphics, font, pointerX, pointerY, seconds, alpha);
             double contentAlpha = alpha * pageFade.getValue();
-            if (page == Page.SEARCH || page == Page.PROFILES || page == Page.FRIENDS) {
+            if (page == Page.SEARCH || page == Page.APPEARANCE || page == Page.PROFILES || page == Page.FRIENDS) {
                 field.render(graphics, font, pointerX, pointerY, seconds, contentAlpha);
+                if (page == Page.SEARCH || page == Page.APPEARANCE) { clearSearch.render(graphics,font,pointerX,pointerY,seconds,contentAlpha); }
             } else {
                 var label = header.label();
                 String title = RenderUtil.ellipsize(font, placeholder(), label.width());
@@ -319,16 +341,18 @@ public final class ClickGui extends Screen {
             Panel panel = getActivePanel();
             if (panel != null) {
                 if (page == Page.SEARCH) { panel.setQuery(field.getValue()); }
+                String help = panel.getVisibleButtons().size() + (Theme.isGerman()?" Module · + Einstellungen · Strg+F Suche":" modules · + Settings · Ctrl+F Search");
+                RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,help,contentBounds.width()/.65),contentBounds.x(),contentBounds.y()+contentBounds.height()-10,.65,Theme.opacity(Theme.SECONDARY,contentAlpha));
                 panel.render(graphics, font, closing ? -1e6 : pointerX, closing ? -1e6 : pointerY, seconds, contentAlpha);
-            } else { renderUtility(graphics, pointerX, pointerY, seconds, contentAlpha); }
+            } else { if(page==Page.APPEARANCE){themeEditor.setQuery(field.getValue());RenderUtil.text(graphics,font,Theme.isGerman()?"Automatisch gespeichert · Strg+F Suche":"Changes save automatically · Ctrl+F Search",contentBounds.x(),contentBounds.y()+contentBounds.height()-9,.7,Theme.opacity(Theme.SECONDARY,contentAlpha));} renderUtility(graphics, pointerX, pointerY, seconds, contentAlpha); }
             messageTime = Math.max(0, messageTime - seconds); feedback.animateTo(messageTime > 0 ? 1 : 0);
             double notice = feedback.update(seconds);
             if (notice > 0) {
                 double noticeY = windowY + windowHeight - 30;
-                double noticeWidth = Math.min(292, RenderUtil.textWidth(font, message, false) * 0.8 + 18);
-                RenderUtil.drawDropShadow(graphics, windowX + 119, noticeY, noticeWidth, 21, 5, Theme.opacity(Theme.SHADOW, alpha * notice));
-                RenderUtil.drawRoundedRect(graphics, windowX + 119, noticeY, noticeWidth, 21, 5, Theme.opacity(Theme.SURFACE, alpha * notice));
-                RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, message, (noticeWidth - 18) / 0.8), windowX + 128,
+                double noticeWidth = Math.min(contentBounds.width(), RenderUtil.textWidth(font, message, false) * 0.8 + 18);
+                RenderUtil.drawDropShadow(graphics, contentBounds.x(), noticeY, noticeWidth, 21, 5, Theme.opacity(Theme.SHADOW, alpha * notice));
+                RenderUtil.drawRoundedRect(graphics, contentBounds.x(), noticeY, noticeWidth, 21, 5, Theme.opacity(Theme.SURFACE, alpha * notice));
+                RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, message, (noticeWidth - 18) / 0.8), contentBounds.x()+9,
                         noticeY + 6, 0.8, Theme.opacity(Theme.accent(), alpha * notice));
             }
             settingsPopup.render(graphics,font,pointerX,pointerY,seconds,alpha);
@@ -449,8 +473,9 @@ public final class ClickGui extends Screen {
         if (event.button()==0 && x>=windowX+windowWidth-12 && x<windowX+windowWidth+3 && y>=windowY+windowHeight-12 && y<windowY+windowHeight+3) {
             resizing=true;resizeStartX=event.x()/canvasScale;resizeStartY=event.y()/canvasScale;resizeWidth=windowWidth;resizeHeight=windowHeight;return true;
         }
+        if ((page == Page.SEARCH || page == Page.APPEARANCE) && clearSearch.mouseClicked(x,y,event.button())) { return true; }
         if (sidebar.mouseClicked(x, y, event.button())) { return true; }
-        if ((page == Page.SEARCH || page == Page.PROFILES || page == Page.FRIENDS) && field.mouseClicked(x, y, event.button())) { return true; }
+        if ((page == Page.SEARCH || page == Page.APPEARANCE || page == Page.PROFILES || page == Page.FRIENDS) && field.mouseClicked(x, y, event.button())) { return true; }
         if (x >= windowX && x < windowX + 107 && y >= windowY && y < windowY + 39 && event.button() == 0) {
             dragging = true; dragX = event.x() / canvasScale - windowX; dragY = event.y() / canvasScale - windowY; return true;
         }
@@ -527,9 +552,10 @@ public final class ClickGui extends Screen {
         if (dev.riserecode.ui.component.FocusedInput.key(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard)) { return true; }
         if (closing) { return true; }
         if (event.isEscape()) { onClose(); return true; }
-        if (event.hasControlDown() && event.key() == 70) { if (page == Page.RESOURCES) { resourcesEditor.search().setFocused(true); resourcesEditor.search().selectAll(); } else { selectPage(Page.SEARCH); field.setFocused(true); } return true; }
+        if (event.hasControlDown() && event.key() == 70) { if (page == Page.RESOURCES) { resourcesEditor.search().setFocused(true); resourcesEditor.search().selectAll(); } else { if(page!=Page.APPEARANCE){selectPage(Page.SEARCH);} field.setFocused(true); field.selectAll(); } return true; }
         if(page==Page.PERFORMANCE&&getClientSettingsEditor().keyPressed(event,minecraft.keyboardHandler::getClipboard,minecraft.keyboardHandler::setClipboard)){return true;}
         if (!dev.riserecode.ui.component.FocusedInput.active() && (event.key()==262 || event.key()==263)) { if(sidebar.isExpanded() != (event.key()==262)){sidebar.toggleExpanded();} return true; }
+        if(!dev.riserecode.ui.component.FocusedInput.active()&&(event.key()==268||event.key()==269)&&getActivePanel()!=null){getActivePanel().scrollToBoundary(event.key()==269);return true;}
         if (event.key() == 266 || event.key() == 267) {
             double amount = event.key() == 266 ? 8 : -8;
             var activePanel = getActivePanel();
@@ -550,19 +576,20 @@ public final class ClickGui extends Screen {
     public void toggleVisibility() {
         if (closing) {
             closing = false; opening.animateTo(1);
-            field.setFocused(page == Page.SEARCH || page == Page.PROFILES || page == Page.FRIENDS);
+            field.setFocused(page == Page.SEARCH || page == Page.APPEARANCE || page == Page.PROFILES || page == Page.FRIENDS);
         } else { onClose(); }
     }
     @Override
     public void onClose() {
         dev.riserecode.ui.component.FocusedInput.commit();
         if (closing) { return; }
+        if (guardDraft(this::onClose)) { return; }
         settingsPopup.close();
         Client.INSTANCE.getKeybindManager().cancelCapture();
         dev.riserecode.ui.animation.ButtonFeedback.cancelAll();releaseCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); closing = true; field.setFocused(false); opening.animateTo(0); persistPreferences(); saveChanges.run();
     }
     @Override
-    public void removed() { dev.riserecode.ui.animation.ButtonFeedback.cancelAll(); dev.riserecode.ui.component.FocusedInput.commit(); Client.INSTANCE.getKeybindManager().cancelCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); releaseCapture(); persistPreferences(); saveChanges.run(); }
+    public void removed() { if(confirmingDraft){return;} dev.riserecode.ui.animation.ButtonFeedback.cancelAll(); dev.riserecode.ui.component.FocusedInput.commit(); Client.INSTANCE.getKeybindManager().cancelCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); releaseCapture(); persistPreferences(); saveChanges.run(); }
     @Override
     public boolean isPauseScreen() { return false; }
 }

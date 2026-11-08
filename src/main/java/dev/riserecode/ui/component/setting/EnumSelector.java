@@ -15,7 +15,10 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
     private final Runnable changed;
     private final Animation change = Animation.ui(1, 0.16, MathUtil.Easing.OUT_QUART);
     private E displayed;
-    public EnumSelector(EnumSetting<E> setting, Runnable changed) {
+    private final Runnable choicePresenter;
+    public EnumSelector(EnumSetting<E> setting, Runnable changed) { this(setting,changed,null); }
+    public EnumSelector(EnumSetting<E> setting,Runnable changed,Runnable choicePresenter) {
+        this.choicePresenter=choicePresenter;
         this.setting = setting; this.changed = changed; displayed = setting.getValue();change.timing(()->dev.riserecode.ui.animation.PopIn.windowDuration("Dropdowns"));
     }
     private String option() {
@@ -38,23 +41,30 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
-        keyboard(graphics, opacity, () -> setting.getName() + ", choice, " + setting.getValue(), () -> choose(1), this::choose);
+        keyboard(graphics, opacity, () -> setting.getName() + ", choice, " + setting.getValue(), this::openChoices, this::choose);
         double hovered = updateHover(mouseX, mouseY, deltaSeconds);
         if (displayed != setting.getValue()) { displayed = setting.getValue(); change.reset(0); change.animateTo(1); }
         double progress = change.update(deltaSeconds);
         String label = Theme.displayName(setting.getName()) + ": ";
-        String option = option();
-        double scale = Math.min(0.88, (width - 3) / Math.max(1, RenderUtil.textWidth(font, label + option, false)));
-        double top = y + (height - 9 * Theme.number("Font Scale", 1) * scale) / 2;
-        RenderUtil.text(graphics, font, label, x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), top, scale, Theme.opacity(Theme.TEXT, opacity));
-        double valueX = x + RenderUtil.textWidth(font, label, false) * scale + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER);
-        RenderUtil.text(graphics, font, option, valueX + (1 - progress) * 3 * (Theme.bool("Reduced Motion",false)?0:1), top,
-                scale, Theme.opacity(Theme.blendPalette(Theme.TEXT, Theme.accent(), hovered * 0.6), opacity * progress));
+        String option = option()+" ▾";
+        double scale=.85;
+        double top=y+(height-18*Theme.number("Font Scale",1)*scale)/2;
+        RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,label,(width-4)/scale),x,top,scale,Theme.opacity(Theme.SECONDARY,opacity));
+        RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,option,(width-4)/scale),x,top+9*Theme.number("Font Scale",1)*scale,scale,Theme.opacity(Theme.TEXT,opacity));
+        if(contains(mouseX,mouseY)){graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(label+option),net.minecraft.network.chat.Component.literal(setting.getDescription())),java.util.Optional.empty(),(int)mouseX,(int)mouseY);}
+
     }
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!contains(mouseX, mouseY) || (button != 0 && button != 1)) { return false; }
-        choose(button == 0 ? 1 : -1); return true;
+        if(button==0){openChoices();}else{choose(-1);} return true;
+    }
+    private void openChoices(){
+        if(choicePresenter!=null){choicePresenter.run();return;}
+        var mc=net.minecraft.client.Minecraft.getInstance();
+        dev.riserecode.ui.component.FocusedInput.commit();
+        if(mc.gui.screen() instanceof dev.riserecode.ui.menu.PageAppearanceScreen page){page.suspendForChoice();}
+        mc.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(mc.gui.screen(),setting.getName(),setting.getOptions(),setting.getValue(),value->{setting.setValue(value);changed.run();dev.riserecode.ui.sound.UiSounds.play();}));
     }
     private void choose(int direction) {
         var options = setting.getOptions();

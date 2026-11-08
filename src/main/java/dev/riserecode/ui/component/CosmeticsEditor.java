@@ -60,7 +60,8 @@ public final class CosmeticsEditor extends UIComponent {
         bottom.add(new ActionButton("Remove",()->{draft=draft.with(category,null);selected="";editing=false;}));
         search.onChange(v->listScroll=0);
     }
-    public void open(){discard();}
+    public boolean isDirty(){return !draft.equals(manager.outfit());}
+    public void open(){if(!isDirty()){discard();}}
     public void discard(){FocusedInput.commit();revision++;draft=manager.outfit();selected=Optional.ofNullable(draft.items().get(category)).map(CosmeticLoadout.Item::id).orElse("");editing=false;search.setFocused(false);importPath.setFocused(false);captured=null;}
     public void apply(){FocusedInput.commit();manager.apply(draft);revision++;notice.accept("Cosmetics applied");}
     public SettingsSection getItemSection(){return itemSection;}

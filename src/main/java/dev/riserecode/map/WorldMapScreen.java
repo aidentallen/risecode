@@ -11,6 +11,7 @@ import java.util.List;
 
 /** Fullscreen terrain or a movable, resizable panel over the world. */
 public final class WorldMapScreen extends Screen {
+    private final dev.riserecode.ui.component.KeyboardNavigation navigation = new dev.riserecode.ui.component.KeyboardNavigation();
     private final Screen parent;
     private final MapService maps;
     private final List<ActionButton> buttons;
@@ -43,12 +44,14 @@ public final class WorldMapScreen extends Screen {
     }
     private void save(){var json=maps.preferences();json.addProperty("manualAltitude",manualAltitude);json.addProperty("panel",panel);json.addProperty("panelX",nx);json.addProperty("panelY",ny);json.addProperty("panelW",nw);json.addProperty("panelH",nh);maps.preferences(json);}
     private void recenter(){anchored=false;var p=maps.minecraft().player;if(p!=null){targetX=centerX=p.getX();targetZ=centerZ=p.getZ();dimension=maps.dimension();}}
-    private void add(double wx,double wz){if(!maps.ready()){return;}int py=maps.minecraft().player==null?64:maps.minecraft().player.blockPosition().getY();var p=maps.waypoints().add("Waypoint "+(maps.waypoints().all().size()+1),(int)Math.floor(wx),py,(int)Math.floor(wz),dimension);maps.saveWaypoints();minecraft.gui.setScreen(new WaypointEditScreen(this,maps,p));}
+    private void add(double wx,double wz){if(!maps.ready()){return;}int py=maps.minecraft().player==null?64:maps.minecraft().player.blockPosition().getY();var p=new WaypointStore.Waypoint(java.util.UUID.randomUUID(),"Waypoint "+(maps.waypoints().all().size()+1),(int)Math.floor(wx),py,(int)Math.floor(wz),dimension,"",0xFF64D8C4,true,false,false);minecraft.gui.setScreen(new WaypointEditScreen(this,maps,p));}
     @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta){ }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
+        navigation.begin(); try {
         bounds();double alpha=dev.riserecode.ui.animation.PopIn.progress((System.nanoTime()-opened)*1e-9,dev.riserecode.ui.animation.PopIn.windowDuration("Map"));displayScale=dev.riserecode.ui.animation.PopIn.windowScale("Map",alpha);
         g.pose().pushMatrix();g.pose().translate((float)(x+w/2),(float)(y+h/2));g.pose().scale((float)displayScale,(float)displayScale);g.pose().translate((float)(-x-w/2),(float)(-y-h/2));
         try{draw(g,(int)localX(mx),(int)localY(my),alpha);}finally{g.pose().popMatrix();}
+        } finally { navigation.end(); }
     }
     private void draw(GuiGraphicsExtractor g,int mx,int my,double alpha){
         long now=System.nanoTime();double dt=last==0?.016:Math.min(.1,(now-last)*1e-9);last=now;double blend=Theme.bool("Reduced Motion",false)?1:1-Math.exp(-dt*18);
@@ -85,7 +88,7 @@ public final class WorldMapScreen extends Screen {
         double next=Math.clamp(targetZoom*Math.pow(1.2,vertical),.03125,24);double px=mx-x-w/2,pz=my-y-h/2;
         anchorX=centerX+px/zoom;anchorZ=centerZ+pz/zoom;anchored=true;anchorPixelX=px;anchorPixelZ=pz;targetZoom=next;return true;
     }
-    @Override public boolean keyPressed(KeyEvent e){if(e.isEscape()){onClose();return true;}return super.keyPressed(e);}
+    @Override public boolean keyPressed(KeyEvent e){if(navigation.key(e)){return true;} if(e.isEscape()){onClose();return true;} if(e.key()==262||e.key()==263||e.key()==264||e.key()==265){anchored=false;targetX+=(e.key()==262?1:e.key()==263?-1:0)*32/targetZoom;targetZ+=(e.key()==264?1:e.key()==265?-1:0)*32/targetZoom;return true;} if(e.key()==61||e.key()==45){targetZoom*=e.key()==61?1.2:1/1.2;return true;}return super.keyPressed(e);}
     @Override public void onClose(){save();minecraft.gui.setScreen(parent);}
     @Override public void removed(){save();}
     @Override public boolean isPauseScreen(){return false;}

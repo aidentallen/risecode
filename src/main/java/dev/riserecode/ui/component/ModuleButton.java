@@ -31,6 +31,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 /** A compact card; modules own behavior, this adapter owns all presentation. */
 public final class ModuleButton extends UIComponent {
     public static final double HEADER_HEIGHT = 40;
+    private final Object disclosureFocus=new Object();
+    private void expand(boolean value){expanded=value;if(!expanded){cancelKeyCapture();appearance.unfocus();FocusedInput.commit();mouseReleased(0,0,0);}}
     public record SettingControl(Setting<?> setting, UIComponent component, double height) { }
     private final Module module;
     private final ModuleManager manager;
@@ -126,9 +128,11 @@ public final class ModuleButton extends UIComponent {
         try{renderCard(graphics,font,localX(mouseX),localY(mouseY),seconds,opacity*progress);}finally{graphics.pose().popMatrix();}
     }
     private void renderCard(GuiGraphicsExtractor graphics,Font font,double mouseX,double mouseY,double seconds,double opacity){
-        KeyboardNavigation.control(graphics, this, new Bounds(x, y, width, HEADER_HEIGHT), opacity,
+        KeyboardNavigation.control(graphics, this, new Bounds(x, y, width-28, HEADER_HEIGHT), opacity,
                 () -> module.getName() + ", module, " + (module.isEnabled() ? "enabled" : "disabled") + ", " + (expanded ? "expanded" : "collapsed"),
-                () -> manager.toggle(module), direction -> { expanded = direction > 0; if (!expanded) { cancelKeyCapture(); appearance.unfocus(); FocusedInput.commit(); } });
+                () -> manager.toggle(module), direction -> expand(direction>0));
+        KeyboardNavigation.control(graphics,disclosureFocus,new Bounds(x+width-27,y,27,24),opacity,
+                () -> module.getName()+", settings, "+(expanded?"expanded":"collapsed"),()->expand(!expanded),direction->expand(direction>0));
         hover.animateTo(mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + HEADER_HEIGHT ? 1 : 0);
         double hovered = hover.update(seconds);
         enabled.animateTo(module.isEnabled() ? 1 : 0);
@@ -137,14 +141,16 @@ public final class ModuleButton extends UIComponent {
 
         String badge = module.classification().label();
         double badgeWidth = RenderUtil.textWidth(font,badge,false)*.62+8;
-        RenderUtil.drawRoundedRect(graphics,x+width-badgeWidth-7,y+7,badgeWidth,12,3,Theme.opacity(Theme.HOVER,opacity));
-        RenderUtil.text(graphics,font,badge,x+width-badgeWidth-3,y+9,.62,Theme.opacity(Theme.SECONDARY,opacity));
+        RenderUtil.text(graphics,font,expanded ? "−" : "+",x+width-18,y+9,1,Theme.opacity(Theme.TEXT,opacity));
+        RenderUtil.text(graphics,font,module.isEnabled() ? "On" : "Off",x+width-25,y+26,.7,Theme.opacity(Theme.TEXT,opacity));
+        RenderUtil.drawRoundedRect(graphics,x+width-badgeWidth-29,y+7,badgeWidth,12,3,Theme.opacity(Theme.HOVER,opacity));
+        RenderUtil.text(graphics,font,badge,x+width-badgeWidth-25,y+9,.62,Theme.opacity(Theme.SECONDARY,opacity));
         String name = Theme.displayName(module.getName());
         double left = x + 7 + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER);
         if (active > 0.01) {
-            RenderUtil.accentText(graphics, font, RenderUtil.ellipsize(font, name, width - badgeWidth - 26), left, y + 7, Math.min(1,15/(9*Theme.number("Font Scale",1))), opacity * MathUtil.clamp01(active));
+            RenderUtil.accentText(graphics, font, RenderUtil.ellipsize(font, name, width - badgeWidth - 48), left, y + 7, Math.min(1,15/(9*Theme.number("Font Scale",1))), opacity * MathUtil.clamp01(active));
         }
-        RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, name, width - badgeWidth - 26), left, y + 7, Math.min(1,15/(9*Theme.number("Font Scale",1))),
+        RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, name, width - badgeWidth - 48), left, y + 7, Math.min(1,15/(9*Theme.number("Font Scale",1))),
                 Theme.opacity(Theme.TEXT, opacity * (1 - MathUtil.clamp01(active))));
         if (showCategory) {
             String category = "(" + Theme.label(module.getCategory().getDisplayName()) + ")";
@@ -153,8 +159,11 @@ public final class ModuleButton extends UIComponent {
                 RenderUtil.text(graphics, font, category, categoryX, y + 9, 0.75, Theme.opacity(Theme.SECONDARY, opacity * 0.7));
             }
         }
-        RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, mouseX>=x+width-badgeWidth-7 && mouseX<x+width-7 && mouseY>=y+7 && mouseY<y+22 ? module.classification().description() : expanded ? editor.details().get() : module.getDescription(), (width - 14) / 0.8),
-                x + 7, y + 25, Math.min(.8,10/(9*Theme.number("Font Scale",1))), Theme.opacity(Theme.SECONDARY, opacity * 0.8));
+        RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, mouseX>=x+width-badgeWidth-29 && mouseX<x+width-7 && mouseY>=y+7 && mouseY<y+22 ? module.classification().description() : expanded ? editor.details().get() : module.getDescription(), (width - 45) / 0.8),
+                x + 7, y + 25, Math.min(.8,10/(9*Theme.number("Font Scale",1))), Theme.opacity(Theme.SECONDARY, opacity));
+        if(hovered>.9&&mouseY>=y+23&&mouseY<y+HEADER_HEIGHT&&mouseX<x+width-30){
+            graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(module.getDescription()),net.minecraft.network.chat.Component.literal("Click name or On/Off to toggle · + opens settings")),java.util.Optional.empty(),(int)mouseX,(int)mouseY);
+        }
         if (height - HEADER_HEIGHT <= 0.1) { return; }
         RenderUtil.scissorPush(graphics, x + 3, y + HEADER_HEIGHT, width - 6, height - HEADER_HEIGHT - 2);
         try {
@@ -190,9 +199,8 @@ public final class ModuleButton extends UIComponent {
         if (!super.contains(mouseX, mouseY)||(button!=0&&button!=1)) { return false; }
         if (mouseY < y + HEADER_HEIGHT) {
             press.activate();dev.riserecode.ui.sound.UiSounds.play();
-            if (button == 1) {
-                expanded = !expanded;
-                if (!expanded) { cancelKeyCapture();appearance.unfocus();dev.riserecode.ui.component.FocusedInput.commit(); mouseReleased(rawX, rawY, 0); }
+            if (button == 1 || mouseX >= x + width - 27 && mouseY < y + 24) {
+                expand(!expanded);
             } else if (button == 0) { manager.toggle(module); }
             return true;
         }
