@@ -23,7 +23,7 @@ public final class Slider extends UIComponent {
     private double cachedNumber = Double.NaN;
     public dev.riserecode.ui.component.TextField input() { return input; }
     public void beginEditing() {
-        if (!input.isFocused()) { original = setting.getValue(); input.setValue(Double.toString(original)); }
+        if (!input.isFocused()&&input.validation().isEmpty()) { original = setting.getValue(); input.setValue(Double.toString(original)); }
         input.setFocused(true); input.selectAll();
     }
     private void preview(String text) {
@@ -47,8 +47,8 @@ public final class Slider extends UIComponent {
             input.setValue(Double.toString(setting.getValue())); input.validation(""); changed.run(); return true;
         });
         input.onChange(this::preview);
-        input.onCancel(() -> { setting.setValue(original); changed.run(); });
-        input.onCommit(() -> input.setValue(Double.toString(setting.getValue())));
+        input.onCancel(() -> { setting.setValue(original);input.setValue(Double.toString(original));input.validation("");changed.run(); });
+        input.onCommit(() -> {if(input.validation().isEmpty()){input.setValue(Double.toString(setting.getValue()));}});
         position = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.DRAGGING, normalized(), 0.1, MathUtil.Easing.OUT_QUART);
     }
 
@@ -59,7 +59,7 @@ public final class Slider extends UIComponent {
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
-        keyboard(graphics, opacity, () -> setting.getName() + ", slider, " + setting.getValue(), this::beginEditing, direction -> {
+        keyboard(graphics, opacity, () -> setting.getName() + ", slider, " + setting.getValue()+", "+setting.getDescription()+", range "+setting.getMin()+" to "+setting.getMax(), this::beginEditing, direction -> {
             double increment = step > 0 ? step : setting.keyboardIncrement();
             setting.setValue(Math.clamp(setting.getValue() + direction * increment, setting.getMin(), setting.getMax())); changed.run();
         });
@@ -75,7 +75,7 @@ public final class Slider extends UIComponent {
         RenderUtil.text(graphics, font, label,
                 x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), y + 1, labelScale, Theme.opacity(Theme.TEXT, opacity));
         input.setBounds(x, y, width, Math.max(12, height - 9));
-        if (input.isFocused()) {
+        if (input.isFocused()||!input.validation().isEmpty()) {
             RenderUtil.drawRoundedRect(graphics, x, y, width, Math.max(12, height - 9), 2, Theme.opacity(Theme.SURFACE, opacity));
             input.render(graphics, font, mouseX, mouseY, deltaSeconds, opacity);
         }

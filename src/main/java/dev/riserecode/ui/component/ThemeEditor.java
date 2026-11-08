@@ -136,11 +136,11 @@ public final class ThemeEditor extends UIComponent {
     private void renderTools(List<ActionButton> tools,double left,double top,double available,GuiGraphicsExtractor graphics,Font font,double mouseX,double mouseY,double seconds,double opacity){
         var positions=toolBounds(tools,available);
         for(int i=0;i<tools.size();i++){var action=tools.get(i);var b=positions.get(i);action.setBounds(left+b.x(),top+b.y()+3,b.width(),b.height());transforms.put(action,drawingTransform);
-            if(action.getBounds().y()+ButtonMetrics.HEIGHT>viewportY&&action.getBounds().y()<y+height){action.render(graphics,font,mouseY<viewportY||mouseY>=y+height?-1e6:mouseX,mouseY<viewportY||mouseY>=y+height?-1e6:mouseY,seconds,opacity);visibleActions.add(action);}
+            if(KeyboardNavigation.collectingOffscreen()||action.getBounds().y()+ButtonMetrics.HEIGHT>viewportY&&action.getBounds().y()<y+height){action.render(graphics,font,mouseY<viewportY||mouseY>=y+height?-1e6:mouseX,mouseY<viewportY||mouseY>=y+height?-1e6:mouseY,seconds,opacity);visibleActions.add(action);}
         }
     }
     private static boolean wide(UIComponent view) { return view instanceof PresetGallery || view instanceof BackgroundGallery || view instanceof dev.riserecode.ui.component.setting.StringControl; }
-    private static double controlHeight(UIComponent view, double row) { return view instanceof BackgroundGallery ? Math.ceil(ThemeManager.Background.values().length/4.0)*41 : view instanceof PresetGallery ? 96 : view instanceof dev.riserecode.ui.component.setting.StringControl ? Math.max(32, row) : view instanceof ColorPicker picker ? picker.getPreferredHeight() : row; }
+    private static double controlHeight(UIComponent view, double row) { return view instanceof BackgroundGallery ? Math.ceil(ThemeManager.Background.values().length/4.0)*41 : view instanceof PresetGallery ? 96 : SettingMetrics.height(view,row); }
     private static <E extends Enum<E>> UIComponent enumView(EnumSetting<E> option, Runnable changed) { return new EnumSelector<>(option, changed); }
     public UIComponent getControl(String label) {
         return groups.values().stream().flatMap(List::stream).filter(control -> control.model.setting().getName().equals(label))
@@ -163,9 +163,10 @@ public final class ThemeEditor extends UIComponent {
         if(scroll.getValue()>maxScroll){scroll.reset(maxScroll);}scroll.animateTo(Math.clamp(scroll.getTarget(),0,maxScroll));double offset=Math.max(0,scroll.update(seconds));
         double top=y-offset;
         if(!query.isEmpty()&&groups.entrySet().stream().noneMatch(entry->entry.getValue().stream().anyMatch(c->matches(entry.getKey(),c)))){
-            RenderUtil.text(graphics,font,Theme.isGerman()?"Keine passenden Einstellungen":"No matching appearance settings",x+6,y+10,.85,Theme.opacity(Theme.TEXT,opacity));
-            RenderUtil.text(graphics,font,Theme.isGerman()?"Suche kürzen oder löschen":"Try fewer words or Clear. Sounds and scale are in Settings.",x+6,y+27,.7,Theme.opacity(Theme.SECONDARY,opacity));
+            RenderUtil.text(graphics,font,Theme.isGerman()?"Keine passenden Einstellungen":"No matching settings",x+6,y+10,.85,Theme.opacity(Theme.TEXT,opacity));
+            RenderUtil.text(graphics,font,Theme.isGerman()?"Suche kürzen oder löschen":"Try fewer words or Clear the search.",x+6,y+27,.7,Theme.opacity(Theme.SECONDARY,opacity));
         }
+        boolean ownsReveal=maxScroll>0;if(ownsReveal){KeyboardNavigation.pushScrollRegion(this::revealControl);}
         RenderUtil.scissorPush(graphics,x,y,width,height);
         try{
             for(var entry:groups.entrySet()){
@@ -177,7 +178,7 @@ public final class ThemeEditor extends UIComponent {
                 double localMouseX=drawingTransform.localX(mouseX),localMouseY=drawingTransform.localY(mouseY);
                 graphics.pose().pushMatrix();drawingTransform.apply(graphics);
                 try{
-                if(top+cardHeight>=y&&top<y+height){
+                if(KeyboardNavigation.collectingOffscreen()||top+cardHeight>=y&&top<y+height){
                     RenderUtil.drawSurfaceTransition(graphics,x,top,width-4,cardHeight,Theme.BUTTON_RADIUS,header.surfaceHover()*.65,opacity);header.render(graphics,font,localMouseX,localMouseY,seconds,opacity);visibleSections.add(header);
                 }
                 if(body>.01){
@@ -190,7 +191,7 @@ public final class ThemeEditor extends UIComponent {
                             for(int column=0;column<rowControls.size();column++){
                                 var control=rowControls.get(column);var view=control.view();transforms.put(view,drawingTransform);view.setBounds(x+pad+column*(columnWidth+pad),controlY,rowControls.size()==1?innerWidth-4:columnWidth-4,rowHeight);
                                 boolean fullyVisible=header.isExpanded()&&controlY+rowHeight<=top+sectionHeight()+body+.01;
-                                if(controlY+rowHeight>=y&&controlY<y+height){view.render(graphics,font,fullyVisible&&localMouseY>=Math.max(y,top+sectionHeight())&&localMouseY<Math.min(y+height,top+cardHeight)?localMouseX:-1e6,fullyVisible?localMouseY:-1e6,seconds,opacity*header.amount(content));if(fullyVisible){visibleControls.add(control);if(control.model.setting().getName().equals(keyboardSetting)){var bounds=view.getBounds();RenderUtil.drawRoundedBorder(graphics,bounds.x()-2,bounds.y(),bounds.width()+4,bounds.height(),3,Theme.opacity(Theme.accent(),opacity*.7));}}}
+                                if(KeyboardNavigation.collectingOffscreen()||controlY+rowHeight>=y&&controlY<y+height){view.render(graphics,font,fullyVisible&&localMouseY>=Math.max(y,top+sectionHeight())&&localMouseY<Math.min(y+height,top+cardHeight)?localMouseX:-1e6,fullyVisible?localMouseY:-1e6,seconds,opacity*header.amount(content));if(fullyVisible){visibleControls.add(control);if(control.model.setting().getName().equals(keyboardSetting)){var bounds=view.getBounds();RenderUtil.drawRoundedBorder(graphics,bounds.x()-2,bounds.y(),bounds.width()+4,bounds.height(),3,Theme.opacity(Theme.accent(),opacity*.7));}}}
                             }
                             controlY+=rowHeight+3;var tools=controlActions.getOrDefault(rowControls.getFirst().model().setting().getName(),List.of());
                             int before=visibleActions.size();renderTools(tools,x+pad,controlY,innerWidth,graphics,font,localMouseX,localMouseY,seconds,opacity*header.amount(content));
@@ -203,9 +204,13 @@ public final class ThemeEditor extends UIComponent {
                 }finally{graphics.pose().popMatrix();}
                 top+=cardHeight+pad;
             }
-        }finally{RenderUtil.scissorPop(graphics);}
+        }finally{RenderUtil.scissorPop(graphics);if(ownsReveal){KeyboardNavigation.popScrollRegion();}}
         if(pendingReveal!=null){var control=getControl(pendingReveal);double desired=control.getBounds().y()-viewportY-4+scroll.getValue();scroll.animateTo(Math.clamp(desired,0,maxScroll));if(visibleControls.stream().anyMatch(c->c.view()==control)){pendingReveal=null;}}
         if(maxScroll>0){double thumb=Math.max(18,viewportHeight*viewportHeight/(viewportHeight+maxScroll));RenderUtil.drawRoundedRect(graphics,x+width-2,y+offset/maxScroll*(viewportHeight-thumb),1.5,thumb,.75,Theme.opacity(Theme.accent(),opacity*.65));}
+    }
+    private void revealControl(Bounds bounds){
+        double shift=bounds.y()<y?bounds.y()-y:Math.max(0,bounds.y()+bounds.height()-y-height);
+        if(shift!=0){scroll.reset(Math.clamp(scroll.getValue()+shift,0,maxScroll));}
     }
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
         groups.values().forEach(group -> group.forEach(control -> { if (control.view instanceof ColorPicker picker) { var t=transform(picker);picker.pointerFocus(t.localX(mouseX),t.localY(mouseY)); } }));

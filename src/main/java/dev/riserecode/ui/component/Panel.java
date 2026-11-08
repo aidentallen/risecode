@@ -27,6 +27,7 @@ public final class Panel extends UIComponent {
     private boolean filterDirty = true;
     private boolean filterGerman;
     private String query = "";
+    private boolean revealQuery;
     private java.util.function.Predicate<Module> group = ignored -> true;
     public void setGroup(java.util.function.Predicate<Module> value) { group=value;filterDirty=true; }
 
@@ -51,17 +52,18 @@ public final class Panel extends UIComponent {
     public double getScrollOffset() { return scroll.getValue(); }
     public double getMaxScroll() { return maxScroll; }
     public boolean isOpen() { return !opening.isRunning() && opening.getValue() == 1; }
-    public void open() { buttons.forEach(ModuleButton::enter); mouseReleased(0, 0, 0); opening.reset(0); opening.animateTo(1); }
+    public void open() { mouseReleased(0, 0, 0); opening.reset(0); opening.animateTo(1); }
     public void refresh() { mouseReleased(0, 0, 0); syncModules(); }
     public void setQuery(String value) {
         String next = value.strip().toLowerCase(Locale.ROOT);
         if (next.equals(query)) { return; }
-        query = next; filterDirty = true; mouseReleased(0, 0, 0); scroll.reset(0);
+        query = next; filterDirty = true;
+        buttons.forEach(button->button.revealSearchMatch(query));revealQuery=!query.isEmpty(); mouseReleased(0, 0, 0); scroll.reset(0);
     }
     private boolean matches(ModuleButton button) {
         if (!group.test(button.getModule())) { return false; }
         String haystack = (button.getModule().getName() + " " + Theme.displayName(button.getModule().getName()) + " "
-                + (button.getModule() instanceof dev.riserecode.module.modules.NoFallModule ? "NoFall " : "") + button.getModule().getSettings().stream().map(s -> s.getName()).collect(java.util.stream.Collectors.joining(" ")) + " " + button.getModule().getDescription() + " " + button.getModule().getCategory().getDisplayName()).toLowerCase(Locale.ROOT);
+                + (button.getModule() instanceof dev.riserecode.module.modules.NoFallModule ? "NoFall " : "") + button.getModule().getSettings().stream().map(s -> s.getName()+" "+Theme.displayName(s.getName())+" "+s.getDescription()).collect(java.util.stream.Collectors.joining(" ")) + " " + button.getModule().getDescription() + " " + button.getModule().getCategory().getDisplayName()).toLowerCase(Locale.ROOT);
         for (String word : query.split("\\s+")) { if (!haystack.contains(word)) { return false; } }
         return true;
     }
@@ -88,12 +90,13 @@ public final class Panel extends UIComponent {
         maxScroll = Math.max(0, content - padding - height);
         if (scroll.getValue() > maxScroll) { scroll.reset(maxScroll); }
         scroll.animateTo(Math.max(0, Math.min(maxScroll, scroll.getTarget()))); scroll.update(seconds);
+        KeyboardNavigation.pushScrollRegion(this::revealControl);
         RenderUtil.scissorPush(graphics, x, y, width, height);
         try {
             double next = y - scroll.getValue() + (1 - amount) * 5 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.NAVIGATION);
             for (ModuleButton button : visible) {
                 button.setBounds(x, next, width, button.getPreferredHeight());
-                if (next + button.getPreferredHeight() >= y && next < y + height) { button.render(graphics, font, contains(mouseX, mouseY) ? mouseX : -1e6,
+                if (KeyboardNavigation.collectingOffscreen() || next + button.getPreferredHeight() >= y && next < y + height) { button.render(graphics, font, contains(mouseX, mouseY) ? mouseX : -1e6,
                         contains(mouseX, mouseY) ? mouseY : -1e6, seconds, opacity); }
                 next += button.getPreferredHeight() + padding;
             }
@@ -103,12 +106,17 @@ public final class Panel extends UIComponent {
                 RenderUtil.text(graphics, font, Theme.isGerman() ? "Suche kürzen oder löschen" : "Try fewer words or clear the search",
                         x + 7, y + 25, .75, Theme.opacity(Theme.SECONDARY, opacity));
             }
-        } finally { RenderUtil.scissorPop(graphics); }
+        } finally { RenderUtil.scissorPop(graphics); KeyboardNavigation.popScrollRegion(); }
+        if(revealQuery){for(var button:visible){var match=button.settledSearchMatch();if(match!=null){revealControl(match);revealQuery=false;break;}}}
         if (maxScroll > 0) {
             double thumb = thumbHeight();
             RenderUtil.drawRoundedRect(graphics, x + width - 5, y + (height - thumb) * scroll.getValue() / maxScroll,
                     4, thumb, 2, Theme.opacity(Theme.accent(), opacity * (scrollbarDragging?.95:.65)));
         }
+    }
+    private void revealControl(Bounds bounds){
+        double shift=bounds.y()<y?bounds.y()-y:Math.max(0,bounds.y()+bounds.height()-y-height);
+        if(shift!=0){scroll.reset(Math.clamp(scroll.getValue()+shift,0,maxScroll));}
     }
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {

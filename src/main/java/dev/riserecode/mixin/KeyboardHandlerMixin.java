@@ -23,6 +23,7 @@ public abstract class KeyboardHandlerMixin {
             KeyPressEvent priority = Client.INSTANCE.getEventBus().post(new KeyPressEvent(input, action));
             if (priority.isCancelled()) { callback.cancel(); return; }
         }
+        if(action!=0&&mc.gui.screen() instanceof dev.riserecode.ui.hud.HudEditorScreen hud&&hud.nudge(input)){callback.cancel();return;}
         var auxiliary = dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen());
         if (action != 0 && auxiliary != null) {
             if (auxiliary.key(input)) { callback.cancel(); return; }

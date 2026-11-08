@@ -81,7 +81,7 @@ public final class HudEditorScreen extends Screen {
             else { RenderUtil.line(g, 0, guide.value(), width, guide.value(), 0.8, Theme.opacity(Theme.accent(), 0.7)); }
         }
         done.setBounds(width-72,8,64,21);done.render(g,font,mouseX,mouseY,seconds,1);
-        String hint = "HUD Editor  ·  Drag to move  ·  Right click to customize  ·  G: grid  ·  Esc: save";
+        String hint = "HUD · Tab/Enter: select · Ctrl+arrows: nudge · Shift: 10px · G: grid · Esc: save";
         double hintWidth = RenderUtil.textWidth(font, hint, false) * 0.9 + 22;
         RenderUtil.drawRoundedRect(g, (width - hintWidth) / 2, height - 26, hintWidth, 21, 6, 0xDF111820);
         RenderUtil.text(g, font, hint, (width - hintWidth) / 2 + 11, height - 19, 0.9, Theme.TEXT);
@@ -157,7 +157,14 @@ public final class HudEditorScreen extends Screen {
         if (captured != null) { captured.mouseReleased(event.x(), event.y(), event.button()); captured = null; }
         dragging = null; guides.clear(); changed(); return true;
     }
+    public boolean nudge(KeyEvent event){
+        if(selected==null||!event.hasControlDown()||event.key()<262||event.key()>265||dev.riserecode.ui.component.FocusedInput.active()){return false;}
+        double step=event.hasShiftDown()?10:1;
+        double dx=event.key()==262?step:event.key()==263?-step:0,dy=event.key()==264?step:event.key()==265?-step:0;
+        selected.layout().position(selected.layout().x()+dx/Math.max(1,width),selected.layout().y()+dy/Math.max(1,height));changed();return true;
+    }
     @Override public boolean keyPressed(KeyEvent event) {
+        if(nudge(event)){return true;}
         if (dev.riserecode.ui.component.FocusedInput.key(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard)) { return true; }
         if (event.isEscape() || event.key() == 344) { onClose(); return true; }
         if (controls.stream().anyMatch(control -> control instanceof ColorPicker picker && picker.keyPressed(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard))) { return true; }

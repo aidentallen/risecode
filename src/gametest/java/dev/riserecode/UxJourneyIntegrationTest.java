@@ -31,6 +31,8 @@ public final class UxJourneyIntegrationTest {
         c.runOnClient(mc->{dev.riserecode.ui.theme.Theme.setGerman(true);((dev.riserecode.setting.DoubleSetting)Client.INSTANCE.getThemeManager().getSetting("Font Scale")).setValue(2.0);Client.INSTANCE.getClickGui().getSearchField().setValue("Reduced Motion");});
         c.waitTicks(10);c.takeScreenshot("ux-german-font2");c.runOnClient(mc->{dev.riserecode.ui.theme.Theme.setGerman(false);Client.INSTANCE.getThemeManager().reset();mc.gui.setScreen(null);});
         Client.INSTANCE.getLogger().info("UX journey checks passed: {}",checks);
+        UxLayoutIntegrationTest.run(c);
+        UxMotionIntegrationTest.run(c);
     }
     private static void guiDraftTest(net.minecraft.client.Minecraft mc){
         var gui=Client.INSTANCE.getClickGui();gui.selectPage(ClickGui.Page.COSMETICS);

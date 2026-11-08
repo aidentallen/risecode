@@ -15,7 +15,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 /** Scrollable navigation; utilities expand inline and share displayed coordinates with input. */
 public final class Sidebar extends UIComponent {
     public record Item(String label, Icon icon) { }
-    private static final double ROW = 20.75;
+    private static double rowHeight(){return Math.max(20.75,9*Theme.number("Font Scale",1)*.8+10);}
     private static final int PRIMARY = 11;
     private final List<Item> items;
     private final IntConsumer selectedAction;
@@ -32,6 +32,9 @@ public final class Sidebar extends UIComponent {
     private int selected;
     private boolean reveal;
     private double maximum;
+    private double navigationTop=43;
+    private Bounds selectionBounds=new Bounds(0,0,0,0);
+    public Bounds getSelectionBounds(){return selectionBounds;}
     public Sidebar(List<Item> items, IntConsumer selectedAction) { this.items=List.copyOf(items);this.selectedAction=selectedAction;
         hovers = items.stream().map(item -> Animation.ui(ThemeManager.Channel.HOVER, 0, .16, MathUtil.Easing.OUT_QUART)).toList();
         presses = items.stream().map(item -> new dev.riserecode.ui.animation.ButtonFeedback()).toList();
@@ -44,27 +47,31 @@ public final class Sidebar extends UIComponent {
     public int getSelected(){return selected;}
     public boolean isExpanded(){return expanded;}
     public void toggleExpanded(){arrowPress.activate();expanded=!expanded;expansion.animateTo(expanded?1:0);dev.riserecode.ui.sound.UiSounds.play();}
-    public Bounds getArrowBounds(){return new Bounds(x+10,y+43+PRIMARY*ROW-scroll.getValue(),Math.min(width-20,ButtonMetrics.width(net.minecraft.client.Minecraft.getInstance()==null?null:net.minecraft.client.Minecraft.getInstance().font,"Utilities")),ButtonMetrics.HEIGHT);}
-    public Bounds getItemBounds(int index){return new Bounds(x+10,y+43+(index+(index>=PRIMARY?1:0))*ROW-scroll.getValue(),LiquidGlass.enabled()?width-20:Math.min(width-20,ButtonMetrics.width(net.minecraft.client.Minecraft.getInstance()==null?null:net.minecraft.client.Minecraft.getInstance().font,items.get(index).label())),ButtonMetrics.HEIGHT);}
+    public Bounds getArrowBounds(){return new Bounds(x+10,y+navigationTop+PRIMARY*rowHeight()-scroll.getValue(),width-20,ButtonMetrics.HEIGHT);}
+    public Bounds getItemBounds(int index){return new Bounds(x+10,y+navigationTop+(index+(index>=PRIMARY?1:0))*rowHeight()-scroll.getValue(),LiquidGlass.enabled()?width-20:Math.min(width-20,ButtonMetrics.width(net.minecraft.client.Minecraft.getInstance()==null?null:net.minecraft.client.Minecraft.getInstance().font,items.get(index).label())),ButtonMetrics.HEIGHT);}
     public List<Integer> keyboardItems(){return java.util.stream.IntStream.range(0,expanded?items.size():Math.min(PRIMARY,items.size())).boxed().toList();}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
         double logoScale=Math.min(1.65,(width-37)/Math.max(1,RenderUtil.textWidth(font,Client.INSTANCE.getName(),false)));
         RenderUtil.text(g,font,Client.INSTANCE.getName(),x+14,y+14,logoScale,Theme.opacity(Theme.TEXT,alpha));
-        RenderUtil.text(g,font,Client.INSTANCE.getVersion(),x+14,y+29,0.55,Theme.opacity(Theme.accent(),alpha*.85));
-        double expandedAmount=expansion.update(dt),available=Math.max(1,height-51);
-        maximum=Math.max(0,(Math.min(PRIMARY,items.size())+1+(items.size()-PRIMARY)*expandedAmount)*ROW-available);
+        double versionY=y+14+9*Theme.number("Font Scale",1)*logoScale+4;
+        navigationTop=Math.max(43,versionY-y+9*Theme.number("Font Scale",1)*.55+7);
+        RenderUtil.text(g,font,Client.INSTANCE.getVersion(),x+14,versionY,0.55,Theme.opacity(Theme.accent(),alpha*.85));
+        double expandedAmount=expansion.update(dt),available=Math.max(1,height-navigationTop-8);
+        maximum=Math.max(0,(Math.min(PRIMARY,items.size())+1+(items.size()-PRIMARY)*expandedAmount)*rowHeight()-available);
         if(scroll.getValue()>maximum){scroll.reset(maximum);}scroll.animateTo(Math.clamp(scroll.getTarget(),0,maximum));scroll.update(dt);
         if(reveal&&selected>=0&&(selected<PRIMARY||expandedAmount>.99)){
-            Bounds row=getItemBounds(selected);double shift=row.y()<y+43?row.y()-y-43:Math.max(0,row.y()+row.height()-y-height+8);
+            Bounds row=getItemBounds(selected);double shift=row.y()<y+navigationTop?row.y()-y-navigationTop:Math.max(0,row.y()+row.height()-y-height+8);
             scroll.animateTo(Math.clamp(scroll.getValue()+shift,0,maximum));reveal=false;
         }
-        double targetY = (selected >= PRIMARY && !expanded ? PRIMARY : selected + (selected >= PRIMARY ? 1 : 0)) * ROW;
+        double targetY = (selected >= PRIMARY && !expanded ? PRIMARY : selected + (selected >= PRIMARY ? 1 : 0)) * rowHeight();
         selectedY.animateTo(targetY);
-        double pillY = y + 43 + targetY + (selectedY.update(dt) - targetY) * Animation.movement(ThemeManager.Channel.NAVIGATION) - scroll.getValue();
+        double pillY = y + navigationTop + targetY + (selectedY.update(dt) - targetY) * Animation.movement(ThemeManager.Channel.NAVIGATION) - scroll.getValue();
         String selectedLabel = selected<0?"":Theme.label(items.get(selected).label());
         selectedWidth.animateTo(LiquidGlass.enabled()?width-20:Math.min(width - 20, ButtonMetrics.width(font,selectedLabel)));
         double pillWidth = selectedWidth.update(dt);
-        RenderUtil.scissorPush(g,x+4,y+40,width-8,available+3);
+        selectionBounds=new Bounds(x+10,pillY,pillWidth,17);
+        KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<y+navigationTop?bounds.y()-y-navigationTop:Math.max(0,bounds.y()+bounds.height()-y-height+8);if(shift!=0){scroll.reset(Math.clamp(scroll.getValue()+shift,0,maximum));}});
+        RenderUtil.scissorPush(g,x+4,y+navigationTop-3,width-8,available+3);
         try{
             double selectedPress = selected<0?1:presses.get(selected).scale();
             g.pose().pushMatrix();
@@ -79,13 +86,13 @@ public final class Sidebar extends UIComponent {
             g.pose().popMatrix();
             for(int i=0;i<items.size();i++){
                 if(i>=PRIMARY&&expandedAmount<.001){break;}Bounds b=getItemBounds(i);
-                double utilityClip=y+43+(PRIMARY+1)*ROW-scroll.getValue()+(items.size()-PRIMARY)*ROW*expandedAmount;
+                double utilityClip=y+navigationTop+(PRIMARY+1)*rowHeight()-scroll.getValue()+(items.size()-PRIMARY)*rowHeight()*expandedAmount;
                 if(i>=PRIMARY&&b.y()+b.height()>utilityClip){continue;}
                 final int index=i;
                 KeyboardNavigation.control(g,items.get(i),b,alpha*(i>=PRIMARY?expandedAmount:1),
                         () -> Theme.label(items.get(index).label()) + (selected==index ? ", selected page" : ", page"),
                         () -> { presses.get(index).activate(); selectedAction.accept(index); dev.riserecode.ui.sound.UiSounds.play(); },null);
-                boolean over=contains(mx,my)&&my>=y+40&&mx>=b.x()&&mx<b.x()+b.width()&&my>=b.y()&&my<b.y()+b.height();
+                boolean over=contains(mx,my)&&my>=y+navigationTop-3&&mx>=b.x()&&mx<b.x()+b.width()&&my>=b.y()&&my<b.y()+b.height();
                 hovers.get(i).animateTo(over?1:0); double hovered=hovers.get(i).update(dt);
                 double press=presses.get(i).scale();g.pose().pushMatrix();
                 g.pose().translate((float)b.centerX(),(float)b.centerY());g.pose().scale((float)press,(float)press);g.pose().translate((float)-b.centerX(),(float)-b.centerY());
@@ -101,15 +108,15 @@ public final class Sidebar extends UIComponent {
             double arrowScale=arrowPress.scale();g.pose().pushMatrix();g.pose().translate((float)arrow.centerX(),(float)arrow.centerY());g.pose().scale((float)arrowScale,(float)arrowScale);g.pose().translate((float)-arrow.centerX(),(float)-arrow.centerY());
             arrowHover.animateTo(contains(mx,my)&&my>=arrow.y()&&my<arrow.y()+arrow.height()?1:0);
             double arrowAmount=arrowHover.update(dt);
-            RenderUtil.drawRoundedRect(g,arrow.x(),arrow.y(),Math.min(arrow.width(),ButtonMetrics.width(font,"Utilities")),17,4,Theme.opacity(Theme.HOVER,alpha*arrowAmount*.4));
-            RenderUtil.text(g,font,Theme.label("Utilities"),arrow.x()+19,arrow.y()+4,Math.min(.8,ButtonMetrics.textScale(arrow.height())),Theme.opacity(Theme.blendPalette(Theme.SECONDARY,Theme.TEXT,arrowAmount),alpha));
+            RenderUtil.drawRoundedRect(g,arrow.x(),arrow.y(),arrow.width(),17,4,Theme.opacity(Theme.HOVER,alpha*arrowAmount*.4));
+            RenderUtil.text(g,font,Theme.label("Utilities"),arrow.x()+19,arrow.y()+4,Math.min(ButtonMetrics.textScale(arrow.height()),(arrow.width()-21)/Math.max(1,RenderUtil.textWidth(font,Theme.label("Utilities"),false))),Theme.opacity(Theme.blendPalette(Theme.SECONDARY,Theme.TEXT,arrowAmount),alpha));
             g.pose().pushMatrix();g.pose().translate((float)(arrow.x()+8),(float)(arrow.y()+9));g.pose().rotate((float)(expandedAmount*Math.PI/2));
             RenderUtil.line(g,-2,-3,1,0,1.3,Theme.opacity(Theme.TEXT,alpha));RenderUtil.line(g,1,0,-2,3,1.3,Theme.opacity(Theme.TEXT,alpha));g.pose().popMatrix();g.pose().popMatrix();
-        }finally{RenderUtil.scissorPop(g);}
-        if(maximum>0){double thumb=Math.max(12,available*available/(available+maximum));RenderUtil.drawRoundedRect(g,x+width-4,y+43+scroll.getValue()/maximum*(available-thumb),1.5,thumb,1,Theme.opacity(Theme.accent(),alpha*.6));}
+        }finally{RenderUtil.scissorPop(g);KeyboardNavigation.popScrollRegion();}
+        if(maximum>0){double thumb=Math.max(12,available*available/(available+maximum));RenderUtil.drawRoundedRect(g,x+width-4,y+navigationTop+scroll.getValue()/maximum*(available-thumb),1.5,thumb,1,Theme.opacity(Theme.accent(),alpha*.6));}
     }
     @Override public boolean mouseClicked(double mx,double my,int button){
-        if(button!=0||!contains(mx,my)||my<y+40){return false;}Bounds a=getArrowBounds();
+        if(button!=0||!contains(mx,my)||my<y+navigationTop-3){return false;}Bounds a=getArrowBounds();
         if(mx>=a.x()&&mx<a.x()+a.width()&&my>=a.y()&&my<a.y()+a.height()){toggleExpanded();arrowPress.press();return true;}
         for(int i:keyboardItems()){Bounds b=getItemBounds(i);if(mx>=b.x()&&mx<b.x()+b.width()&&my>=b.y()&&my<b.y()+b.height()){
             if(i>=PRIMARY&&expansion.getValue()<.99){return true;}presses.get(i).press();dev.riserecode.ui.sound.UiSounds.play();selectedAction.accept(i);return true;

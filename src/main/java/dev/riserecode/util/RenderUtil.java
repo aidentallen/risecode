@@ -26,19 +26,20 @@ public final class RenderUtil {
         drawRoundedBorder(graphics,x,y,width,height,10,Theme.opacity(-1,opacity*Theme.number("Border Opacity",.08)));
     }
     public static void drawWindow(GuiGraphicsExtractor graphics,double x,double y,double opacity){drawWindow(graphics,x,y,428,320,opacity);}
-    public static void drawWindow(GuiGraphicsExtractor graphics,double x,double y,double width,double height,double opacity){
+    public static void drawWindow(GuiGraphicsExtractor graphics,double x,double y,double width,double height,double opacity){drawWindow(graphics,x,y,width,height,opacity,107);}
+    public static void drawWindow(GuiGraphicsExtractor graphics,double x,double y,double width,double height,double opacity,double sidebarWidth){
         if(LiquidGlass.enabled()){
             double density=dev.riserecode.performance.PerformancePolicy.frame().blur()||Theme.number("GUI Blur Radius",12)<=0||Theme.number("GUI Blur Opacity",.8)<=0?.95:.5;
             drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1)*density);
-            drawPaintRect(graphics,x+5,y+5,97,height-10,8,Theme.paint("Sidebar Color"),opacity*Theme.number("Panel Opacity",1)*.42);
-            LiquidGlass.sheen(graphics,x+5,y+5,97,height-10,8,opacity*.7);
+            drawPaintRect(graphics,x+5,y+5,sidebarWidth-10,height-10,8,Theme.paint("Sidebar Color"),opacity*Theme.number("Panel Opacity",1)*.42);
+            LiquidGlass.sheen(graphics,x+5,y+5,sidebarWidth-10,height-10,8,opacity*.7);
             LiquidGlass.sheen(graphics,x,y,width,height,10,opacity);
             return;
         }
-        if(Theme.manager()!=null&&(!Theme.manager().colorSetting("Background Color").paint().equals(Theme.manager().colorSetting("Background Color").defaultPaint())
+        if(sidebarWidth!=107||Theme.manager()!=null&&(!Theme.manager().colorSetting("Background Color").paint().equals(Theme.manager().colorSetting("Background Color").defaultPaint())
                 ||!Theme.manager().colorSetting("Sidebar Color").paint().equals(Theme.manager().colorSetting("Sidebar Color").defaultPaint()))){
             drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1));
-            scissorPush(graphics,x,y,107,height);
+            scissorPush(graphics,x,y,sidebarWidth,height);
             try{drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Sidebar Color"),opacity*Theme.number("Panel Opacity",1));}finally{scissorPop(graphics);}
         }else{
             shape(graphics,WINDOW,x,y,width,height,Theme.number("Corner Radius",10),Theme.opacity(-1,opacity*Theme.number("Panel Opacity",1)),Theme.opacity(-1,opacity*Theme.number("Panel Opacity",1)),0);

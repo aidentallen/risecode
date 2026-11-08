@@ -71,7 +71,8 @@ public final class MenuTheme {
         if(screen instanceof dev.riserecode.ui.clickgui.ClickGui gui){return switch(gui.getPage()){case CLIENT_SOUNDS->"risecode:client:SOUNDS";case DISCORD_ACTIVITY->"risecode:client:DISCORD";case GUI_SCALE->"risecode:client:SCALE";default->"risecode:"+gui.getPage().name();};}
         return screen==null?"":screen.getClass().getName();
     }
-    public static boolean gearSupported(Screen screen){return screen!=null&&!(screen instanceof dev.riserecode.ui.clickgui.ClickGui)&&!(screen instanceof PageAppearanceScreen)&&!(screen instanceof net.minecraft.client.gui.screens.ChatScreen);}
+    public interface TransientScreen { }
+    public static boolean gearSupported(Screen screen){return screen!=null&&!(screen instanceof TransientScreen)&&!(screen instanceof net.minecraft.client.gui.screens.ConfirmScreen)&&!(screen instanceof dev.riserecode.ui.clickgui.ClickGui)&&!(screen instanceof PageAppearanceScreen)&&!(screen instanceof net.minecraft.client.gui.screens.ChatScreen);}
     public static String family(Screen screen) {
         if(screen instanceof PageAppearanceScreen){return null;}
         if(screen instanceof net.minecraft.client.gui.screens.ChatScreen || screen instanceof dev.riserecode.ui.clickgui.ClickGui || screen instanceof dev.riserecode.ui.hud.HudEditorScreen || screen instanceof dev.riserecode.map.WorldMapScreen){return null;}

@@ -41,7 +41,7 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
-        keyboard(graphics, opacity, () -> setting.getName() + ", choice, " + setting.getValue(), this::openChoices, this::choose);
+        keyboard(graphics, opacity, () -> setting.getName() + ", choice, " + setting.getValue()+", "+setting.getDescription(), this::openChoices, this::choose);
         double hovered = updateHover(mouseX, mouseY, deltaSeconds);
         if (displayed != setting.getValue()) { displayed = setting.getValue(); change.reset(0); change.animateTo(1); }
         double progress = change.update(deltaSeconds);
@@ -50,7 +50,7 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
         double scale=.85;
         double top=y+(height-18*Theme.number("Font Scale",1)*scale)/2;
         RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,label,(width-4)/scale),x,top,scale,Theme.opacity(Theme.SECONDARY,opacity));
-        RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,option,(width-4)/scale),x,top+9*Theme.number("Font Scale",1)*scale,scale,Theme.opacity(Theme.TEXT,opacity));
+        RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,option,(width-4)/scale),x,top+9*Theme.number("Font Scale",1)*scale+(1-progress)*2*Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.NAVIGATION),scale,Theme.opacity(Theme.TEXT,opacity*(.65+.35*progress)));
         if(contains(mouseX,mouseY)){graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(label+option),net.minecraft.network.chat.Component.literal(setting.getDescription())),java.util.Optional.empty(),(int)mouseX,(int)mouseY);}
 
     }

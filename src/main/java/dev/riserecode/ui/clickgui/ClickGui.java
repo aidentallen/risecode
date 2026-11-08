@@ -212,7 +212,7 @@ public final class ClickGui extends Screen {
         if(!Client.INSTANCE.resourcesReady()||minecraft.gui.overlay()!=null){return;}
         this.parent = parent; closing = false; previousFrame = System.nanoTime(); resourcesEditor.resetDraft();
         opening.reset(0); opening.animateTo(1); searchPanel.open(); panels.forEach(Panel::open);
-        field.setFocused(page == Page.SEARCH || page == Page.APPEARANCE || page == Page.PROFILES || page == Page.FRIENDS);
+        field.setFocused(page == Page.SEARCH || settingSearch() || page == Page.PROFILES || page == Page.FRIENDS);
         if (page == Page.RESOURCES) { resourcesEditor.open(); }
         if (page == Page.COSMETICS) { cosmeticsEditor.open(); }
         minecraft.gui.setScreen(this);
@@ -237,6 +237,7 @@ public final class ClickGui extends Screen {
     private Page layoutPage;
     private boolean layoutGerman;
     private double layoutX,layoutY,layoutWidth,layoutHeight,layoutCanvasWidth,layoutCanvasHeight,layoutShift;
+    private double sidebarWidth(){return Math.min(windowWidth*.45,107+48*Math.max(0,themes.number("Font Scale")-1));}
     private void layout() {
         double shift=pageShift();long revision=themes.getRevision(),generation=dev.riserecode.ui.font.CustomTextRenderer.generation();
         if(layoutRevision==revision&&layoutFontGeneration==generation&&layoutPage==page&&layoutGerman==Theme.isGerman()
@@ -244,12 +245,12 @@ public final class ClickGui extends Screen {
                 &&layoutCanvasWidth==canvasWidth&&layoutCanvasHeight==canvasHeight&&layoutShift==shift){return;}
         layoutRevision=revision;layoutFontGeneration=generation;layoutPage=page;layoutGerman=Theme.isGerman();
         layoutX=windowX;layoutY=windowY;layoutWidth=windowWidth;layoutHeight=windowHeight;layoutCanvasWidth=canvasWidth;layoutCanvasHeight=canvasHeight;layoutShift=shift;
-        sidebar.setBounds(windowX, windowY, 107, windowHeight-32);
-        settingsPopup.setBounds(windowX+10,windowY+windowHeight-27,87,17);settingsPopup.viewport(canvasWidth,canvasHeight);
+        sidebar.setBounds(windowX, windowY, sidebarWidth(), windowHeight-32);
+        settingsPopup.setBounds(windowX+10,windowY+windowHeight-27,sidebarWidth()-20,17);settingsPopup.viewport(canvasWidth,canvasHeight);
         double pad = themes.number("Content Padding");
-        double left = windowX + 107 + pad, contentWidth = windowWidth - 107 - pad * 2;
-        double rowHeight = dev.riserecode.ui.component.ButtonMetrics.HEIGHT;
-        double actionWidth = (page == Page.SEARCH || page == Page.APPEARANCE) ? dev.riserecode.ui.component.ButtonMetrics.width(font,"Clear") : page == Page.HUD ? dev.riserecode.ui.component.ButtonMetrics.width(font,"Edit HUD") : 0;
+        double left = windowX + sidebarWidth() + pad, contentWidth = windowWidth - sidebarWidth() - pad * 2;
+        double rowHeight = Math.max(dev.riserecode.ui.component.ButtonMetrics.HEIGHT,9*themes.number("Font Scale")+8);
+        double actionWidth = (page == Page.SEARCH || settingSearch()) ? dev.riserecode.ui.component.ButtonMetrics.width(font,"Clear") : page == Page.HUD ? dev.riserecode.ui.component.ButtonMetrics.width(font,"Edit HUD") : 0;
         header = dev.riserecode.ui.component.HeaderLayout.at(left, windowY + pad, contentWidth, rowHeight, actionWidth);
         var label = header.label(); var gear = header.gear();
         field.setBounds(label.x(), label.y(), label.width(), label.height());
@@ -262,19 +263,20 @@ public final class ClickGui extends Screen {
         resourcesEditor.setBounds(left, bodyY + pageShift(), contentWidth, contentBounds.height());
         cosmeticsEditor.setBounds(left, bodyY + pageShift(), contentWidth, contentBounds.height());
         themeEditor.setBounds(left, bodyY + pageShift(), contentWidth, Math.max(1,contentBounds.height()-16));
-        var clientEditor=getClientSettingsEditor();if(clientEditor!=null){clientEditor.setBounds(left,bodyY+pageShift(),contentWidth,contentBounds.height());}
+        var clientEditor=getClientSettingsEditor();if(clientEditor!=null){clientEditor.editor().setQuery(field.getValue());clientEditor.setBounds(left,bodyY+pageShift(),contentWidth,contentBounds.height());}
         hudToggle.setBounds(windowX + 129, windowY + 234, 265, 17);
     }
+    private boolean settingSearch(){return page==Page.APPEARANCE||getClientSettingsEditor()!=null;}
     private String placeholder() {
         return switch (page) {
             case APPEARANCE -> Theme.isGerman()?"Darstellung durchsuchen...":"Search appearance...";
             case SEARCH -> Theme.label("Start typing to search...");
             case PROFILES -> Theme.isGerman() ? "Profilname eingeben..." : "Enter a profile name...";
             case FRIENDS -> Theme.isGerman() ? "Spielername eingeben..." : "Enter a player name...";
-            case CLIENT_SOUNDS -> "Client Sounds";
-            case DISCORD_ACTIVITY -> "Discord Activity";
-            case GUI_SCALE -> "GUI Scale";
-            case PERFORMANCE -> "Performance";
+            case CLIENT_SOUNDS -> "Search client sounds…";
+            case DISCORD_ACTIVITY -> "Search Discord settings…";
+            case GUI_SCALE -> "Search interface scale…";
+            case PERFORMANCE -> "Search performance…";
             case HUD -> "HUD";
             case COSMETICS -> cosmeticsEditor.isDirty()?"Cosmetics · Unapplied changes":"Cosmetics";
             case RESOURCES -> resourcesEditor.isDirty()?"Resources · Unapplied changes":"Resources";
@@ -317,7 +319,7 @@ public final class ClickGui extends Screen {
             boolean customImage=themes.choice("Background",ThemeManager.Background.class)!=ThemeManager.Background.NONE&&pageAppearance!=null&&!pageAppearance.inherit.getValue()&&pageAppearance.backgroundEnabled(true);
             if(minecraft.level!=null&&!customImage){BlurUtil.drawBox(graphics,windowX,windowY,windowWidth,windowHeight,10,alpha*Theme.number("GUI Blur Opacity",.8));}
             else {dev.riserecode.ui.menu.MenuBackdrop.drawBlur(graphics,windowX,windowY,windowWidth,windowHeight,10,alpha*Theme.number("GUI Blur Opacity",.8));}
-            RenderUtil.drawWindow(graphics, windowX, windowY, windowWidth,windowHeight,alpha*.82);
+            RenderUtil.drawWindow(graphics, windowX, windowY, windowWidth,windowHeight,alpha*.82,sidebarWidth());
             if(dev.riserecode.ui.render.LiquidGlass.enabled()){
                 var label=header.label();
                 RenderUtil.drawSurfaceTransition(graphics,label.x()-3,label.y()-3,windowX+windowWidth-themes.number("Content Padding")-label.x()+6,label.height()+6,10,0,alpha*.8);
@@ -328,9 +330,9 @@ public final class ClickGui extends Screen {
             sidebar.render(graphics, font, pointerX, pointerY, seconds, alpha);
             pageGear.render(graphics, font, pointerX, pointerY, seconds, alpha);
             double contentAlpha = alpha * pageFade.getValue();
-            if (page == Page.SEARCH || page == Page.APPEARANCE || page == Page.PROFILES || page == Page.FRIENDS) {
+            if (page == Page.SEARCH || settingSearch() || page == Page.PROFILES || page == Page.FRIENDS) {
                 field.render(graphics, font, pointerX, pointerY, seconds, contentAlpha);
-                if (page == Page.SEARCH || page == Page.APPEARANCE) { clearSearch.render(graphics,font,pointerX,pointerY,seconds,contentAlpha); }
+                if (page == Page.SEARCH || settingSearch()) { clearSearch.render(graphics,font,pointerX,pointerY,seconds,contentAlpha); }
             } else {
                 var label = header.label();
                 String title = RenderUtil.ellipsize(font, placeholder(), label.width());
@@ -341,10 +343,10 @@ public final class ClickGui extends Screen {
             Panel panel = getActivePanel();
             if (panel != null) {
                 if (page == Page.SEARCH) { panel.setQuery(field.getValue()); }
-                String help = panel.getVisibleButtons().size() + (Theme.isGerman()?" Module · + Einstellungen · Strg+F Suche":" modules · + Settings · Ctrl+F Search");
+                String help = panel.getVisibleButtons().size() + (Theme.isGerman()?" Module · + Einstellungen · Strg+F Suche":" modules · On/Off toggles · Ctrl+F Search");
                 RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,help,contentBounds.width()/.65),contentBounds.x(),contentBounds.y()+contentBounds.height()-10,.65,Theme.opacity(Theme.SECONDARY,contentAlpha));
                 panel.render(graphics, font, closing ? -1e6 : pointerX, closing ? -1e6 : pointerY, seconds, contentAlpha);
-            } else { if(page==Page.APPEARANCE){themeEditor.setQuery(field.getValue());RenderUtil.text(graphics,font,Theme.isGerman()?"Automatisch gespeichert · Strg+F Suche":"Changes save automatically · Ctrl+F Search",contentBounds.x(),contentBounds.y()+contentBounds.height()-9,.7,Theme.opacity(Theme.SECONDARY,contentAlpha));} renderUtility(graphics, pointerX, pointerY, seconds, contentAlpha); }
+            } else { if(getClientSettingsEditor()!=null){getClientSettingsEditor().editor().setQuery(field.getValue());}if(page==Page.APPEARANCE){themeEditor.setQuery(field.getValue());RenderUtil.text(graphics,font,Theme.isGerman()?"Automatisch gespeichert · Strg+F Suche":"Changes save automatically · Ctrl+F Search",contentBounds.x(),contentBounds.y()+contentBounds.height()-9,.7,Theme.opacity(Theme.SECONDARY,contentAlpha));} renderUtility(graphics, pointerX, pointerY, seconds, contentAlpha); }
             messageTime = Math.max(0, messageTime - seconds); feedback.animateTo(messageTime > 0 ? 1 : 0);
             double notice = feedback.update(seconds);
             if (notice > 0) {
@@ -440,6 +442,7 @@ public final class ClickGui extends Screen {
             maxUtilityScroll = Math.max(0, buttonsHeight + 25 - contentBounds.height());
             utilityScroll.animateTo(Math.max(0, Math.min(maxUtilityScroll, utilityScroll.getTarget())));
             double scroll = utilityScroll.update(seconds);
+            dev.riserecode.ui.component.KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<top?bounds.y()-top:Math.max(0,bounds.y()+bounds.height()-top-contentBounds.height());if(shift!=0){utilityScroll.reset(Math.clamp(utilityScroll.getValue()+shift,0,maxUtilityScroll));}});
             RenderUtil.scissorPush(graphics, left, top, contentBounds.width(), contentBounds.height());
             try {
                 for (int i = 0; i < actions.size(); i++) {
@@ -448,7 +451,7 @@ public final class ClickGui extends Screen {
                 }
                 String hint = page == Page.PROFILES ? "Select a profile to load it." : page == Page.FRIENDS ? "Select a friend to remove them." : "";
                 RenderUtil.text(graphics, font, hint, left + 7, top + buttonsHeight - scroll + 5, 0.8, Theme.opacity(Theme.SECONDARY, alpha));
-            } finally { RenderUtil.scissorPop(graphics); }
+            } finally { RenderUtil.scissorPop(graphics);dev.riserecode.ui.component.KeyboardNavigation.popScrollRegion(); }
         }
     }
     private void card(GuiGraphicsExtractor graphics, double x, double y, double w, double h, String title, String description, double alpha) {
@@ -462,6 +465,7 @@ public final class ClickGui extends Screen {
     private double pointerY(double mouseY) { double center = windowY + windowHeight / 2; return center + (mouseY / canvasScale - center) / windowScale(); }
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        keyboardNavigation.pointerUsed();
         if (closing || opening.getValue() < 0.5) { return true; }
         double x = pointerX(event.x()); double y = pointerY(event.y());
         if(settingsPopup.mouseClicked(x,y,event.button())){return true;}
@@ -473,10 +477,10 @@ public final class ClickGui extends Screen {
         if (event.button()==0 && x>=windowX+windowWidth-12 && x<windowX+windowWidth+3 && y>=windowY+windowHeight-12 && y<windowY+windowHeight+3) {
             resizing=true;resizeStartX=event.x()/canvasScale;resizeStartY=event.y()/canvasScale;resizeWidth=windowWidth;resizeHeight=windowHeight;return true;
         }
-        if ((page == Page.SEARCH || page == Page.APPEARANCE) && clearSearch.mouseClicked(x,y,event.button())) { return true; }
+        if ((page == Page.SEARCH || settingSearch()) && clearSearch.mouseClicked(x,y,event.button())) { return true; }
         if (sidebar.mouseClicked(x, y, event.button())) { return true; }
-        if ((page == Page.SEARCH || page == Page.APPEARANCE || page == Page.PROFILES || page == Page.FRIENDS) && field.mouseClicked(x, y, event.button())) { return true; }
-        if (x >= windowX && x < windowX + 107 && y >= windowY && y < windowY + 39 && event.button() == 0) {
+        if ((page == Page.SEARCH || settingSearch() || page == Page.PROFILES || page == Page.FRIENDS) && field.mouseClicked(x, y, event.button())) { return true; }
+        if (x >= windowX && x < windowX + sidebarWidth() && y >= windowY && y < windowY + 39 && event.button() == 0) {
             dragging = true; dragX = event.x() / canvasScale - windowX; dragY = event.y() / canvasScale - windowY; return true;
         }
         Panel panel = getActivePanel();
@@ -552,7 +556,7 @@ public final class ClickGui extends Screen {
         if (dev.riserecode.ui.component.FocusedInput.key(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard)) { return true; }
         if (closing) { return true; }
         if (event.isEscape()) { onClose(); return true; }
-        if (event.hasControlDown() && event.key() == 70) { if (page == Page.RESOURCES) { resourcesEditor.search().setFocused(true); resourcesEditor.search().selectAll(); } else { if(page!=Page.APPEARANCE){selectPage(Page.SEARCH);} field.setFocused(true); field.selectAll(); } return true; }
+        if (event.hasControlDown() && event.key() == 70) { if (page == Page.RESOURCES) { resourcesEditor.search().setFocused(true); resourcesEditor.search().selectAll(); } else { if(!settingSearch()){selectPage(Page.SEARCH);} field.setFocused(true); field.selectAll(); } return true; }
         if(page==Page.PERFORMANCE&&getClientSettingsEditor().keyPressed(event,minecraft.keyboardHandler::getClipboard,minecraft.keyboardHandler::setClipboard)){return true;}
         if (!dev.riserecode.ui.component.FocusedInput.active() && (event.key()==262 || event.key()==263)) { if(sidebar.isExpanded() != (event.key()==262)){sidebar.toggleExpanded();} return true; }
         if(!dev.riserecode.ui.component.FocusedInput.active()&&(event.key()==268||event.key()==269)&&getActivePanel()!=null){getActivePanel().scrollToBoundary(event.key()==269);return true;}
@@ -576,7 +580,7 @@ public final class ClickGui extends Screen {
     public void toggleVisibility() {
         if (closing) {
             closing = false; opening.animateTo(1);
-            field.setFocused(page == Page.SEARCH || page == Page.APPEARANCE || page == Page.PROFILES || page == Page.FRIENDS);
+            field.setFocused(page == Page.SEARCH || settingSearch() || page == Page.PROFILES || page == Page.FRIENDS);
         } else { onClose(); }
     }
     @Override

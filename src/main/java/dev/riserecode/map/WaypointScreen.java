@@ -48,10 +48,11 @@ public final class WaypointScreen extends Screen {
         maximum=Math.max(0,rows.size()/4*54-(height-78));if(scroll.getValue()>maximum){scroll.reset(maximum);}scroll.animateTo(Math.clamp(scroll.getTarget(),0,maximum));double offset=scroll.update(dt);
         RenderUtil.text(g,font,page<0?"Waypoints · recent deaths":("Death history · page "+(page+1)+" / "+maps.waypoints().archivePages()),12,10,1,Theme.TEXT);
         double bw=(width-24-15)/6.0;for(int i=0;i<toolbar.size();i++){var b=toolbar.get(i);b.setBounds(12+i*(bw+3),27,bw,21);b.render(g,font,mx,my,dt,1);}
+        dev.riserecode.ui.component.KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<56?bounds.y()-56:Math.max(0,bounds.y()+bounds.height()-height+10);if(shift!=0){scroll.reset(Math.clamp(scroll.getValue()+shift,0,maximum));}});
         RenderUtil.scissorPush(g,10,56,width-20,height-66);
         try{for(int i=0;i<rows.size();i++){int row=i/4,col=i%4;var b=rows.get(i);double top=58+row*54-offset,left=col==0?12:12+(col-1)*90;
-            b.setBounds(left,col==0?top:top+24,col==0?width-24:86,21);if(b.getBounds().y()+21>=56&&b.getBounds().y()<height-10){b.render(g,font,mx,my,dt,1);}
-        }}finally{RenderUtil.scissorPop(g);}
+            b.setBounds(left,col==0?top:top+24,col==0?width-24:86,21);if(dev.riserecode.ui.component.KeyboardNavigation.collectingOffscreen()||b.getBounds().y()+21>=56&&b.getBounds().y()<height-10){b.render(g,font,mx,my,dt,1);}
+        }}finally{RenderUtil.scissorPop(g);dev.riserecode.ui.component.KeyboardNavigation.popScrollRegion();}
         } finally { navigation.end(); }
     }
     @Override public boolean mouseClicked(MouseButtonEvent e,boolean twice){for(var b:toolbar){if(b.mouseClicked(e.x(),e.y(),e.button())){return true;}}if(e.y()>=56&&e.y()<height-10){for(var b:List.copyOf(rows)){if(b.mouseClicked(e.x(),e.y(),e.button())){return true;}}}return true;}

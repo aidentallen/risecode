@@ -32,6 +32,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 public final class ModuleButton extends UIComponent {
     public static final double HEADER_HEIGHT = 40;
     private final Object disclosureFocus=new Object();
+    private final Object stateFocus=new Object();
     private void expand(boolean value){expanded=value;if(!expanded){cancelKeyCapture();appearance.unfocus();FocusedInput.commit();mouseReleased(0,0,0);}}
     public record SettingControl(Setting<?> setting, UIComponent component, double height) { }
     private final Module module;
@@ -48,9 +49,7 @@ public final class ModuleButton extends UIComponent {
     private final Animation enabled;
     private final Animation expansion = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.EXPANSION, 0, 0.24, MathUtil.Easing.OUT_QUART);
     private final Animation bodyHeight = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.EXPANSION, 0, 0.2, MathUtil.Easing.OUT_QUART);
-    private long entered=System.nanoTime();
     private double visualScale=1;
-    public void enter(){entered=System.nanoTime();}
     private double localX(double pointer){return x+width/2+(pointer-x-width/2)/visualScale;}
     private double localY(double pointer){return y+height/2+(pointer-y-height/2)/visualScale;}
     @Override public boolean contains(double mx,double my){return super.contains(localX(mx),localY(my));}
@@ -85,6 +84,12 @@ public final class ModuleButton extends UIComponent {
     private static <E extends Enum<E>> UIComponent enumControl(EnumSetting<E> setting, Runnable changed) { return new EnumSelector<>(setting, changed); }
     public Module getModule() { return module; }
     public boolean isExpanded() { return expanded; }
+    private SettingControl searchMatch;
+    public void revealSearchMatch(String query){
+        searchMatch=query.isEmpty()?null:controls.stream().filter(c->c.setting().isVisible()&&java.util.Arrays.stream(query.split("\\s+")).allMatch(word->(c.setting().getName()+" "+Theme.displayName(c.setting().getName())+" "+c.setting().getDescription()).toLowerCase(java.util.Locale.ROOT).contains(word))).findFirst().orElse(null);
+        if(searchMatch!=null){expand(true);}
+    }
+    public Bounds settledSearchMatch(){return searchMatch==null||bodyHeight.isRunning()?null:searchMatch.component().getBounds();}
     public void setShowCategory(boolean value) { showCategory = value; }
     public List<SettingControl> getSettingControls() { return List.copyOf(controls); }
     public KeybindControl getKeybindControl() { return keybind; }
@@ -107,7 +112,7 @@ public final class ModuleButton extends UIComponent {
         }
     }
     private static double controlHeight(SettingControl control) {
-        return control.component() instanceof ColorPicker picker ? picker.getPreferredHeight() : control.height();
+        return SettingMetrics.height(control.component(),control.height());
     }
     public void pointerFocus(double mouseX, double mouseY) {
         mouseX=localX(mouseX);mouseY=localY(mouseY);
@@ -123,14 +128,16 @@ public final class ModuleButton extends UIComponent {
         dev.riserecode.ui.theme.ModuleAppearance.with("",()->renderScoped(graphics,font,mouseX,mouseY,seconds,opacity));
     }
     private void renderScoped(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY, double seconds, double opacity) {
-        double progress=dev.riserecode.ui.animation.PopIn.progress((System.nanoTime()-entered)*1e-9,dev.riserecode.ui.animation.PopIn.windowDuration("Client"));visualScale=dev.riserecode.ui.animation.PopIn.windowScale("Client",progress)*press.scale();
+        visualScale=press.scale();
         graphics.pose().pushMatrix();graphics.pose().translate((float)(x+width/2),(float)(y+height/2));graphics.pose().scale((float)visualScale,(float)visualScale);graphics.pose().translate((float)(-x-width/2),(float)(-y-height/2));
-        try{renderCard(graphics,font,localX(mouseX),localY(mouseY),seconds,opacity*progress);}finally{graphics.pose().popMatrix();}
+        try{renderCard(graphics,font,localX(mouseX),localY(mouseY),seconds,opacity);}finally{graphics.pose().popMatrix();}
     }
     private void renderCard(GuiGraphicsExtractor graphics,Font font,double mouseX,double mouseY,double seconds,double opacity){
         KeyboardNavigation.control(graphics, this, new Bounds(x, y, width-28, HEADER_HEIGHT), opacity,
                 () -> module.getName() + ", module, " + (module.isEnabled() ? "enabled" : "disabled") + ", " + (expanded ? "expanded" : "collapsed"),
-                () -> manager.toggle(module), direction -> expand(direction>0));
+                () -> expand(!expanded), direction -> expand(direction>0));
+        KeyboardNavigation.control(graphics,stateFocus,new Bounds(x+width-40,y+24,36,16),opacity,
+                () -> module.getName()+", toggle, "+(module.isEnabled()?"On":"Off"),()->manager.toggle(module),null);
         KeyboardNavigation.control(graphics,disclosureFocus,new Bounds(x+width-27,y,27,24),opacity,
                 () -> module.getName()+", settings, "+(expanded?"expanded":"collapsed"),()->expand(!expanded),direction->expand(direction>0));
         hover.animateTo(mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + HEADER_HEIGHT ? 1 : 0);
@@ -142,6 +149,7 @@ public final class ModuleButton extends UIComponent {
         String badge = module.classification().label();
         double badgeWidth = RenderUtil.textWidth(font,badge,false)*.62+8;
         RenderUtil.text(graphics,font,expanded ? "−" : "+",x+width-18,y+9,1,Theme.opacity(Theme.TEXT,opacity));
+        RenderUtil.drawRoundedRect(graphics,x+width-38,y+24,33,14,7,Theme.opacity(module.isEnabled()?Theme.accent():Theme.HOVER,opacity*.65));
         RenderUtil.text(graphics,font,module.isEnabled() ? "On" : "Off",x+width-25,y+26,.7,Theme.opacity(Theme.TEXT,opacity));
         RenderUtil.drawRoundedRect(graphics,x+width-badgeWidth-29,y+7,badgeWidth,12,3,Theme.opacity(Theme.HOVER,opacity));
         RenderUtil.text(graphics,font,badge,x+width-badgeWidth-25,y+9,.62,Theme.opacity(Theme.SECONDARY,opacity));
@@ -162,7 +170,7 @@ public final class ModuleButton extends UIComponent {
         RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, mouseX>=x+width-badgeWidth-29 && mouseX<x+width-7 && mouseY>=y+7 && mouseY<y+22 ? module.classification().description() : expanded ? editor.details().get() : module.getDescription(), (width - 45) / 0.8),
                 x + 7, y + 25, Math.min(.8,10/(9*Theme.number("Font Scale",1))), Theme.opacity(Theme.SECONDARY, opacity));
         if(hovered>.9&&mouseY>=y+23&&mouseY<y+HEADER_HEIGHT&&mouseX<x+width-30){
-            graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(module.getDescription()),net.minecraft.network.chat.Component.literal("Click name or On/Off to toggle · + opens settings")),java.util.Optional.empty(),(int)mouseX,(int)mouseY);
+            graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(module.getDescription()),net.minecraft.network.chat.Component.literal("Click card to inspect · On/Off toggles module")),java.util.Optional.empty(),(int)mouseX,(int)mouseY);
         }
         if (height - HEADER_HEIGHT <= 0.1) { return; }
         RenderUtil.scissorPush(graphics, x + 3, y + HEADER_HEIGHT, width - 6, height - HEADER_HEIGHT - 2);
@@ -178,6 +186,7 @@ public final class ModuleButton extends UIComponent {
                 Animation position = positions.get(control.component()); position.animateTo(top);
                 control.component().setBounds(x + 7, y + HEADER_HEIGHT + position.update(seconds), width - 14, controlHeight(control));
                 control.component().render(graphics, font, mouseX, mouseY, seconds, opacity * expansion.getValue());
+                if(control==searchMatch){var match=control.component().getBounds();RenderUtil.drawRoundedBorder(graphics,match.x()-2,match.y(),match.width()+4,match.height(),3,Theme.opacity(Theme.accent(),opacity),.75);}
                 top += controlHeight(control);
             }
             top = renderExtras(false, top, graphics, font, mouseX, mouseY, seconds, opacity*expansion.getValue());
@@ -199,7 +208,7 @@ public final class ModuleButton extends UIComponent {
         if (!super.contains(mouseX, mouseY)||(button!=0&&button!=1)) { return false; }
         if (mouseY < y + HEADER_HEIGHT) {
             press.activate();dev.riserecode.ui.sound.UiSounds.play();
-            if (button == 1 || mouseX >= x + width - 27 && mouseY < y + 24) {
+            if (button == 1 || mouseX < x+width-40 || mouseY < y+24) {
                 expand(!expanded);
             } else if (button == 0) { manager.toggle(module); }
             return true;
