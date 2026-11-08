@@ -15,6 +15,8 @@ import java.util.Map;
 
 /** Complete modern packs, without the old Styles category extraction or legacy texture rewriting. */
 public record ResourceArchive(Map<String, byte[]> files, JsonObject metadata) {
+    /** Includes metadata and inactive overlays: every retained byte consumes this budget. */
+    public static final int MAX_DECODED_BYTES = 128 * 1024 * 1024;
     public ResourceArchive { files = Collections.unmodifiableMap(new LinkedHashMap<>(files)); metadata = metadata.deepCopy(); }
     public static ResourceArchive read(byte[] zip) throws IOException {
         if (zip.length > 128 * 1024 * 1024) { throw new IOException("Pack too large"); }
@@ -51,7 +53,8 @@ public record ResourceArchive(Map<String, byte[]> files, JsonObject metadata) {
             ResourceIo.child(Path.of("pack"), name); position = next;
             if (name.endsWith("/")) { continue; }
             total += length;
-            if (length > 64 * 1024 * 1024 || total > 512L * 1024 * 1024 || buffer.getInt((int) local) != 0x04034b50) { throw new IOException("Invalid or oversized ZIP entry"); }
+            if (total > MAX_DECODED_BYTES) { throw new IOException("Decoded pack exceeds 128 MiB memory budget"); }
+            if (length > 64 * 1024 * 1024 || buffer.getInt((int) local) != 0x04034b50) { throw new IOException("Invalid or oversized ZIP entry"); }
             long payload = local + 30 + Short.toUnsignedInt(buffer.getShort((int) local + 26)) + Short.toUnsignedInt(buffer.getShort((int) local + 28));
             if (payload + compressed > offset || compressed > zip.length) { throw new IOException("Truncated ZIP data"); }
             byte[] bytes;

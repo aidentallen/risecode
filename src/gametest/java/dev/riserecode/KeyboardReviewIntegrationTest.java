@@ -61,6 +61,7 @@ public final class KeyboardReviewIntegrationTest {
         final dev.riserecode.ui.component.KeyboardNavigation navigation=new dev.riserecode.ui.component.KeyboardNavigation();
         ColorProbe(){super(net.minecraft.network.chat.Component.literal("Color keyboard acceptance"));}
         @Override public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g,int mx,int my,float delta){
+            g.fill(0,0,width,height,dev.riserecode.ui.theme.Theme.SURFACE);
             picker.setBounds(20,20,300,picker.getPreferredHeight());navigation.begin();
             try{picker.render(g,font,mx,my,.05,1);}finally{navigation.end();}
         }
@@ -86,7 +87,31 @@ public final class KeyboardReviewIntegrationTest {
         check(visited.size()==dev.riserecode.setting.ColorSetting.Mode.values().length,"Keyboard reaches every color mode");
         colorFocus(context,probe,"Probe, gradient direction");var previous=context.computeOnClient(mc->probe.setting.getDirection());key(context,InputConstants.KEY_RIGHT);
         check(context.computeOnClient(mc->probe.setting.getDirection())!=previous,"Keyboard adjusts gradient direction");context.takeScreenshot("review-color-keyboard");
+        context.runOnClient(mc->{probe.setting.setMode(dev.riserecode.setting.ColorSetting.Mode.SOLID);probe.setting.setSpeed(0);});
+        context.waitTicks(3);colorPixels(context,probe,"solid");
+        context.runOnClient(mc->{probe.setting.setMode(dev.riserecode.setting.ColorSetting.Mode.GRADIENT);probe.setting.setSpacing(1000);probe.setting.setDirection(dev.riserecode.util.ColorUtil.GradientDirection.HORIZONTAL);});
+        context.waitTicks(3);colorPixels(context,probe,"gradient");
         context.runOnClient(mc->mc.gui.setScreen(null));
+    }
+
+    private static void colorPixels(ClientGameTestContext context,ColorProbe probe,String state){
+        var image=new java.util.concurrent.atomic.AtomicReference<com.mojang.blaze3d.platform.NativeImage>();
+        context.runOnClient(mc->net.minecraft.client.Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(),image::set));
+        context.waitFor(mc->image.get()!=null,200);
+        try(var pixels=image.get()){
+            double scale=context.computeOnClient(mc->pixels.getWidth()/(double)mc.getWindow().getGuiScaledWidth());
+            int x=(int)(298*scale),y=(int)(29*scale),actual=pixels.getPixel(x,y);
+            int expected=context.computeOnClient(mc->probe.setting.paint().sample((x+.5)/scale,(y+.5)/scale,0));
+            boolean matches=true;for(int shift:new int[]{0,8,16}){matches&=Math.abs((actual>>shift&255)-(expected>>shift&255))<=3;}
+            check(matches,"State-controlled "+state+" header swatch matches paint: actual="+Integer.toHexString(actual)+", expected="+Integer.toHexString(expected));
+            int bright=0;
+            for(int py=(int)(171*scale);py<(int)(182*scale);py++){for(int px=(int)(22*scale);px<(int)(170*scale);px++){
+                int rgb=pixels.getPixel(px,py);if((rgb>>16&255)>180&&(rgb>>8&255)>180&&(rgb&255)>180){bright++;}
+            }}
+            check(bright>8,"Direction control uses readable active text rather than dim placeholder color, "+state);
+            Client.INSTANCE.getLogger().info("Color visual oracle {} swatch={} expected={} brightDirectionPixels={}",state,Integer.toHexString(actual),Integer.toHexString(expected),bright);
+        }
+        context.takeScreenshot("review-color-"+state+"-verified");
     }
 
     static void type(ClientGameTestContext context,String value) {

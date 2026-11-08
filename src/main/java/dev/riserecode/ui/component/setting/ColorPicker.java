@@ -128,7 +128,7 @@ public final class ColorPicker extends UIComponent {
             dev.riserecode.ui.component.KeyboardNavigation.control(graphics, directionFocus, new Bounds(x,y+148,width,18), alpha,
                     () -> setting.getName() + ", gradient direction, " + setting.getDirection(), this::changeDirection, ignored -> changeDirection());
             RenderUtil.text(graphics, font, "Mode: " + Theme.displayName(setting.getMode().name()), x + 2, y + 132, 0.79, Theme.opacity(Theme.TEXT, alpha));
-            RenderUtil.text(graphics, font, "Direction: " + Theme.displayName(setting.getDirection().name()), x + 2, y + 151, 0.79, Theme.opacity(Theme.SECONDARY, alpha));
+            RenderUtil.text(graphics, font, "Direction: " + Theme.displayName(setting.getDirection().name()), x + 2, y + 151, 0.79, Theme.opacity(Theme.TEXT, alpha));
             speed.setValue(setting.getSpeed()); spacing.setValue(setting.getSpacing());
             speedSlider.setBounds(x, y + 170, width, 22); spacingSlider.setBounds(x, y + 193, width, 22);
             speedSlider.render(graphics, font, mouseX, mouseY, seconds, alpha);

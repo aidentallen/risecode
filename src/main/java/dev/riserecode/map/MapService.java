@@ -131,13 +131,13 @@ public final class MapService implements AutoCloseable {
     }
     private void loadWaypoints(){
         if(worldDirectory==null){return;}long stamp=generation;Path path=worldDirectory.resolve("waypoints.json");
-        submit(()->{JsonObject json=new JsonObject();try{if(Files.isRegularFile(path)){if(Files.size(path)>8*1024*1024){throw new java.io.IOException("Waypoint file exceeds 8 MiB");}json=JsonStorage.read(path);}}catch(Exception e){Client.INSTANCE.getLogger().error("Cannot read waypoints; preserving file",e);return;}JsonObject loaded=json;complete(stamp,()->{if(!waypointsReady){try{waypoints.load(loaded);waypointsReady=true;savedRevision=waypoints.revision();}catch(RuntimeException e){Client.INSTANCE.getLogger().error("Invalid waypoint store; preserving file",e);}}});});
+        submit(()->{JsonObject json;try{json=WaypointFiles.read(path);}catch(Exception e){Client.INSTANCE.getLogger().error("Cannot read waypoints; preserving file",e);return;}JsonObject loaded=json;complete(stamp,()->{if(!waypointsReady){try{waypoints.load(loaded);waypointsReady=true;savedRevision=waypoints.revision();}catch(RuntimeException e){Client.INSTANCE.getLogger().error("Invalid waypoint store; preserving file",e);}}});});
     }
     public void saveWaypoints(){
         if(!waypointsReady||worldDirectory==null||savedRevision==waypoints.revision()||!savingWaypoints.compareAndSet(false,true)){return;}
         var archives=waypoints.pendingArchives();JsonObject snapshot=waypoints.snapshot();Path path=worldDirectory.resolve("waypoints.json");long revision=waypoints.revision(),stamp=generation;
         if(!submit(()->{
-            try{persistWaypoints(path,snapshot,archives);complete(stamp,()->{savedRevision=revision;waypoints.acknowledgeArchives(archives.keySet());});}
+            try{WaypointFiles.write(path,snapshot,archives);complete(stamp,()->{savedRevision=revision;waypoints.acknowledgeArchives(archives.keySet());});}
             catch(Exception e){Client.INSTANCE.getLogger().error("Cannot save waypoints; will retry",e);}
             finally{savingWaypoints.set(false);}
         })){savingWaypoints.set(false);}
@@ -152,13 +152,13 @@ public final class MapService implements AutoCloseable {
                 var deaths = List.copyOf(bufferedDeaths);
                 pendingWorldFlush = new RetainedWrite(() -> {
                     var store = new WaypointStore();
-                    if (Files.isRegularFile(path)) { store.load(JsonStorage.read(path, 8*1024*1024)); }
+                    store.load(WaypointFiles.read(path));
                     for (var death : deaths) { store.death(death.x(), death.y(), death.z(), death.dimension(), death.time()); }
-                    persistWaypoints(path, store.snapshot(), store.pendingArchives());
+                    WaypointFiles.write(path, store.snapshot(), store.pendingArchives());
                 });
             } else {
                 var archives = waypoints.pendingArchives(); var snapshot = waypoints.snapshot();
-                pendingWorldFlush = new RetainedWrite(() -> persistWaypoints(path, snapshot, archives));
+                pendingWorldFlush = new RetainedWrite(() -> WaypointFiles.write(path, snapshot, archives));
             }
         }
         if (pendingWorldFlush.progress(worker)) { pendingWorldFlush = null; reportedFlushFailure = null; return true; }
@@ -169,20 +169,16 @@ public final class MapService implements AutoCloseable {
         }
         return false;
     }
-    private static void persistWaypoints(Path path,JsonObject json,Map<Integer,JsonObject> archives)throws java.io.IOException{
-        for(var archive:archives.entrySet()){JsonStorage.write(path.getParent().resolve("deaths").resolve(archive.getKey()+".json"),archive.getValue());}
-        JsonStorage.write(path,json);
-    }
     private static void write(Path path,JsonObject json){try{JsonStorage.write(path,json);}catch(Exception e){Client.INSTANCE.getLogger().error("Cannot write map data {}",path,e);}}
     public void loadDeathPage(int page,java.util.function.Consumer<List<WaypointStore.Waypoint>> receive){
         if(!ready()||page<0||page>=waypoints.archivePages()){receive.accept(List.of());return;}
         long stamp=generation;Path path=worldDirectory.resolve("deaths").resolve(page+".json");
-        submit(()->{try{WaypointStore history=new WaypointStore();if(Files.size(path)>2*1024*1024){throw new java.io.IOException("Oversized death page");}history.load(JsonStorage.read(path));complete(stamp,()->receive.accept(history.all()));}catch(Exception error){Client.INSTANCE.getLogger().warn("Cannot load death page",error);complete(stamp,()->receive.accept(List.of()));}});
+        submit(()->{try{WaypointStore history=WaypointFiles.readDeathPage(path);complete(stamp,()->receive.accept(history.all()));}catch(Exception error){Client.INSTANCE.getLogger().warn("Cannot load death page",error);complete(stamp,()->receive.accept(List.of()));}});
     }
     public void clearDeaths(){
         if(!ready()){return;}int count=waypoints.archivePages();Path archive=worldDirectory.resolve("deaths");waypoints.clearDeaths();
         JsonObject cleared=waypoints.snapshot();Path index=worldDirectory.resolve("waypoints.json");
-        submit(()->{try{persistWaypoints(index,cleared,Map.of());for(int i=0;i<count;i++){Files.deleteIfExists(archive.resolve(i+".json"));}}catch(java.io.IOException error){Client.INSTANCE.getLogger().warn("Cannot finish clearing death archive; preserving remaining files",error);}});saveWaypoints();
+        submit(()->{try{WaypointFiles.write(index,cleared,Map.of());for(int i=0;i<count;i++){Files.deleteIfExists(archive.resolve(i+".json"));}}catch(java.io.IOException error){Client.INSTANCE.getLogger().warn("Cannot finish clearing death archive; preserving remaining files",error);}});saveWaypoints();
     }
     public WaypointStore.Waypoint addAtPlayer(){if(!ready()||mc.player==null){return null;}var p=mc.player.blockPosition();var result=waypoints.add("Waypoint "+(waypoints.all().size()+1),p.getX(),p.getY(),p.getZ(),dimension);saveWaypoints();return result;}
     private Path file(Key key){return fileAt(worldDirectory,key);}

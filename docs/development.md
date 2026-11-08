@@ -160,7 +160,7 @@ Close completes that result before waiting for client callbacks, cancels tracked
 library work and prevents late commit. A native fixture occupies both work lanes,
 queues Apply and closes it. Local object reads have stream-enforced caps matched
 to their type: resource catalogs 4 MiB, icons 8 MiB, previews 32 MiB, archives
-128 MiB, extracted entries 64 MiB; cosmetics metadata 1 MiB and assets 16 MiB.
+128 MiB compressed and 128 MiB total decoded (including metadata/inactive overlays), extracted entries 64 MiB; cosmetics metadata 1 MiB and assets 16 MiB.
 Repair acquisition is capped too; a growing-file fixture checks the stream bound.
 Glass Page Up/Down uses its settings scroller directly; preview arrows remain
 independent. Native keyboard checks exercise expanded material controls at two
@@ -201,3 +201,17 @@ Disconnect callback alone can precede the last old-world frame.
 Archive tasks omit empty directories as well as normalizing timestamps and order.
 An untracked empty directory left by an asset removal must not make a working
 checkout's JAR differ from a fresh source archive build.
+
+The `resourceMemoryCheck` task inflates a synthetic pack exactly at the 128 MiB
+decoded ceiling and rejects one additional byte. Its dedicated JVM uses a 512 MiB
+heap; Linux runs report process peak RSS from `/proc/self/status` and enforce a
+1.5 GiB ceiling. This measures parser memory, excluding Minecraft/GPU, concurrent
+pack composition, and total Gradle process-tree memory. The synthetic ZIP is
+highly compressible; it is a maximum decoded-size case, not a 128 MiB download.
+
+Map world changes retain waypoint snapshots until the serial IO lane acknowledges
+them. A saturated lane delays the world transition rather than discarding deaths;
+the warning reports the retained state and retries. Shutdown has a two-second
+admission/flush deadline and surfaces errors while prior files remain preserved.
+`WaypointFiles` owns bounded file reads and archive-before-index writes;
+`MapService` owns scheduling, generation checks, snapshots and acknowledgment.
