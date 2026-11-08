@@ -40,6 +40,8 @@
     "FovMixin",
     "CrosshairMixin",
     "ViewModelMixin",
+    "LowFireMixin",
+    "XrayMixin",
     "ChunkIndexMixin",
     "ChunkUnloadMixin",
     "ChunkTerrainMixin",

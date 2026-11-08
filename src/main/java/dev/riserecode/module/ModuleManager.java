@@ -67,6 +67,8 @@ public final class ModuleManager {
         register(new dev.riserecode.module.modules.ZoomModule(eventBus, camera));
         register(new dev.riserecode.module.modules.CrosshairModule(eventBus));
         register(new dev.riserecode.module.modules.ViewModelModule(eventBus));
+        register(new dev.riserecode.module.modules.LowFireModule(eventBus));
+        register(new dev.riserecode.module.modules.XrayModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.StorageEspModule(eventBus, minecraft, blocks));
         register(new dev.riserecode.module.modules.PlayerEspModule(eventBus, minecraft, friends));
         register(new dev.riserecode.module.modules.BlockEspModule(eventBus, minecraft, blocks));
@@ -81,6 +83,7 @@ public final class ModuleManager {
         register(new FullBrightModule(eventBus, minecraft));
         register(new SprintModule(eventBus, minecraft));
         register(new KillAuraModule(eventBus, minecraft, friends, rotations, attacks));
+        register(new dev.riserecode.module.modules.AimLockModule(eventBus, minecraft, friends, rotations));
         register(new dev.riserecode.module.modules.AutoBowModule(eventBus, minecraft, friends, trajectories, rotations));
         register(new TracersModule(eventBus, minecraft, friends));
         register(new NoFallModule(eventBus, minecraft));
