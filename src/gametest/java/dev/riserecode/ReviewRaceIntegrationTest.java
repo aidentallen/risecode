@@ -31,7 +31,7 @@ public final class ReviewRaceIntegrationTest {
     public static void run(ClientGameTestContext context) {
         context.waitFor(mc->Client.INSTANCE.isInitialized()&&Client.INSTANCE.resourcesReady()&&mc.gui.overlay()==null,1200);
         context.runOnClient(mc->Client.INSTANCE.getModuleManager().disableAll());
-        try(var world=context.worldBuilder().create()) {
+        try(var world=context.worldBuilder().adjustSettings(settings->settings.setSeed("456")).create()) {
             world.getConnection().waitForChunksRender();
             var seed=Client.INSTANCE.getModuleManager().getByClass(SeedCrackerModule.class).orElseThrow();
             context.runOnClient(mc->{
@@ -40,6 +40,8 @@ public final class ReviewRaceIntegrationTest {
                 seed.data().addBaseData(Features.DESERT_PYRAMID.at(0,0),dev.riserecode.seedcracker.cracker.DataAddedEvent.POKE_LIFTING);save(seed);
             });awaitSave(seed);context.waitTicks(2);
             var store=(SeedStore)get(seed,"store");var identity=(SeedStore.Identity)get(seed,"identity");Path file=store.path(identity),backup=file.resolveSibling("review-prior.json.bak");
+            resultPersistence(context,seed,store,identity);
+            preparationClose(context);
             try {
                 Files.move(file,backup);Files.createDirectory(file);
                 context.runOnClient(mc->seed.clearData());
@@ -61,6 +63,59 @@ public final class ReviewRaceIntegrationTest {
             clutch(context);
         }
         Client.INSTANCE.getLogger().info("Review race native checks passed ({} assertions)",checks);
+    }
+    private static void invoke(Object owner,String name,Class<?>[] types,Object... args) {
+        try{var method=owner.getClass().getDeclaredMethod(name,types);method.setAccessible(true);method.invoke(owner,args);}
+        catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+    }
+    private static void resultPersistence(ClientGameTestContext context,SeedCrackerModule module,SeedStore store,SeedStore.Identity identity) {
+        context.runOnClient(mc->{
+            var job=new CrackingJob(new CrackingJob.Snapshot(module.data().observations(),java.util.List.of(),identity.hash(),java.util.List.of()),1);
+            set(job,"finalProgress",new CrackingJob.Progress("Complete",1,1,1,java.util.List.of(123L),java.util.List.of(),true,false,"Complete"));
+            set(module,"job",job);set(module,"jobSession",get(module,"session"));set(module,"resultAccepted",false);
+            invoke(module,"acceptResult",new Class<?>[]{});job.close();save(module);
+        });awaitSave(module);context.waitTicks(2);
+        try {check(store.restore(identity).structureSeeds().equals(java.util.List.of(123L)),"Manual result persists after successful same-observation autosave");}
+        catch(java.io.IOException failure){throw new AssertionError(failure);}
+        var blocker=new CountDownLatch(1);var entered=new CountDownLatch(1);
+        context.runOnClient(mc->{
+            var worker=(ThreadPoolExecutor)get(get(module,"archiveWorker"),"worker");
+            worker.execute(()->{entered.countDown();try{blocker.await();}catch(InterruptedException failure){Thread.currentThread().interrupt();}});
+            set(module,"structureSeeds",java.util.List.of(789L));save(module);
+            invoke(module,"acceptLookupResults",new Class<?>[]{java.util.List.class},java.util.List.of(456L));
+        });
+        try{check(entered.await(2,TimeUnit.SECONDS),"Earlier snapshot held behind actual archive worker barrier");}
+        catch(InterruptedException failure){throw new AssertionError(failure);}
+        blocker.countDown();awaitSave(module);context.waitTicks(2);
+        context.runOnClient(mc->save(module));awaitSave(module);context.waitTicks(2);
+        try {check(store.restore(identity).verifiedSeeds().equals(java.util.List.of(456L)),"Earlier acknowledgment cannot hide newer result-only lookup payload");}
+        catch(java.io.IOException failure){throw new AssertionError(failure);}
+        context.runOnClient(mc->{set(module,"structureSeeds",java.util.List.of(1001L));module.setEnabled(false);});
+        try{check(store.restore(identity).structureSeeds().equals(java.util.List.of(1001L)),"Disable flushes latest result without new observations");}
+        catch(java.io.IOException failure){throw new AssertionError(failure);}
+        context.runOnClient(mc->module.setEnabled(true));
+    }
+    private static void preparationClose(ClientGameTestContext context) {
+        var release=new CountDownLatch(1);var entered=new CountDownLatch(2);
+        var manager=context.computeOnClient(mc->{
+            try{return new dev.riserecode.resources.ResourcesManager(Files.createTempDirectory("risecode-prepare-close-"),new dev.riserecode.event.EventBus());}
+            catch(java.io.IOException failure){throw new AssertionError(failure);}
+        });
+        var library=manager.library();
+        var a=library.work(()->{entered.countDown();release.await();return 1;});
+        var b=library.work(()->{entered.countDown();release.await();return 2;});
+        try{check(entered.await(2,TimeUnit.SECONDS),"Both actual resource IO lanes occupied");}
+        catch(InterruptedException failure){throw new AssertionError(failure);}
+        var result=context.computeOnClient(mc->manager.apply(dev.riserecode.resources.ResourcesState.empty()));
+        check(!result.isDone(),"Apply preparation queued behind occupied workers");
+        context.runOnClient(mc->manager.close());
+        check(result.isDone()&&!result.join().success()&&!manager.busy(),"Close terminates admitted Apply before client-loop progress");
+        check(a.isDone()&&b.isDone(),"Close terminates running library futures too");
+        release.countDown();context.waitTicks(2);
+        check(manager.state().equals(dev.riserecode.resources.ResourcesState.empty()),"No late preparation commits after close");
+        check(library.work(()->3).isCompletedExceptionally(),"Post-close executor admission returns terminal failure");
+        try(var paths=Files.walk(library.directory().getParent().getParent())){for(var path:paths.sorted(java.util.Comparator.reverseOrder()).toList()){Files.deleteIfExists(path);}}
+        catch(java.io.IOException failure){throw new AssertionError(failure);}
     }
     @SuppressWarnings("unchecked")
     private static void mapFlushes(ClientGameTestContext context) {

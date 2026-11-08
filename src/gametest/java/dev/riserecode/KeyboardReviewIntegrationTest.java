@@ -120,6 +120,35 @@ public final class KeyboardReviewIntegrationTest {
         }
         throw new AssertionError("Auxiliary keyboard cannot reach "+prefix);
     }
+    private static double number(Object owner,String name) {
+        try{var field=owner.getClass().getDeclaredField(name);field.setAccessible(true);return field.getDouble(owner);}
+        catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+    }
+    private static void revealFocus(ClientGameTestContext context,String prefix) {
+        for(int page=0;page<16;page++) {
+            if(context.computeOnClient(mc->dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen()).labels().stream().anyMatch(label->label.startsWith(prefix)))) {auxiliaryFocus(context,prefix);return;}
+            key(context,InputConstants.KEY_PAGEDOWN);
+        }
+        throw new AssertionError("Cannot reveal "+prefix);
+    }
+    private static void glassScrolling(ClientGameTestContext context) {
+        var glass=Client.INSTANCE.getModuleManager().getByClass(dev.riserecode.module.modules.GlassModule.class).orElseThrow();
+        for(int[] size:new int[][]{{2000,1200},{1280,800}}) {
+            context.getInput().resizeWindow(size[0],size[1]);context.waitTicks(4);
+            var screen=context.computeOnClient(mc->mc.gui.screen());
+            context.runOnClient(mc->((dev.riserecode.ui.component.KeyboardNavigation.PageScrollable)screen).scrollPage(-100));context.waitTicks(3);
+            double zoom=context.computeOnClient(mc->number(screen,"zoom"));
+            revealFocus(context,"Shared color, color,");key(context,InputConstants.KEY_SPACE);context.waitTicks(15);
+            revealFocus(context,"Shared enchantment glint, toggle");
+            boolean before=glass.shared.glint.getValue();key(context,InputConstants.KEY_SPACE);
+            check(glass.shared.glint.getValue()!=before,"Keyboard reaches and edits final expanded material setting at "+size[0]+" pixels");
+            double scroll=context.computeOnClient(mc->number(screen,"scroll"));
+            check(scroll>0&&context.computeOnClient(mc->number(screen,"zoom"))==zoom,"Page navigation moves Glass settings while preview zoom stays unchanged");
+            key(context,InputConstants.KEY_PAGEUP);
+            check(context.computeOnClient(mc->number(screen,"scroll"))<scroll,"Page Up reverses Glass settings scroll");
+        }
+        context.getInput().resizeWindow(2048,1152);context.waitTicks(4);
+    }
     private static void auxiliaryControls(ClientGameTestContext context) {
         var parent=context.computeOnClient(mc->new ColorProbe());
         context.runOnClient(mc->{var glass=Client.INSTANCE.getModuleManager().getByClass(dev.riserecode.module.modules.GlassModule.class).orElseThrow();mc.gui.setScreen(new dev.riserecode.ui.component.GlassEditorScreen(glass,parent));});context.waitTicks(20);
@@ -127,6 +156,7 @@ public final class KeyboardReviewIntegrationTest {
         String previous=context.computeOnClient(mc->dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen()).focusedLabel());
         key(context,InputConstants.KEY_RIGHT);
         check(!previous.equals(context.computeOnClient(mc->dev.riserecode.ui.component.KeyboardNavigation.auxiliary(mc.gui.screen()).focusedLabel())),"Auxiliary preview rotation responds through real keyboard hook");
+        glassScrolling(context);
         auxiliaryFocus(context,"Done, button");key(context,InputConstants.KEY_RETURN);
         context.runOnClient(mc->check(mc.gui.screen()==parent,"Keyboard returns from auxiliary Glass editor"));
         var blocks=new dev.riserecode.setting.BlockListSetting("Probe blocks","",java.util.List.of());

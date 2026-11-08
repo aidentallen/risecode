@@ -27,7 +27,9 @@ public abstract class KeyboardHandlerMixin {
         if (action != 0 && auxiliary != null) {
             if (auxiliary.key(input)) { callback.cancel(); return; }
             if (input.key() == 266 || input.key() == 267) {
-                mc.gui.screen().mouseScrolled(mc.gui.screen().width*.75, mc.gui.screen().height*.5, 0, input.key()==266?8:-8);
+                if (mc.gui.screen() instanceof dev.riserecode.ui.component.KeyboardNavigation.PageScrollable scrollable) {
+                    scrollable.scrollPage(input.key()==266?-1:1);
+                } else { mc.gui.screen().mouseScrolled(mc.gui.screen().width*.75, mc.gui.screen().height*.5, 0, input.key()==266?8:-8); }
                 callback.cancel(); return;
             }
         }

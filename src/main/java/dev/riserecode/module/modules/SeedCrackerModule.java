@@ -52,7 +52,7 @@ public final class SeedCrackerModule extends Module {
     private SeedStore.Identity identity;
     private CrackingJob job;
     private SeedDatabase database;
-    private long databaseRequest, session, jobSession, savedRevision=-1, lastSaveTick;
+    private long databaseRequest, session, jobSession, lastSaveTick;
     private List<Long> structureSeeds=List.of(), verifiedSeeds=List.of();
     private long bitsRevision=-1;
     private double regularBits,liftingBits;
@@ -60,8 +60,8 @@ public final class SeedCrackerModule extends Module {
     private boolean pendingClear;
     private long clearIntent, writeSequence;
     private java.util.concurrent.CompletableFuture<Void> pendingSave;
-    private long queuedRevision = -1, queuedClearIntent = -1;
-    private SeedStore.Identity queuedIdentity;
+    private record Persisted(SeedStore.Saved snapshot, boolean preserveArchive, long clearIntent) { }
+    private Persisted queuedPayload;
     private String message="Enable to collect. Start cracking manually.";
     private boolean resultAccepted, databasePending, restorePending, preserveArchive=true;
 
@@ -119,7 +119,7 @@ public final class SeedCrackerModule extends Module {
         acceptResult(); stop(); save();
         boolean compatible=next!=null && next.equals(identity);
         level=current;
-        if (!compatible) { data.clear(); structureSeeds=List.of(); verifiedSeeds=List.of(); savedRevision=-1; preserveArchive=true; pendingClear=false; clearIntent++; }
+        if (!compatible) { data.clear(); structureSeeds=List.of(); verifiedSeeds=List.of(); preserveArchive=true; pendingClear=false; clearIntent++; }
         identity=next; collection.world(supported()?current:null);
         message=current==null ? "Disconnected. Data saved; use Restore after rejoining." : supported() ?
                 "Collecting. Start an attempt manually; Restore loads matching saved data." : "Flat/debug/custom dimensions are unsupported by native structure rules.";
@@ -157,7 +157,7 @@ public final class SeedCrackerModule extends Module {
         resultAccepted=true;
         if (jobSession!=session || progress.cancelled() || !isEnabled()) { return; }
         if (!progress.message().startsWith("Insufficient data") && !progress.message().startsWith("Cracking failed")) { structureSeeds=progress.structures(); }
-        verifiedSeeds=progress.worlds(); message=progress.message(); savedRevision=-1;
+        verifiedSeeds=progress.worlds(); message=progress.message();
     }
     public void rescan() {
         requireEnabled(); changeWorld(mc.level,false); syncFinders();
@@ -175,7 +175,7 @@ public final class SeedCrackerModule extends Module {
         }
         message="Queued loaded chunks. "+collection.pending()+" finder tasks; no cracking was started.";
     }
-    public void clearData() { requireEnabled(); stop(); data.clear(); structureSeeds=List.of(); verifiedSeeds=List.of(); collection.world(level); preserveArchive=false; pendingClear=true; clearIntent++; savedRevision=-1; save(); message="Data and results cleared for this world."; }
+    public void clearData() { requireEnabled(); stop(); data.clear(); structureSeeds=List.of(); verifiedSeeds=List.of(); collection.world(level); preserveArchive=false; pendingClear=true; clearIntent++; save(); message="Data and results cleared for this world."; }
     public void restore() {
         requireEnabled(); changeWorld(mc.level,false);
         if (identity==null) { message="Join the matching world before Restore."; return; }
@@ -190,28 +190,26 @@ public final class SeedCrackerModule extends Module {
             if (expectedRevision != data.revision()) { message = "Observations changed during Restore; retry to replace them"; return; }
             if (failure != null) { message = "Could not restore data: " + concise(failure); return; }
             data.replace(saved.observations(), saved.pillars()); structureSeeds = saved.structureSeeds(); verifiedSeeds = saved.verifiedSeeds();
-            preserveArchive = false; savedRevision = data.revision();
+            preserveArchive = false;
             message = "Restored " + data.observations().size() + " observations. Start is still manual.";
         }));
     }
     private void save() {
-        if (identity == null || archiveWorker == null || savedRevision == data.revision() && !pendingClear) { return; }
+        if (identity == null || archiveWorker == null) { return; }
         if (data.observations().isEmpty() && data.pillars().isEmpty() && structureSeeds.isEmpty() && verifiedSeeds.isEmpty() && !pendingClear) { return; }
-        if (pendingSave != null && identity.equals(queuedIdentity) && queuedRevision == data.revision() && queuedClearIntent == clearIntent
-                && (!pendingSave.isDone() || !pendingSave.isCompletedExceptionally())) { return; }
         var snapshot = new SeedStore.Saved(1, identity, data.observations(), data.pillars(), structureSeeds, verifiedSeeds);
-        long revision = data.revision();
+        var payload = new Persisted(snapshot, preserveArchive, clearIntent);
+        if (payload.equals(queuedPayload) && pendingSave != null
+                && (!pendingSave.isDone() || !pendingSave.isCompletedExceptionally())) { return; }
         var expectedIdentity = identity;
         long sequence = ++writeSequence, intent = clearIntent;
-        queuedIdentity = identity; queuedRevision = revision; queuedClearIntent = intent;
+        queuedPayload = payload;
         pendingSave = archiveWorker.save(snapshot, preserveArchive);
         pendingSave.whenComplete((ignored, failure) -> mc.execute(() -> {
             if (!expectedIdentity.equals(identity) || sequence != writeSequence) { return; }
             if (failure != null) {
-                if (savedRevision == revision) { savedRevision = -1; }
                 storageError = "Could not save data: " + concise(failure); message = storageError;
             } else {
-                savedRevision = revision;
                 if (clearIntent == intent) { pendingClear = false; }
                 storageError = "";
             }
@@ -233,9 +231,12 @@ public final class SeedCrackerModule extends Module {
             if (!isEnabled() || stamp!=databaseRequest || !databaseLookup.getValue()) { return; }
             databasePending=false;
             if (failure!=null) { message="Database lookup failed: "+concise(failure); return; }
-            if (!seeds.isEmpty()) { verifiedSeeds=seeds; savedRevision=-1; }
+            acceptLookupResults(seeds);
             message=seeds.isEmpty()?"Database returned no hash-verified seed.":"Database world seed verified against the server seed hash.";
         }));
+    }
+    private void acceptLookupResults(List<Long> seeds) {
+        if (!seeds.isEmpty()) { verifiedSeeds = List.copyOf(seeds); }
     }
     public void submit() {
         requireEnabled(); changeWorld(mc.level,false); acceptResult();

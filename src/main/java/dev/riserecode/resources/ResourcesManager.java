@@ -27,6 +27,7 @@ public final class ResourcesManager implements AutoCloseable {
     private volatile boolean busy;
     private String status = "Choose resources, then Apply";
     private Transaction transaction;
+    private CompletableFuture<ApplyResult> activeApply;
     private Path rollbackDirectory;
     private static final class Transaction {
         final Path previous; final List<String> packs; final CompletableFuture<ApplyResult> result; final Consumer<Boolean> commit;
@@ -71,7 +72,7 @@ public final class ResourcesManager implements AutoCloseable {
         var mc = Minecraft.getInstance();
         if (!mc.isSameThread()) { throw new IllegalStateException("Resource selection belongs to the client thread"); }
         if (busy || closed || mc.gui.overlay() != null) { return CompletableFuture.completedFuture(new ApplyResult(false, "Wait for the current resource reload")); }
-        busy = true; status = "Preparing resources offline…"; var result = new CompletableFuture<ApplyResult>();
+        busy = true; status = "Preparing resources offline…"; var result = new CompletableFuture<ApplyResult>(); activeApply = result;
         ResourcesState previous = applied; boolean packChanged = !next.equals(previous) || !ResourcesPackSource.matches(next);
         library.work(() -> {
             var retained = new java.util.HashSet<Path>();
@@ -162,9 +163,10 @@ public final class ResourcesManager implements AutoCloseable {
     public boolean reloadFailed(Throwable failure) {
         return transaction != null && transaction.recovery.fail(failure);
     }
-    private void finish(CompletableFuture<ApplyResult> result,boolean success,String message){busy=false;status=message;result.complete(new ApplyResult(success,message));}
+    private void finish(CompletableFuture<ApplyResult> result,boolean success,String message){if(activeApply==result){activeApply=null;}busy=false;status=message;result.complete(new ApplyResult(success,message));}
     @Override public void close() {
         closed = true;
+        if (activeApply != null) { finish(activeApply, false, "Client stopped"); }
         if (transaction != null) {
             Transaction pending = transaction; transaction = null; pending.recovery.cancel();
             ResourcesPackSource.select(pending.previous); pending.commit.accept(false);

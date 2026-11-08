@@ -45,7 +45,7 @@ public final class ReviewPersistenceChecks {
             Files.writeString(file," ".repeat(100));
             boolean capped = false; try { JsonStorage.read(file,32); } catch (java.io.IOException expected) { capped = true; }
             check(capped,"Local JSON acquisition is bounded before parse");
-            candidateAndAllocation(); recovery();
+            candidateAndAllocation(); recovery(); boundedCaches(directory);
         } finally { completions.poll(); executor.shutdownNow(); executor.awaitTermination(2,TimeUnit.SECONDS); try (var files=Files.walk(directory)) { for(Path path:files.sorted(Comparator.reverseOrder()).toList()){Files.deleteIfExists(path);} } }
         check(RendererCapabilities.resolveMotion(null,null,true), "Vanilla motion supported");
         check(!RendererCapabilities.resolveMotion("unsupported",null,true), "Unsupported Sodium disables shared motion");
@@ -63,6 +63,46 @@ public final class ReviewPersistenceChecks {
             check(dev.riserecode.render.ChunkTerrainRenderer.offset(2,3)==0&&!dev.riserecode.render.ChunkTerrainRenderer.motionActive(),"Unsupported shared capability prevents dependent block-entity offsets");
         } finally {policyField.set(null,previousPolicy);RendererCapabilities.chunkAdapters=previousCapability;}
         System.out.println("Review persistence checks passed ("+checks+" assertions).");
+    }
+    private static void sparse(Path path,long size) throws java.io.IOException {
+        Files.createDirectories(path.getParent());
+        try(var channel=Files.newByteChannel(path,StandardOpenOption.CREATE,StandardOpenOption.WRITE)){channel.position(size-1);channel.write(java.nio.ByteBuffer.wrap(new byte[]{0}));}
+    }
+    private static void boundedCaches(Path directory) throws Exception {
+        Path growing=directory.resolve("growing");Files.write(growing,new byte[8192]);
+        try(var input=new java.io.FilterInputStream(Files.newInputStream(growing)) {
+            boolean appended;
+            @Override public int read(byte[] bytes,int offset,int length) throws java.io.IOException {
+                int count=super.read(bytes,offset,length);
+                if(!appended&&count>0){appended=true;Files.write(growing,new byte[8192],StandardOpenOption.APPEND);}return count;
+            }
+        }) {
+            boolean rejected=false;try{dev.riserecode.util.BoundedInput.read(input,8192);}catch(java.io.IOException expected){rejected=true;}
+            check(rejected,"Growing file cannot bypass stream acquisition cap");
+        }
+        for(String name:List.of("catalog.json","imports.json")) {
+            Path root=directory.resolve(name+"-cache");sparse(root.resolve(name),1_048_577);
+            try(var cosmetics=new dev.riserecode.cosmetics.CosmeticsLibrary(root,(path,limit)->{throw new AssertionError("Unexpected network");})) {
+                check(cosmetics.status().contains("unavailable"),"Oversized cosmetics metadata preserves bundled fallback: "+name);
+            }
+        }
+        Path root=directory.resolve("resources");String revision="a".repeat(64);
+        Files.createDirectories(root);Files.writeString(root.resolve("catalog-pointer.json"),"{\"revision\":\""+revision+"\"}");
+        sparse(root.resolve("revisions").resolve(revision).resolve("catalog.json"),4*1024*1024+1);
+        try(var library=new dev.riserecode.resources.ResourcesLibrary(root,88,0)) {
+            check(library.catalog()==null&&library.progress().phase().contains("unavailable"),"Oversized resource catalog fails before parse with retry status");
+            sparse(root.resolve("objects").resolve(revision),8*1024*1024+1);
+            var read=library.getClass().getDeclaredMethod("read",String.class,int.class);read.setAccessible(true);
+            boolean rejected=false;
+            try{read.invoke(library,revision,8*1024*1024);}catch(java.lang.reflect.InvocationTargetException expected){rejected=expected.getCause() instanceof java.io.IOException;}
+            check(rejected,"Oversized resource thumbnail rejects bounded acquisition");
+            var store=library.getClass().getDeclaredMethod("store",byte[].class);store.setAccessible(true);
+            byte[] valid={1,2,3};String hash=dev.riserecode.resources.ResourceIo.hash(valid);
+            sparse(root.resolve("objects").resolve(hash),100);
+            store.invoke(library,(Object)valid);
+            check(Arrays.equals(Files.readAllBytes(root.resolve("objects").resolve(hash)),valid),"Repair replaces only owned corrupt object atomically");
+        }
+        check(dev.riserecode.util.BoundedInput.read(new java.io.ByteArrayInputStream(new byte[8192]),8192).length==8192,"Exactly maximum sized input remains valid");
     }
     private static void recovery() {
         for (boolean succeed : new boolean[]{true,false}) {

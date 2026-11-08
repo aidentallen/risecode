@@ -13,6 +13,7 @@ import net.minecraft.client.input.KeyEvent;
 
 /** Visible controls register in draw order, using transformed bounds and the active clip. */
 public final class KeyboardNavigation {
+    public interface PageScrollable { void scrollPage(int direction); }
     public interface ManagedScreen { KeyboardNavigation riserecode$keyboardNavigation(); }
     public static KeyboardNavigation auxiliary(net.minecraft.client.gui.screens.Screen screen) {
         if (screen == null || !screen.getClass().getName().startsWith("dev.riserecode.ui.") || screen instanceof dev.riserecode.ui.clickgui.ClickGui) { return null; }

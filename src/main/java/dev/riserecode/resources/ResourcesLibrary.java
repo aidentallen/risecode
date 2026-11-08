@@ -57,8 +57,14 @@ public final class ResourcesLibrary implements AutoCloseable {
     public Path directory() { return root; }
     public ResourceCatalog catalog() { return catalog; }
     public Progress progress() { return new Progress(phase, done.get(), total.get(), bytes.get(), running, paused, ready, failures); }
-    public <T> CompletableFuture<T> work(java.util.concurrent.Callable<T> action) {
-        return CompletableFuture.supplyAsync(() -> { try { return action.call(); } catch (Exception failure) { throw new java.util.concurrent.CompletionException(failure); } }, work);
+    private final java.util.Set<CompletableFuture<?>> workResults = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    public synchronized <T> CompletableFuture<T> work(java.util.concurrent.Callable<T> action) {
+        var result = new CompletableFuture<T>();
+        if (closed) { result.completeExceptionally(new java.util.concurrent.RejectedExecutionException("Resources library closed")); return result; }
+        workResults.add(result); result.whenComplete((value,error)->workResults.remove(result));
+        try { work.execute(()->{if(result.isDone()){return;}try{result.complete(action.call());}catch(Exception failure){result.completeExceptionally(failure);}}); }
+        catch(java.util.concurrent.RejectedExecutionException rejected){result.completeExceptionally(rejected);}
+        return result;
     }
     public synchronized void start(boolean refresh) {
         if (running || closed) { return; }
@@ -109,12 +115,17 @@ public final class ResourcesLibrary implements AutoCloseable {
     private Path object(String hash) { revision(hash); return root.resolve("objects").resolve(hash); }
     private String store(byte[] data) throws IOException {
         String hash = ResourceIo.hash(data); Path path = object(hash);
-        if (!Files.exists(path) || !ResourceIo.hash(Files.readAllBytes(path)).equals(hash)) { ResourceIo.writeBytes(path, data); }
+        if (!Files.exists(path) || !validStoredObject(path, hash, data.length)) { ResourceIo.writeBytes(path, data); }
         return hash;
     }
-    private byte[] read(String hash) throws IOException {
+    private static boolean validStoredObject(Path path, String hash, int limit) {
+        try { return ResourceIo.hash(dev.riserecode.util.BoundedInput.read(path, limit)).equals(hash); }
+        catch(IOException invalid){return false;}
+    }
+    private byte[] read(String hash) throws IOException { return read(hash, 64*1024*1024); }
+    private byte[] read(String hash, int limit) throws IOException {
         try {
-            byte[] data = Files.readAllBytes(object(hash));
+            byte[] data = dev.riserecode.util.BoundedInput.read(object(hash), limit);
             if (!ResourceIo.hash(data).equals(hash)) { throw new IOException("Cached resource checksum mismatch"); }
             return data;
         } catch (IOException unavailable) {
@@ -124,7 +135,7 @@ public final class ResourcesLibrary implements AutoCloseable {
     }
     public synchronized ResourceCatalog catalog(String revision) throws IOException {
         revision(revision); ResourceCatalog value = catalogs.get(revision); if (value != null) { return value; }
-        value = ResourceCatalog.read(Files.readAllBytes(revisionPath(revision).resolve("catalog.json")));
+        value = ResourceCatalog.read(dev.riserecode.util.BoundedInput.read(revisionPath(revision).resolve("catalog.json"), 4*1024*1024));
         if (!value.revision().equals(revision)) { throw new IOException("Catalog checksum mismatch"); }
         catalogs.put(revision, value); return value;
     }
@@ -132,17 +143,17 @@ public final class ResourcesLibrary implements AutoCloseable {
         ResourceCatalog current = catalog; if (current == null) { throw new IOException("Catalog unavailable"); }
         String hash = reference(current.revision(), "icons", entry.id());
         if (hash == null) { throw new IOException("Thumbnail is not cached yet"); }
-        read(hash); return object(hash);
+        read(hash,8*1024*1024); return object(hash);
     }
     public byte[] thumbnail(ResourceEntry entry, boolean large) throws IOException {
         ResourceCatalog current = catalog; if (current == null) { throw new IOException("Catalog unavailable"); }
         String hash = reference(current.revision(), large ? "previews" : "icons", entry.id());
         if (hash == null) { throw new IOException("Image is not cached yet"); }
-        byte[] raw = read(hash);
+        byte[] raw = read(hash,large?32*1024*1024:8*1024*1024);
         if (large && webp(raw)) {
             String icon = reference(current.revision(), "icons", entry.id());
             if (icon == null) { throw new IOException("Thumbnail not cached"); }
-            return read(icon);
+            return read(icon,8*1024*1024);
         }
         return large ? thumbnail(raw) : raw;
     }
@@ -170,7 +181,7 @@ public final class ResourcesLibrary implements AutoCloseable {
     public ResourceArchive archive(String revision, String key) throws IOException {
         String hash = reference(revision, "archives", key);
         if (hash == null) { throw new IOException("Missing offline resource · Resume the full cache download"); }
-        return ResourceArchive.read(read(hash));
+        return ResourceArchive.read(read(hash,128*1024*1024));
     }
     private ResourceArchive ensure(ResourceCatalog source, String key, List<String> ids, long token) throws IOException, InterruptedException {
         check(token);
@@ -192,13 +203,13 @@ public final class ResourcesLibrary implements AutoCloseable {
     }
     private void ensureIcon(ResourceCatalog source, ResourceEntry entry, long token) throws IOException, InterruptedException {
         check(token); String hash = reference(source.revision(), "icons", entry.id());
-        try { if (hash != null) { validateImage(read(hash)); return; } } catch (IOException | RuntimeException invalid) { /* Repair only this cached image. */ }
+        try { if (hash != null) { validateImage(read(hash,8*1024*1024)); return; } } catch (IOException | RuntimeException invalid) { /* Repair only this cached image. */ }
         byte[] raw = provider.icon(entry); check(token); validateImage(raw);
         remember(source.revision(), "icons", entry.id(), store(raw)); bytes.addAndGet(raw.length);
     }
     private void ensurePreview(ResourceCatalog source, ResourceEntry entry, long token) throws IOException, InterruptedException {
         check(token); String hash = reference(source.revision(), "previews", entry.id());
-        try { if (hash != null) { validatePreview(read(hash)); return; } } catch (IOException | RuntimeException invalid) { /* Repair this preview. */ }
+        try { if (hash != null) { validatePreview(read(hash,32*1024*1024)); return; } } catch (IOException | RuntimeException invalid) { /* Repair this preview. */ }
         byte[] raw = provider.preview(entry); check(token); validatePreview(raw);
         remember(source.revision(), "previews", entry.id(), store(raw)); bytes.addAndGet(raw.length);
     }
@@ -418,5 +429,5 @@ public final class ResourcesLibrary implements AutoCloseable {
     }
     private void fail(String value) { if (failures.size() < 50) { failures.add(value); } }
     public static String message(Throwable failure) { while (failure.getCause() != null) { failure = failure.getCause(); } return failure.getMessage() == null ? failure.toString() : failure.getMessage(); }
-    @Override public void close() { closed = true; cancel(); coordinator.shutdownNow(); downloads.shutdownNow(); work.shutdownNow(); provider.close(); }
+    @Override public synchronized void close() { closed = true; for(var result:java.util.List.copyOf(workResults)){result.cancel(true);} cancel(); coordinator.shutdownNow(); downloads.shutdownNow(); work.shutdownNow(); provider.close(); }
 }

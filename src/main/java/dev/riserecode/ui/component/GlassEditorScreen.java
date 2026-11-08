@@ -19,7 +19,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /** Themed, live material editor using normal RiseCode color pickers and numeric inputs. */
-public final class GlassEditorScreen extends Screen {
+public final class GlassEditorScreen extends Screen implements KeyboardNavigation.PageScrollable {
     private record Row(Setting<?> setting,UIComponent control) { }
     private record Section(SettingsSection header,List<Row> rows) { }
     private final GlassModule module;
@@ -150,6 +150,7 @@ public final class GlassEditorScreen extends Screen {
     @Override public boolean mouseDragged(MouseButtonEvent e,double dx,double dy){if(rotating){rotation+=dx*.8;tilt=Math.clamp(tilt+dy*.4,-35,35);return true;}return captured!=null&&captured.mouseDragged(e.x(),e.y(),e.button());}
     @Override public boolean mouseReleased(MouseButtonEvent e){boolean result=rotating||captured!=null;release();done.mouseReleased(e.x(),e.y(),e.button());reset.mouseReleased(e.x(),e.y(),e.button());return result;}
     private void release(){rotating=false;if(captured!=null){captured.mouseReleased(0,0,0);captured=null;}}
+    @Override public void scrollPage(int direction){FocusedInput.commit();scroll=Math.clamp(scroll+direction*Math.max(40,panelHeight*.8),0,maxScroll);}
     @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){if(previewContains(x,y)){zoom=Math.clamp(zoom+vertical*.08,.5,1.6);return true;}if(x>=panelX&&x<panelX+panelWidth){scroll=Math.clamp(scroll-vertical*30,0,maxScroll);FocusedInput.commit();return true;}return false;}
     @Override public boolean charTyped(CharacterEvent e){return FocusedInput.character(e);}
     @Override public boolean keyPressed(KeyEvent e){if(FocusedInput.key(e,()->minecraft.keyboardHandler.getClipboard(),v->minecraft.keyboardHandler.setClipboard(v)))return true;return super.keyPressed(e);}

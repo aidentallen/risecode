@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import time
-from release_provenance import source_identity as identify_source
+from release_provenance import source_identity as identify_source, license_inventory
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -65,7 +65,7 @@ def main():
     if not artifacts: raise SystemExit('No release artifacts built')
     report = dict(format=1, status='passed', source=before, dependenciesSha256=sha(ROOT/'dependencies/manifest.json'),
                   java=subprocess.check_output(['java', '-version'], stderr=subprocess.STDOUT, text=True).strip(),
-                  tasks=tasks, artifacts=artifacts, nativeRuntime='not executed by this command')
+                  tasks=tasks, artifacts=artifacts, licenseInventory={str(path.relative_to(ROOT)): license_inventory(ROOT,path) for path in built}, nativeRuntime='not executed by this command')
     if args.package:
         target = output / 'source.zip'
         subprocess.run(['git', 'archive', '--format=zip', '--prefix=risecode/', '--output='+str(target), before['commit']], cwd=ROOT, check=True)

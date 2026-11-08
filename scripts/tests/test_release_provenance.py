@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('provenance', Path(__file__).resolve().parents[1]/'release_provenance.py')
@@ -12,6 +13,21 @@ spec.loader.exec_module(provenance)
 
 
 class ProvenanceChecks(unittest.TestCase):
+    def test_packaged_attribution_must_match_checked_in_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md', 'credits.txt'): (root/name).write_text(name)
+            artifact = root/'mod.jar'
+            entries = {'licenses/risecode-MIT.txt': 'LICENSE', 'licenses/THIRD_PARTY_NOTICES.md': 'THIRD_PARTY_NOTICES.md', 'licenses/credits.txt': 'credits.txt'}
+            for mode in ('valid', 'missing', 'changed'):
+                with zipfile.ZipFile(artifact, 'w') as archive:
+                    for target, local in entries.items():
+                        if mode == 'missing' and local == 'LICENSE': continue
+                        archive.writestr(target, 'altered' if mode == 'changed' and local == 'LICENSE' else local)
+                if mode == 'valid': self.assertEqual(len(provenance.license_inventory(root, artifact)), 3)
+                else:
+                    with self.assertRaises(RuntimeError): provenance.license_inventory(root, artifact)
+
     def test_failed_verification_keeps_actual_exit_and_log_digest(self):
         import subprocess
         import sys

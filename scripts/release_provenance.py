@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import zipfile
 
 
 def source_identity(root):
@@ -35,3 +36,27 @@ def verified_source(root, artifact, receipt=None):
         log = receipt.parent / (name+'.log')
         if task['logSha256'] != hashlib.sha256(log.read_bytes()).hexdigest(): raise RuntimeError('Verification log changed: '+name)
     return identity
+
+
+def license_inventory(root, artifact):
+    """Require byte-identical checked-in attribution in each generated current JAR."""
+    expected = {}
+    for base in (root / 'licenses', root / 'src/main/resources/licenses'):
+        if base.is_dir():
+            for path in base.rglob('*'):
+                if path.is_file(): expected['licenses/' + path.relative_to(base).as_posix()] = path.read_bytes()
+    resources = root / 'src/main/resources'
+    cosmetics = resources / 'assets/riserecode/cosmetics'
+    if cosmetics.is_dir():
+        for path in cosmetics.glob('*LICENSE*'): expected[path.relative_to(resources).as_posix()] = path.read_bytes()
+    source = artifact.name.endswith('-sources.jar')
+    for local, binary in [('LICENSE', 'licenses/risecode-MIT.txt'), ('THIRD_PARTY_NOTICES.md', 'licenses/THIRD_PARTY_NOTICES.md'), ('credits.txt', 'licenses/credits.txt')]:
+        expected[local if source else binary] = (root/local).read_bytes()
+    inventory = {}
+    with zipfile.ZipFile(artifact) as archive:
+        for name, content in sorted(expected.items()):
+            try: actual = archive.read(name)
+            except KeyError as missing: raise RuntimeError('Missing packaged attribution: ' + name) from missing
+            if actual != content: raise RuntimeError('Changed packaged attribution: ' + name)
+            inventory[name] = hashlib.sha256(actual).hexdigest()
+    return inventory

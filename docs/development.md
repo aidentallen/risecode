@@ -1,6 +1,6 @@
 # Development
 
-[Home](../README.md) · [Documentation](README.md) · [Release history](releases/README.md)
+[Home](../README.md) · [Documentation](README.md) · [Release history](releases/README.md) · [Verification](verification.md)
 
 ## Build
 
@@ -144,3 +144,24 @@ Risecode's dedicated overlay path keeps those lines outside the pack shader.
 The warnings remain visible. This evidence does not establish every shader,
 line width, shadow pass, armor/held-item surface, scaling or BBE ownership case.
 Record the exact unchanged JAR and log/image hashes for a final release matrix.
+
+### Persistence and shutdown regression coverage
+
+Seed archive coalescing compares the complete immutable saved payload (observations,
+pillars, structure/world results, identity, preservation policy and clear intent).
+A result-only change therefore stays eligible for a write even when observations
+are unchanged; an older completion cannot acknowledge a newer payload. Native
+fixtures inject completed manual/lookup results and hold an earlier write behind
+an actual worker barrier. These tests validate persistence, not cracking accuracy
+or remote lookup availability.
+
+Resources owns Apply completion from admission, including queued preparation.
+Close completes that result before waiting for client callbacks, cancels tracked
+library work and prevents late commit. A native fixture occupies both work lanes,
+queues Apply and closes it. Local object reads have stream-enforced caps matched
+to their type: resource catalogs 4 MiB, icons 8 MiB, previews 32 MiB, archives
+128 MiB, extracted entries 64 MiB; cosmetics metadata 1 MiB and assets 16 MiB.
+Repair acquisition is capped too; a growing-file fixture checks the stream bound.
+Glass Page Up/Down uses its settings scroller directly; preview arrows remain
+independent. Native keyboard checks exercise expanded material controls at two
+window sizes.

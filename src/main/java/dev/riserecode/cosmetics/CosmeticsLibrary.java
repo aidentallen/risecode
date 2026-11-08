@@ -30,11 +30,11 @@ public final class CosmeticsLibrary implements AutoCloseable {
         this.root=root.toAbsolutePath().normalize();this.fetcher=fetcher;
         try{definitions=parse(bundled("index.json"));
             for(var d:definitions){if(CosmeticsLibrary.class.getResource("/assets/riserecode/cosmetics/"+d.asset())!=null){bundledDigests.put(d.asset(),d.sha256());}}
-            try{if(Files.exists(child("catalog.json"))){definitions=merge(definitions,parse(Files.readAllBytes(child("catalog.json"))));}loadImports();}
+            try{if(Files.exists(child("catalog.json"))){definitions=merge(definitions,parse(dev.riserecode.util.BoundedInput.read(child("catalog.json"),1_048_576)));}loadImports();}
             catch(IOException|RuntimeException invalid){status="Cached catalog unavailable · using bundled collection";}}
         catch(IOException e){throw new IllegalStateException("Cosmetics catalog unavailable",e);}
     }
-    private void loadImports()throws IOException{Path p=child("imports.json");if(Files.exists(p)){try{definitions=merge(definitions,parse(Files.readAllBytes(p)));}catch(RuntimeException invalid){status="Import metadata unavailable";}}}
+    private void loadImports()throws IOException{Path p=child("imports.json");if(Files.exists(p)){try{definitions=merge(definitions,parse(dev.riserecode.util.BoundedInput.read(p,1_048_576)));}catch(RuntimeException invalid){status="Import metadata unavailable";}}}
     public List<CosmeticDefinition> definitions(){return definitions;}
     private volatile List<CosmeticDefinition> indexedDefinitions;
     private Map<String,CosmeticDefinition> byId=Map.of();
@@ -56,7 +56,7 @@ public final class CosmeticsLibrary implements AutoCloseable {
     public boolean available(CosmeticDefinition d){if(d==null){return false;}if(d.asset().equals("none")){return true;}
         try { return d.sha256().equals(bundledDigests.get(d.asset()))||Files.isRegularFile(child(d.asset())); } catch (IOException invalid) { return false; }}
     public byte[] read(CosmeticDefinition d)throws IOException{
-        byte[] bytes;if(d.sha256().equals(bundledDigests.get(d.asset()))){bytes=bundled(d.asset());}else{Path path=child(d.asset());if(Files.size(path)>16_777_216){throw new IOException("Asset size limit");}bytes=Files.readAllBytes(path);}
+        byte[] bytes;if(d.sha256().equals(bundledDigests.get(d.asset()))){bytes=bundled(d.asset());}else{Path path=child(d.asset());bytes=dev.riserecode.util.BoundedInput.read(path,16_777_216);}
         if(bytes.length!=d.bytes()||!hash(bytes).equals(d.sha256())){throw new IOException("Cosmetic checksum mismatch");}return bytes;
     }
     public synchronized void refresh(){start(token->{byte[] data=fetcher.get("index.json",1_048_576);var next=parse(data);synchronized(this){check(token);atomic(child("catalog.json"),data);definitions=merge(definitions,next);status="Catalog updated";}});}
@@ -83,7 +83,7 @@ public final class CosmeticsLibrary implements AutoCloseable {
     }
     public static void atomic(Path path,byte[] bytes)throws IOException{Files.createDirectories(path.getParent());Path tmp=Files.createTempFile(path.getParent(),"cosmetic-",".tmp");try{Files.write(tmp,bytes);Files.move(tmp,path,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);}finally{Files.deleteIfExists(tmp);}}
     public CompletableFuture<CosmeticDefinition> importCape(Path path){return CompletableFuture.supplyAsync(()->{try{
-        if(Files.size(path)>16_777_216){throw new IOException("Cape must be below 16 MiB");}byte[] bytes=Files.readAllBytes(path);CosmeticModel.png(bytes,2048);var header=java.nio.ByteBuffer.wrap(bytes);int w=header.getInt(16),h=header.getInt(20);
+        byte[] bytes=dev.riserecode.util.BoundedInput.read(path,16_777_216);CosmeticModel.png(bytes,2048);var header=java.nio.ByteBuffer.wrap(bytes);int w=header.getInt(16),h=header.getInt(20);
         if(w<64||w%64!=0||h!=w/2){throw new IOException("Use a 64×32 cape or an integer-scaled equivalent");}
         // Decode before committing the import; a valid header alone is insufficient.
         var image=javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes));if(image==null||image.getWidth()!=w||image.getHeight()!=h){throw new IOException("Invalid cape PNG");}
