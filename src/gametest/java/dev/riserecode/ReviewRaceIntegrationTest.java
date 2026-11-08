@@ -57,6 +57,7 @@ public final class ReviewRaceIntegrationTest {
                 check(store.restore(identity).observations().isEmpty(),"Disable retries rejected empty clear and flushes it");
             } catch(java.io.IOException failure){throw new AssertionError(failure);}
             finally { try{if(Files.exists(backup)){if(Files.isDirectory(file)){Files.delete(file);}Files.move(backup,file,StandardCopyOption.REPLACE_EXISTING);}}catch(java.io.IOException failure){throw new AssertionError(failure);} }
+            seedDisable(context);
             mapFlushes(context);
             staleCandidates(context);
             denseCandidates(context);
@@ -67,6 +68,71 @@ public final class ReviewRaceIntegrationTest {
     private static void invoke(Object owner,String name,Class<?>[] types,Object... args) {
         try{var method=owner.getClass().getDeclaredMethod(name,types);method.setAccessible(true);method.invoke(owner,args);}
         catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+    }
+    private static void seedDisable(ClientGameTestContext context) {
+        // Separate bus makes subscription ownership observable without unrelated client listeners.
+        var bus=new dev.riserecode.event.EventBus();
+        var module=context.computeOnClient(mc->new SeedCrackerModule(bus,mc));
+        var archiveGate=new CountDownLatch(1);var archiveEntered=new CountDownLatch(1);
+        var authGate=new CountDownLatch(1);var authEntered=new CountDownLatch(1);
+        var jobEntered=new CountDownLatch(1);
+        var database=new SeedDatabase(java.net.URI.create("http://127.0.0.1:1/lookup"),java.net.URI.create("http://127.0.0.1:1/submit"));
+        var request=database.submit(java.util.Map.of(),()->{
+            authEntered.countDown();try{authGate.await();}catch(InterruptedException stopped){Thread.currentThread().interrupt();}
+        });
+        var archive=new java.util.concurrent.atomic.AtomicReference<SeedArchiveWorker>();
+        var attempt=new java.util.concurrent.atomic.AtomicReference<CrackingJob>();
+        try {
+            check(authEntered.await(2,TimeUnit.SECONDS),"Disable fixture owns pending database authentication without network IO");
+            context.runOnClient(mc->{
+                module.setEnabled(true);check(bus.getListenerCount()==5,"Enabled SeedCracker owns five bus subscriptions");
+                for(var setting:module.getSettings()){if(setting instanceof dev.riserecode.setting.BooleanSetting bool&&setting.getName().startsWith("Find ")){bool.setValue(false);}}
+                module.data().addBaseData(Features.DESERT_PYRAMID.at(3,4),dev.riserecode.seedcracker.cracker.DataAddedEvent.POKE_LIFTING);
+                archive.set((SeedArchiveWorker)get(module,"archiveWorker"));
+                var lane=(ThreadPoolExecutor)get(archive.get(),"worker");
+                lane.execute(()->{archiveEntered.countDown();try{archiveGate.await();}catch(InterruptedException stopped){Thread.currentThread().interrupt();}});
+                save(module); // Actual final snapshot must drain after shutdown begins.
+                var observations=java.util.stream.IntStream.range(0,12).mapToObj(i->new Observation(Features.DESERT_PYRAMID.getName(),i*32,0)).toList();
+                var pillars=new dev.riserecode.seedcracker.cracker.PillarData(java.util.List.of()).getPillarHeights(17);
+                var job=new CrackingJob(new CrackingJob.Snapshot(observations,pillars,0,java.util.List.of()),1);
+                ((ThreadPoolExecutor)get(job,"pool")).execute(()->{jobEntered.countDown();try{new CountDownLatch(1).await();}catch(InterruptedException stopped){Thread.currentThread().interrupt();}});
+                attempt.set(job);set(module,"job",job);set(module,"jobSession",get(module,"session"));job.start();
+                set(module,"database",database);set(module,"databasePending",true);
+            });
+            check(archiveEntered.await(2,TimeUnit.SECONDS)&&jobEntered.await(2,TimeUnit.SECONDS),"Actual archive and cracking worker lanes are occupied before disable");
+            var identity=(SeedStore.Identity)get(module,"identity");var store=(SeedStore)get(module,"store");
+            var expected=module.data().observations();
+            var release=Thread.ofPlatform().start(()->{
+                var lane=(ThreadPoolExecutor)get(archive.get(),"worker");long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);
+                while(!lane.isShutdown()&&System.nanoTime()<deadline){java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);}
+                archiveGate.countDown();
+            });
+            context.runOnClient(mc->{
+                check(!attempt.get().progress().complete(),"Disable interrupts an active cracking attempt rather than an already completed job");
+                module.setEnabled(false);
+                check(bus.getListenerCount()==0,"Disable releases every SeedCracker bus subscription");
+                check(get(module,"database")==null&&!(boolean)get(module,"databasePending"),"Disable drops database ownership and pending state");
+                check(module.data().observations().isEmpty()&&get(module,"identity")==null&&get(module,"level")==null,"Disable releases world, identity and observations");
+                check(((CollectionQueue)get(module,"collection")).pending()==0,"Disable clears collection work");
+                boolean unbound=false;try{SeedCracker.get();}catch(IllegalStateException disabled){unbound=true;}
+                check(unbound,"Disable removes scoped finder bridge");
+                bus.post(new dev.riserecode.event.UpdateEvent(mc,500));
+                check(get(module,"identity")==null,"Disabled module ignores subsequent bus updates");
+            });
+            release.join(6000);check(!release.isAlive()&&archive.get().terminated(),"Disable drains final archive and terminates its actual executor");
+            check(store.restore(identity).observations().equals(expected),"Final archive remains restorable after module disable");
+            long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);
+            while(!attempt.get().terminated()&&System.nanoTime()<deadline){Thread.sleep(1);}
+            check(attempt.get().terminated()&&attempt.get().progress().cancelled(),"Disable cancels and terminates cracking coordinator and pool");
+            check(request.isDone()&&request.isCompletedExceptionally()&&database.pendingRequests()==0,"Disable terminates admitted database request");
+            check(((ExecutorService)get(database,"executor")).awaitTermination(2,TimeUnit.SECONDS),"Disable terminates database authentication workers");
+            context.waitTicks(2);
+            context.runOnClient(mc->{module.setEnabled(true);check(module.data().observations().isEmpty(),"Re-enable never accepts old results or implicitly restores archive");module.setEnabled(false);check(bus.getListenerCount()==0,"Repeated disable retains no subscriptions");});
+        } catch(Exception failure){throw new AssertionError("SeedCracker module disable lifecycle",failure);}
+        finally {
+            archiveGate.countDown();authGate.countDown();database.close();if(attempt.get()!=null){attempt.get().close();}
+            context.runOnClient(mc->{if(module.isEnabled()){module.setEnabled(false);}});
+        }
     }
     private static void resultPersistence(ClientGameTestContext context,SeedCrackerModule module,SeedStore store,SeedStore.Identity identity) {
         context.runOnClient(mc->{
