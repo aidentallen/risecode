@@ -476,12 +476,12 @@ public final class ClickGui extends Screen {
     private double pageShift() { return (1 - pageFade.getValue()) * 5 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.NAVIGATION); }
     private double windowScale() { return dev.riserecode.ui.animation.PopIn.windowScale("Client",opening.getValue()); }
     private double lastHelpX=Double.NaN,lastHelpY;
-    @Override public void mouseMoved(double x,double y){if(Double.isNaN(lastHelpX)||Math.hypot(x-lastHelpX,y-lastHelpY)>.5){keyboardNavigation.pointerUsed();}lastHelpX=x;lastHelpY=y;super.mouseMoved(x,y);}
+    @Override public void mouseMoved(double x,double y){if(Double.isNaN(lastHelpX)||Math.hypot(x-lastHelpX,y-lastHelpY)>.5){keyboardNavigation.pointerMoved();}lastHelpX=x;lastHelpY=y;super.mouseMoved(x,y);}
     private double pointerX(double mouseX) { double center = windowX + windowWidth / 2; return center + (mouseX / canvasScale - center) / windowScale(); }
     private double pointerY(double mouseY) { double center = windowY + windowHeight / 2; return center + (mouseY / canvasScale - center) / windowScale(); }
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        keyboardNavigation.pointerUsed();
+        keyboardNavigation.pointerPressed(event.x(),event.y());
         if (closing || opening.getValue() < 0.5) { return true; }
         double x = pointerX(event.x()); double y = pointerY(event.y());
         if(noticeButton.mouseClicked(x,y,event.button())){return true;}

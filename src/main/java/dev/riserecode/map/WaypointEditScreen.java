@@ -13,7 +13,7 @@ public final class WaypointEditScreen extends Screen {
     private static final List<String> LABELS=List.of("Name","X","Y","Z","Dimension","Group","Color");
     private List<dev.riserecode.ui.menu.EditBoxDraft> drafts=List.of();
     private int focused=-1,validationOwner=-1;
-    private Button saveButton,cancelButton,dimensionButton,colorButton;
+    private Button saveButton,cancelButton,dimensionButton,colorButton,fullDimensionButton,fullColorButton;
     private enum DimensionChoice {
         OVERWORLD("minecraft:overworld"), NETHER("minecraft:the_nether"), THE_END("minecraft:the_end"), CUSTOM_ID("");
         final String id;DimensionChoice(String id){this.id=id;}
@@ -22,7 +22,7 @@ public final class WaypointEditScreen extends Screen {
         MINT("64D8C4"), BLUE("64A8FF"), RED("FF6B6B"), GOLD("FFD166"), PURPLE("C792EA"), WHITE("FFFFFF"), CUSTOM_HEX("");
         final String hex;ColorChoice(String hex){this.hex=hex;}
     }
-    private void captureDrafts(){if(fields.isEmpty()){return;}focused=fields.indexOf(getFocused());if(getFocused()==saveButton){focused=7;}else if(getFocused()==cancelButton){focused=8;}else if(getFocused()==dimensionButton){focused=9;}else if(getFocused()==colorButton){focused=10;}drafts=fields.stream().map(dev.riserecode.ui.menu.EditBoxDraft::capture).toList();}
+    private void captureDrafts(){if(fields.isEmpty()){return;}focused=fields.indexOf(getFocused());if(getFocused()==saveButton){focused=7;}else if(getFocused()==cancelButton){focused=8;}else if(getFocused()==dimensionButton){focused=9;}else if(getFocused()==colorButton){focused=10;}else if(getFocused()==fullDimensionButton){focused=11;}else if(getFocused()==fullColorButton){focused=12;}drafts=fields.stream().map(dev.riserecode.ui.menu.EditBoxDraft::capture).toList();}
     @Override public void removed(){captureDrafts();}
     private String choiceCaption(int index,String value){
         if(index==4){return Arrays.stream(DimensionChoice.values()).filter(v->v!=DimensionChoice.CUSTOM_ID&&v.id.equals(value)).map(v->dev.riserecode.ui.theme.Theme.displayName(v.name())+" ›").findFirst().orElse("Worlds ›");}
@@ -30,23 +30,29 @@ public final class WaypointEditScreen extends Screen {
     }
     private void chooseDimension(){captureDrafts();focused=9;var selected=Arrays.stream(DimensionChoice.values()).filter(v->v.id.equals(fields.get(4).getValue())).findFirst().orElse(null);minecraft.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(this,"Choose dimension",List.of(DimensionChoice.values()),selected,v->{if(v==DimensionChoice.CUSTOM_ID){editAdvanced(4);}else{applyChoice(4,v.id);}}).afterReturn());}
     private void chooseColor(){captureDrafts();focused=10;var selected=Arrays.stream(ColorChoice.values()).filter(v->v.hex.equalsIgnoreCase(fields.get(6).getValue().replace("#",""))).findFirst().orElse(null);minecraft.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(this,"Choose color",List.of(ColorChoice.values()),selected,v->{if(v==ColorChoice.CUSTOM_HEX){editAdvanced(6);}else{applyChoice(6,v.hex);}}).afterReturn());}
-    private void editAdvanced(int index){captureDrafts();focused=index==4?9:10;minecraft.gui.setScreen(new dev.riserecode.ui.menu.TextValueScreen(this,index==4?"Custom dimension ID":"Custom hex color",dev.riserecode.ui.menu.EditBoxDraft.capture(fields.get(index)),index==4?160:80,value->{value.restore(fields.get(index));var next=new ArrayList<>(drafts);next.set(index,value);drafts=List.copyOf(next);}));}
+    private void editAdvanced(int index){editAdvanced(index,index==4?9:10);}
+    private void editAdvanced(int index,int opener){captureDrafts();focused=opener;minecraft.gui.setScreen(new dev.riserecode.ui.menu.TextValueScreen(this,index==4?"Custom dimension ID":"Custom hex color",dev.riserecode.ui.menu.EditBoxDraft.capture(fields.get(index)),index==4?160:80,value->{value.restore(fields.get(index));var next=new ArrayList<>(drafts);next.set(index,value);drafts=List.copyOf(next);}));}
     private void applyChoice(int index,String value){fields.get(index).setValue(value);var copy=new ArrayList<>(drafts);copy.set(index,new dev.riserecode.ui.menu.EditBoxDraft(value,value.length(),value.length(),false));drafts=List.copyOf(copy);}
     private final dev.riserecode.ui.menu.ScreenText.Layout errorLayout=new dev.riserecode.ui.menu.ScreenText.Layout();
     public WaypointEditScreen(Screen parent,MapService maps,WaypointStore.Waypoint point){super(Component.literal("Edit waypoint"));this.parent=parent;this.maps=maps;this.point=point;}
     @Override protected void repositionElements(){captureDrafts();super.repositionElements();}
-    @Override protected void setInitialFocus(){if(fields.isEmpty()){return;}if(drafts.isEmpty()){setInitialFocus(fields.getFirst());}else{if(focused>=0){setInitialFocus(focused<7?fields.get(focused):switch(focused){case 7->saveButton;case 8->cancelButton;case 9->dimensionButton;default->colorButton;});}else{clearFocus();}for(int i=0;i<fields.size();i++){drafts.get(i).restore(fields.get(i));}}}
+    @Override protected void setInitialFocus(){if(fields.isEmpty()){return;}if(drafts.isEmpty()){setInitialFocus(fields.getFirst());}else{if(focused>=0){setInitialFocus(focused<7?fields.get(focused):switch(focused){case 7->saveButton;case 8->cancelButton;case 9->dimensionButton;case 10->colorButton;case 11->fullDimensionButton;default->fullColorButton;});}else{clearFocus();}for(int i=0;i<fields.size();i++){drafts.get(i).restore(fields.get(i));}}}
     @Override protected void init(){
         List<String> values=!drafts.isEmpty()?drafts.stream().map(dev.riserecode.ui.menu.EditBoxDraft::value).toList():fields.isEmpty()?List.of(point.name(),""+point.x(),""+point.y(),""+point.z(),point.dimension(),point.group(),String.format(java.util.Locale.ROOT,"%06X",point.color()&0xFFFFFF)):fields.stream().map(EditBox::getValue).toList();fields.clear();
         boolean compact=height<300;int columns=compact?2:1,rows=(LABELS.size()+columns-1)/columns,cellWidth=Math.min(240,(width-36)/columns),left=(width-columns*cellWidth)/2,top=24;
         int rowHeight=compact?Math.min(32,Math.max(24,(height-78)/rows)):27;
+        int fullWidth=Math.min(76,Math.max(48,(width-148)/2));
+        fullDimensionButton=addRenderableWidget(Button.builder(Component.literal("Full ID…"),b->editAdvanced(4,11)).bounds(width-38-fullWidth*2-4,4,fullWidth,18).createNarration(supplier->Component.literal("Edit full dimension ID. Changes stay in the waypoint draft until Save.")).build());
+        fullColorButton=addRenderableWidget(Button.builder(Component.literal("Full Hex…"),b->editAdvanced(6,12)).bounds(width-38-fullWidth,4,fullWidth,18).createNarration(supplier->Component.literal("Edit full hex color. Changes stay in the waypoint draft until Save.")).build());
+        fullDimensionButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Open the complete dimension ID in a larger editor")));
+        fullColorButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Open the complete hex color in a larger editor")));
         for(int i=0;i<LABELS.size();i++){
             int column=compact?i%2:0,row=compact?i/2:i;
             boolean choice=i==4||i==6;int choiceWidth=choice?82:0,origin=left+column*cellWidth;
             var box=new EditBox(font,origin+choiceWidth,top+row*rowHeight+9,cellWidth-8-choiceWidth,Math.max(15,rowHeight-11),Component.literal(LABELS.get(i)));
             box.setMaxLength(i==4?160:80);box.setValue(values.get(i));fields.add(box);int index=i;
             Button picker;
-            if(choice){picker=Button.builder(Component.literal(choiceCaption(index,box.getValue())),b->{if(index==4){chooseDimension();}else{chooseColor();}}).bounds(origin,box.getY(),78,box.getHeight()).createNarration(supplier->Component.literal((index==4?"Choose dimension. ":"Choose color. ")+choiceCaption(index,box.getValue())+". Custom value: "+box.getValue())).build();picker.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(index==4?"Choose a named world":"Choose a named color")));addRenderableWidget(picker);if(index==4){dimensionButton=picker;}else{colorButton=picker;}box.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(index==4?"Advanced: custom dimension ID":"Advanced: six-digit hex color")));}else{picker=null;}
+            if(choice){picker=Button.builder(Component.literal(choiceCaption(index,box.getValue())),b->{if(index==4){chooseDimension();}else{chooseColor();}}).bounds(origin,box.getY(),78,box.getHeight()).createNarration(supplier->Component.literal((index==4?"Choose dimension. ":"Choose color. ")+choiceCaption(index,box.getValue())+". Custom value: "+box.getValue())).build();picker.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(index==4?"Choose a named world":"Choose a named color")));addRenderableWidget(picker);if(index==4){dimensionButton=picker;}else{colorButton=picker;}box.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(index==4?"Custom dimension ID · Full ID above opens the larger editor":"Six-digit hex color · Full Hex above opens the larger editor")));}else{picker=null;}
             addRenderableWidget(box);box.setResponder(value->{if(picker!=null){picker.setMessage(Component.literal(choiceCaption(index,value)));}if(validationOwner==index){error=validation(index);}});
         }
         int footer=height-26,buttonWidth=Math.min(105,(width-36)/2);

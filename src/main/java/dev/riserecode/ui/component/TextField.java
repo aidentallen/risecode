@@ -56,7 +56,7 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
     }
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY, double seconds, double opacity) {
-        KeyboardNavigation.control(graphics,this,contextBounds==null?getBounds():contextBounds.get(),opacity, () -> accessibleName() + ", text, " + (masked ? "hidden" : edit.value()) + (validation.isEmpty() ? "" : ", error: " + validation), () -> { setFocused(true); selectAll(); }, null);
+        KeyboardNavigation.control(graphics,this,contextBounds==null?getBounds():contextBounds.get(),getBounds(),opacity, () -> accessibleName() + ", text, " + (masked ? "hidden" : edit.value()) + (validation.isEmpty() ? "" : ", error: " + validation), () -> { setFocused(true); selectAll(); }, null);
         renderedFont = font; time += seconds;
         double hovered = updateHover(mouseX, mouseY, seconds);
         if(dev.riserecode.ui.render.LiquidGlass.enabled()){

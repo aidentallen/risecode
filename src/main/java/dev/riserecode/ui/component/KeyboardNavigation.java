@@ -19,24 +19,28 @@ public final class KeyboardNavigation {
         if (screen == null || !screen.getClass().getName().startsWith("dev.riserecode.ui.") || screen instanceof dev.riserecode.ui.clickgui.ClickGui) { return null; }
         return screen instanceof ManagedScreen managed ? managed.riserecode$keyboardNavigation() : null;
     }
-    private record Entry(Object id, Supplier<String> label, Runnable activate, IntConsumer adjust, Runnable reveal) { }
+    private record Entry(Object id, Supplier<String> label, Runnable activate, IntConsumer adjust, Runnable reveal, ScreenRectangle hit) { }
     private record ScrollRegion(java.util.function.Consumer<UIComponent.Bounds> reveal) { }
     private static final java.util.Deque<ScrollRegion> regions=new java.util.ArrayDeque<>();
     public static void pushScrollRegion(java.util.function.Consumer<UIComponent.Bounds> reveal){regions.push(new ScrollRegion(reveal));}
     public static void popScrollRegion(){regions.pop();}
     public static boolean collectingOffscreen(){return collecting!=null&&collecting.focused!=null;}
-    public void pointerUsed(){keyboardMode=false;focused=null;pendingReveal=false;requestedReveal=null;}
+    public void pointerMoved(){keyboardMode=false;showFocus=false;pendingReveal=false;requestedReveal=null;}
+    public void pointerUsed(){pointerMoved();focused=null;}
+    /** Adopt the last painted visible control without activating it or revealing a focus ring. */
+    public void pointerPressed(double x,double y){pointerUsed();for(var entry:entries){var hit=entry.hit();if(x>=hit.left()&&x<hit.right()&&y>=hit.top()&&y<hit.bottom()){focused=entry.id();}}}
     private static KeyboardNavigation collecting;
     private final List<Entry> entries = new ArrayList<>();
     private Object focused;
     private boolean keyboardMode;
+    private boolean showFocus;
     public boolean keyboardIntent(){return keyboardMode;}
-    public void keyboardUsed(){keyboardMode=true;dev.riserecode.ui.menu.TooltipPresentation.hide();}
+    public void keyboardUsed(){keyboardMode=true;showFocus=true;dev.riserecode.ui.menu.TooltipPresentation.hide();}
     public static boolean pointerHelpAllowed(){return collecting==null||!collecting.keyboardMode;}
     public static boolean instantGeometry(){return collecting!=null&&collecting.keyboardMode;}
     private boolean pendingReveal;
     private Runnable requestedReveal;
-    public void focus(Object id){focused=id;pendingReveal=true;}
+    public void focus(Object id){focused=id;showFocus=true;pendingReveal=true;}
     public static void requestFocus(Object id){var mc=Minecraft.getInstance();if(mc==null){return;}var screen=mc.gui.screen();var navigation=screen instanceof dev.riserecode.ui.clickgui.ClickGui gui?gui.getKeyboardNavigation():screen instanceof ManagedScreen managed?managed.riserecode$keyboardNavigation():null;if(navigation!=null){navigation.focus(id);}}
     public void begin() { entries.clear(); regions.clear(); collecting = this; }
     public void end() { collecting = null; regions.clear();if(requestedReveal!=null){var reveal=requestedReveal;requestedReveal=null;pendingReveal=false;reveal.run();} }
@@ -53,6 +57,10 @@ public final class KeyboardNavigation {
     }
     public static void control(GuiGraphicsExtractor graphics, Object id, UIComponent.Bounds bounds, double opacity,
             Supplier<String> label, Runnable activate, IntConsumer adjust) {
+        control(graphics,id,bounds,bounds,opacity,label,activate,adjust);
+    }
+    public static void control(GuiGraphicsExtractor graphics, Object id, UIComponent.Bounds bounds, UIComponent.Bounds pointerBounds,double opacity,
+            Supplier<String> label, Runnable activate, IntConsumer adjust) {
         var navigation = collecting;
         if (navigation == null || opacity < .95 || bounds.width() <= 0 || bounds.height() <= 0) { return; }
         var rectangle = new ScreenRectangle((int)Math.floor(bounds.x()), (int)Math.floor(bounds.y()),
@@ -61,9 +69,11 @@ public final class KeyboardNavigation {
         if (regions.isEmpty() && clip != null && (rectangle.left() < clip.left() || rectangle.right() > clip.right()
                 || rectangle.top() < clip.top() || rectangle.bottom() > clip.bottom())) { return; }
         var region=regions.peek();
-        navigation.entries.add(new Entry(id,label,activate,adjust,region==null?()->{}:()->region.reveal().accept(bounds)));
+        var hit=pointerBounds==bounds?rectangle:new ScreenRectangle((int)Math.floor(pointerBounds.x()),(int)Math.floor(pointerBounds.y()),(int)Math.ceil(pointerBounds.width()),(int)Math.ceil(pointerBounds.height())).transformMaxBounds(graphics.pose());
+        if(clip!=null){int left=Math.max(hit.left(),clip.left()),top=Math.max(hit.top(),clip.top());hit=new ScreenRectangle(left,top,Math.max(0,Math.min(hit.right(),clip.right())-left),Math.max(0,Math.min(hit.bottom(),clip.bottom())-top));}
+        navigation.entries.add(new Entry(id,label,activate,adjust,region==null?()->{}:()->region.reveal().accept(bounds),hit));
         if(navigation.focused==id&&navigation.pendingReveal){navigation.requestedReveal=region==null?()->{}:()->region.reveal().accept(bounds);}
-        if (navigation.focused == id) {
+        if (navigation.showFocus && navigation.focused == id) {
             RenderUtil.drawRoundedBorder(graphics, bounds.x(), bounds.y(), bounds.width(), bounds.height(), 3, Theme.accent(), 1);
         }
     }

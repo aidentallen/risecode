@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 public abstract class MouseHandlerMixin {
     @Redirect(method="onButton",at=@At(value="INVOKE",target="Lnet/minecraft/client/gui/screens/Screen;mouseClicked(Lnet/minecraft/client/input/MouseButtonEvent;Z)Z"))
     private boolean risecode$click(net.minecraft.client.gui.screens.Screen screen,net.minecraft.client.input.MouseButtonEvent event,boolean twice){
-        var navigation=dev.riserecode.ui.component.KeyboardNavigation.auxiliary(screen);if(navigation!=null){navigation.pointerUsed();}
+        var navigation=dev.riserecode.ui.component.KeyboardNavigation.auxiliary(screen);if(navigation!=null){navigation.pointerPressed(event.x(),event.y());}
         var local=dev.riserecode.ui.menu.MenuTheme.pointer(screen,event);
         for(var child:screen.children()){if(child instanceof dev.riserecode.ui.menu.PageGear gear&&gear.mouseClicked(local,twice)){return true;}}
         return screen.mouseClicked(local,twice);
