@@ -28,6 +28,7 @@ public final class Panel extends UIComponent {
     private boolean filterGerman;
     private String query = "";
     private boolean revealQuery;
+    private final java.util.Map<ModuleButton,Boolean> beforeSearch=new java.util.IdentityHashMap<>();
     private java.util.function.Predicate<Module> group = ignored -> true;
     public void setGroup(java.util.function.Predicate<Module> value) { group=value;filterDirty=true; }
 
@@ -57,8 +58,9 @@ public final class Panel extends UIComponent {
     public void setQuery(String value) {
         String next = value.strip().toLowerCase(Locale.ROOT);
         if (next.equals(query)) { return; }
+        if(query.isEmpty()&&!next.isEmpty()){buttons.forEach(button->beforeSearch.put(button,button.isExpanded()));}
         query = next; filterDirty = true;
-        buttons.forEach(button->button.revealSearchMatch(query));revealQuery=!query.isEmpty(); mouseReleased(0, 0, 0); scroll.reset(0);
+        buttons.forEach(button->button.revealSearchMatch(query));if(query.isEmpty()){beforeSearch.forEach(ModuleButton::setExpanded);beforeSearch.clear();}revealQuery=!query.isEmpty(); mouseReleased(0, 0, 0); scroll.reset(0);
     }
     private boolean matches(ModuleButton button) {
         if (!group.test(button.getModule())) { return false; }

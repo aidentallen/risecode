@@ -20,7 +20,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /** Original drag/snap editor using the same live element registry as gameplay. */
-public final class HudEditorScreen extends Screen {
+public final class HudEditorScreen extends Screen implements dev.riserecode.ui.component.KeyboardNavigation.PageScrollable {
     private record Guide(double value, boolean vertical) { }
     private final HudRenderer hud;
     private final dev.riserecode.ui.component.ActionButton done=new dev.riserecode.ui.component.ActionButton("Done",this::onClose);
@@ -35,11 +35,15 @@ public final class HudEditorScreen extends Screen {
     private final Animation contextScroll = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.SCROLLING, 0, 0.15, MathUtil.Easing.OUT_QUART);
     private final net.minecraft.client.gui.screens.Screen parent;
     private long previousFrame;
+    private dev.riserecode.setting.DoubleSetting positionX,positionY;
+    private Slider positionXControl,positionYControl;
+    private double contextTop,contextVisibleHeight,panelWidth;
     public HudEditorScreen(HudRenderer hud) { this(hud,null); }
     public HudEditorScreen(HudRenderer hud, net.minecraft.client.gui.screens.Screen parent) { super(Component.literal("risecode HUD editor")); this.hud = hud; this.parent=parent; }
     public dev.riserecode.ui.component.SettingsSection getSettingsSection(){return settingsSection;}
     public HudElement getSelected() { return selected; }
     public boolean isDraggingElement() { return dragging != null; }
+    public UIComponent.Bounds getContextViewportBounds(){return new UIComponent.Bounds(panelX,contextTop,panelWidth,contextVisibleHeight);}
     public List<UIComponent> getControls() { return List.copyOf(controls); }
     private void changed() { Client.INSTANCE.getConfigManager().requestSave(); }
     private void select(HudElement element) {
@@ -47,10 +51,10 @@ public final class HudEditorScreen extends Screen {
         settingsSection=new dev.riserecode.ui.component.SettingsSection("hud:"+element.id()+":layout","Layout & Style",()->{if(captured!=null){captured.mouseReleased(0,0,0);captured=null;}controls.forEach(c->{if(c instanceof ColorPicker picker){picker.unfocus();}});});
         controls.clear(); contextOpening.reset(0); contextOpening.animateTo(1);
         controls.add(new Slider(element.layout().scale, this::changed, 0.01));
-        var positionX = new dev.riserecode.setting.DoubleSetting("Position X", "Normalized anchor", element.layout().x(), 0, 1);
-        var positionY = new dev.riserecode.setting.DoubleSetting("Position Y", "Normalized anchor", element.layout().y(), 0, 1);
-        controls.add(new Slider(positionX, () -> { element.layout().position(positionX.getValue(), element.layout().y()); changed(); }, 0.001));
-        controls.add(new Slider(positionY, () -> { element.layout().position(element.layout().x(), positionY.getValue()); changed(); }, 0.001));
+        positionX = new dev.riserecode.setting.DoubleSetting("Position X", "Normalized anchor", element.layout().x(), 0, 1);
+        positionY = new dev.riserecode.setting.DoubleSetting("Position Y", "Normalized anchor", element.layout().y(), 0, 1);
+        positionXControl=new Slider(positionX, () -> { element.layout().position(positionX.getValue(), element.layout().y()); changed(); }, 0.001);controls.add(positionXControl);
+        positionYControl=new Slider(positionY, () -> { element.layout().position(element.layout().x(), positionY.getValue()); changed(); }, 0.001);controls.add(positionYControl);
         controls.add(new EnumSelector<>(element.layout().alignment, this::changed));
         controls.add(new EnumSelector<>(element.layout().background, this::changed));
         controls.add(new EnumSelector<>(element.layout().border, this::changed));
@@ -80,39 +84,47 @@ public final class HudEditorScreen extends Screen {
             if (guide.vertical()) { RenderUtil.line(g, guide.value(), 0, guide.value(), height, 0.8, Theme.opacity(Theme.accent(), 0.7)); }
             else { RenderUtil.line(g, 0, guide.value(), width, guide.value(), 0.8, Theme.opacity(Theme.accent(), 0.7)); }
         }
-        done.setBounds(width-72,8,64,21);done.render(g,font,mouseX,mouseY,seconds,1);
+        RenderUtil.drawRoundedRect(g,width-124,4,120,30,6,Theme.BACKGROUND|0xFF000000);
+        done.setBounds(width-112,8,72,21);done.render(g,font,mouseX,mouseY,seconds,1);
         String hint = "HUD · Tab/Enter: select · Ctrl+arrows: nudge · Shift: 10px · G: grid · Esc: save";
-        double hintWidth = RenderUtil.textWidth(font, hint, false) * 0.9 + 22;
+        hint=RenderUtil.ellipsize(font,hint,(width-40)/.8);
+        double hintWidth = RenderUtil.textWidth(font, hint, false) * .8 + 22;
         RenderUtil.drawRoundedRect(g, (width - hintWidth) / 2, height - 26, hintWidth, 21, 6, 0xDF111820);
-        RenderUtil.text(g, font, hint, (width - hintWidth) / 2 + 11, height - 19, 0.9, Theme.TEXT);
+        RenderUtil.text(g, font, hint, (width - hintWidth) / 2 + 11, height - 19, .8, Theme.TEXT);
         if (selected != null && !controls.isEmpty()) {
-            double panelWidth = Math.min(190, width - 12), contentHeight = dev.riserecode.ui.component.SettingsSection.HEADER+settingsSection.bodyHeight(controls.stream().mapToDouble(HudEditorScreen::controlHeight).sum());
-            panelHeight = Math.min(height - 50, 33 + contentHeight); contextMaxScroll = Math.max(0, contentHeight - (panelHeight - 33));
-            contextScroll.animateTo(Math.clamp(contextScroll.getTarget(), 0, contextMaxScroll));
-            panelX = Math.max(6, width - panelWidth - 12); panelY = Math.max(8, Math.min(height - panelHeight - 34, 40));
-            double opening = MathUtil.clamp01(contextOpening.getValue());
-            RenderUtil.drawDropShadow(g, panelX, panelY, panelWidth, panelHeight, 8, Theme.opacity(0x70000000, opening));
-            RenderUtil.drawRoundedRect(g, panelX, panelY, panelWidth, panelHeight, 8, Theme.opacity(Theme.BACKGROUND, opening * 0.93));
-            RenderUtil.accentText(g, font, selected.label(), panelX + 10, panelY + 9 + (1 - opening) * 4, 1, opening);
-            settingsSection.setBounds(panelX+6,panelY+29,panelWidth-12,dev.riserecode.ui.component.SettingsSection.HEADER);settingsSection.render(g,font,mouseX,mouseY,seconds,opening);
-            double controlY = panelY + 30 + dev.riserecode.ui.component.SettingsSection.HEADER - contextScroll.getValue();
-            RenderUtil.scissorPush(g, panelX, panelY + 29+dev.riserecode.ui.component.SettingsSection.HEADER, panelWidth, Math.max(0,panelHeight - 29-dev.riserecode.ui.component.SettingsSection.HEADER));
-            try {
-                for (UIComponent control : controls) {
-                    control.setBounds(panelX + 10, controlY, panelWidth - 20, controlHeight(control) - 3);
-                    control.render(g, font, mouseX, mouseY, seconds, opening); controlY += controlHeight(control);
-                }
-            } finally { RenderUtil.scissorPop(g); }
+            synchronizePositionControls();
+            panelWidth=Math.min(210+40*Math.max(0,Theme.number("Font Scale",1)-1),width-16);
+            double titleHeight=9*Theme.number("Font Scale",1)+14,sectionHeight=Math.max(dev.riserecode.ui.component.SettingsSection.HEADER,9*Theme.number("Font Scale",1)*.85+10);
+            double total=controls.stream().mapToDouble(HudEditorScreen::controlHeight).sum(),body=settingsSection.bodyHeight(total);
+            panelHeight=Math.min(Math.max(24,height-66),titleHeight+sectionHeight+body+8);
+            panelX=Math.max(8,width-panelWidth-12);panelY=40;
+            contextTop=panelY+titleHeight+sectionHeight;
+            contextVisibleHeight=Math.max(0,panelHeight-titleHeight-sectionHeight-8);
+            contextMaxScroll=Math.max(0,total-contextVisibleHeight);
+            if(contextScroll.getValue()>contextMaxScroll){contextScroll.reset(contextMaxScroll);}
+            contextScroll.animateTo(Math.clamp(contextScroll.getTarget(),0,contextMaxScroll));
+            double opening=MathUtil.clamp01(contextOpening.getValue());
+            RenderUtil.drawDropShadow(g,panelX,panelY,panelWidth,panelHeight,8,Theme.opacity(0x70000000,opening));
+            RenderUtil.drawRoundedRect(g,panelX,panelY,panelWidth,panelHeight,8,Theme.opacity(Theme.BACKGROUND|0xFF000000,opening*.99));
+            RenderUtil.accentText(g,font,RenderUtil.ellipsize(font,selected.label(),panelWidth-20),panelX+10,panelY+8,1,opening);
+            settingsSection.setBounds(panelX+6,panelY+titleHeight,panelWidth-12,sectionHeight);settingsSection.render(g,font,mouseX,mouseY,seconds,opening);
+            if(body>.01&&contextVisibleHeight>0){
+                dev.riserecode.ui.component.KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<contextTop?bounds.y()-contextTop:Math.max(0,bounds.y()+bounds.height()-contextTop-contextVisibleHeight);if(shift!=0){contextScroll.reset(Math.clamp(contextScroll.getValue()+shift,0,contextMaxScroll));}});
+                RenderUtil.scissorPush(g,panelX,contextTop,panelWidth,contextVisibleHeight);
+                try{double cy=contextTop-contextScroll.getValue();for(var control:controls){double h=controlHeight(control);control.setBounds(panelX+10,cy,panelWidth-20,h-5);control.render(g,font,settingsSection.isExpanded()?mouseX:-1e6,settingsSection.isExpanded()?mouseY:-1e6,seconds,opening*settingsSection.amount(total));cy+=h;}}
+                finally{RenderUtil.scissorPop(g);dev.riserecode.ui.component.KeyboardNavigation.popScrollRegion();}
+            }
+
         }
     }
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
         if(done.mouseClicked(event.x(),event.y(),event.button())){return true;}
         dev.riserecode.ui.component.FocusedInput.pointer(event.x(),event.y());
         controls.forEach(control -> { if (control instanceof ColorPicker picker) { picker.pointerFocus(event.x(), event.y()); } });
-        if (selected != null && event.x() >= panelX && event.x() <= panelX + 190 && event.y() >= panelY && event.y() <= panelY + panelHeight) {
+        if (selected != null && event.x() >= panelX && event.x() <= panelX + panelWidth && event.y() >= panelY && event.y() <= panelY + panelHeight) {
             if(settingsSection.mouseClicked(event.x(),event.y(),event.button())){return true;}
             if(!settingsSection.isExpanded()){return true;}
-            for (UIComponent control : controls) { if (control.getBounds().y()>=panelY+29+dev.riserecode.ui.component.SettingsSection.HEADER&&control.getBounds().y()+control.getBounds().height()<=panelY+panelHeight&&control.mouseClicked(event.x(), event.y(), event.button())) { captured = control; return true; } }
+            for (UIComponent control : controls) { if (control.getBounds().y()>=contextTop&&control.getBounds().y()+control.getBounds().height()<=contextTop+contextVisibleHeight&&control.mouseClicked(event.x(), event.y(), event.button())) { captured = control; return true; } }
             return true;
         }
         List<HudRenderer.Box> boxes = hud.getBoxes();
@@ -134,7 +146,7 @@ public final class HudEditorScreen extends Screen {
         guides.clear();
         x = align(x, dragging.width(), width, true); y = align(y, dragging.height(), height, false);
         x = Math.clamp(x, 0, Math.max(0, width - dragging.width())); y = Math.clamp(y, 0, Math.max(0, height - dragging.height()));
-        selected.layout().position(x / width, y / height); changed(); return true;
+        selected.layout().position(x / width, y / height);synchronizePositionControls();changed(); return true;
     }
     private double align(double start, double size, double screen, boolean vertical) {
         List<Double> anchors = new ArrayList<>(List.of(0.0, screen / 2, screen));
@@ -161,7 +173,7 @@ public final class HudEditorScreen extends Screen {
         if(selected==null||!event.hasControlDown()||event.key()<262||event.key()>265||dev.riserecode.ui.component.FocusedInput.active()){return false;}
         double step=event.hasShiftDown()?10:1;
         double dx=event.key()==262?step:event.key()==263?-step:0,dy=event.key()==264?step:event.key()==265?-step:0;
-        selected.layout().position(selected.layout().x()+dx/Math.max(1,width),selected.layout().y()+dy/Math.max(1,height));changed();return true;
+        selected.layout().position(selected.layout().x()+dx/Math.max(1,width),selected.layout().y()+dy/Math.max(1,height));synchronizePositionControls();changed();return true;
     }
     @Override public boolean keyPressed(KeyEvent event) {
         if(nudge(event)){return true;}
@@ -174,11 +186,12 @@ public final class HudEditorScreen extends Screen {
     @Override public void onClose() { minecraft.gui.setScreen(parent); }
     @Override public void removed() { dev.riserecode.ui.component.FocusedInput.commit(); Client.INSTANCE.getConfigManager().save(); Client.INSTANCE.getProfileManager().saveActiveHudLayout(); }
     @Override public boolean isPauseScreen() { return true; }
-    private static double controlHeight(UIComponent control) { return control instanceof ColorPicker picker ? picker.getPreferredHeight() + 3 : 28; }
-    @Override public boolean charTyped(CharacterEvent event) { if (dev.riserecode.ui.component.FocusedInput.character(event)) { return true; } return controls.stream().anyMatch(control -> control instanceof ColorPicker picker && picker.charTyped(event)); }
-    @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
-        if (selected == null || settingsSection==null||!settingsSection.isExpanded()|| x < panelX || x > panelX + 190 || y < panelY || y > panelY + panelHeight) { return false; }
-        contextScroll.animateTo(Math.clamp(contextScroll.getTarget() - vertical * 28, 0, contextMaxScroll)); return true;
+    @Override public boolean charTyped(CharacterEvent event){if(dev.riserecode.ui.component.FocusedInput.character(event)){return true;}return controls.stream().anyMatch(control->control instanceof ColorPicker picker&&picker.charTyped(event));}
+    @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){
+        if(selected==null||settingsSection==null||!settingsSection.isExpanded()||x<panelX||x>panelX+panelWidth||y<contextTop||y>contextTop+contextVisibleHeight){return false;}
+        contextScroll.animateTo(Math.clamp(contextScroll.getTarget()-vertical*28,0,contextMaxScroll));return true;
     }
-
+    private void synchronizePositionControls(){if(selected!=null&&positionXControl!=null){positionXControl.synchronizeExternal(selected.layout().x());positionYControl.synchronizeExternal(selected.layout().y());}}
+    @Override public void scrollPage(int direction){dev.riserecode.ui.component.FocusedInput.commit();contextScroll.animateTo(Math.clamp(contextScroll.getTarget()+direction*Math.max(40,contextVisibleHeight*.8),0,contextMaxScroll));}
+    private static double controlHeight(UIComponent control){return dev.riserecode.ui.component.SettingMetrics.height(control,28)+5;}
 }

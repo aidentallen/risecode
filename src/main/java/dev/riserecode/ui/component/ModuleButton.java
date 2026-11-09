@@ -85,11 +85,27 @@ public final class ModuleButton extends UIComponent {
     public Module getModule() { return module; }
     public boolean isExpanded() { return expanded; }
     private SettingControl searchMatch;
+    private Setting<?> searchTarget;
+    public void setExpanded(boolean value){expand(value);}
+    public String searchMatchName(){return searchTarget==null?"":searchTarget.getName();}
     public void revealSearchMatch(String query){
-        searchMatch=query.isEmpty()?null:controls.stream().filter(c->c.setting().isVisible()&&java.util.Arrays.stream(query.split("\\s+")).allMatch(word->(c.setting().getName()+" "+Theme.displayName(c.setting().getName())+" "+c.setting().getDescription()).toLowerCase(java.util.Locale.ROOT).contains(word))).findFirst().orElse(null);
-        if(searchMatch!=null){expand(true);}
+        searchMatch=null;searchTarget=null;if(query.isEmpty()){return;}
+        String identity=(module.getName()+" "+Theme.displayName(module.getName())+" "+module.getCategory().getDisplayName()+" "+(module instanceof dev.riserecode.module.modules.NoFallModule?"NoFall":"")).toLowerCase(java.util.Locale.ROOT);
+        var words=java.util.Arrays.stream(query.split("\\s+")).filter(word->!identity.contains(word)).toList();
+        if(words.isEmpty()){return;}
+        var matches=module.getSettings().stream().filter(setting->{String text=(setting.getName()+" "+Theme.displayName(setting.getName())+" "+setting.getDescription()+" "+module.settingGroup(setting)).toLowerCase(java.util.Locale.ROOT);return words.stream().allMatch(text::contains);}).toList();
+        searchTarget=matches.stream().filter(Setting::isVisible).findFirst().orElse(matches.isEmpty()?null:matches.getFirst());
+        if(searchTarget!=null){searchMatch=controls.stream().filter(control->control.setting()==searchTarget).findFirst().orElse(null);expand(true);}
     }
-    public Bounds settledSearchMatch(){return searchMatch==null||bodyHeight.isRunning()?null:searchMatch.component().getBounds();}
+    public Bounds settledSearchMatch(){
+        if(searchTarget==null||bodyHeight.isRunning()){return null;}
+        if(searchMatch!=null&&searchTarget.isVisible()){return searchMatch.component().getBounds();}
+        return new Bounds(x,y,width,HEADER_HEIGHT);
+    }
+    private String searchBreadcrumb(){
+        if(searchTarget==null){return "";}
+        return Theme.displayName(module.getName())+" › "+Theme.displayName(searchTarget.getName())+(searchTarget.isVisible()?(searchMatch==null?" · open the custom editor":""):" · hidden by current options");
+    }
     public void setShowCategory(boolean value) { showCategory = value; }
     public List<SettingControl> getSettingControls() { return List.copyOf(controls); }
     public KeybindControl getKeybindControl() { return keybind; }
@@ -167,7 +183,7 @@ public final class ModuleButton extends UIComponent {
                 RenderUtil.text(graphics, font, category, categoryX, y + 9, 0.75, Theme.opacity(Theme.SECONDARY, opacity * 0.7));
             }
         }
-        RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, mouseX>=x+width-badgeWidth-29 && mouseX<x+width-7 && mouseY>=y+7 && mouseY<y+22 ? module.classification().description() : expanded ? editor.details().get() : module.getDescription(), (width - 45) / 0.8),
+        RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, mouseX>=x+width-badgeWidth-29 && mouseX<x+width-7 && mouseY>=y+7 && mouseY<y+22 ? module.classification().description() : searchTarget!=null ? searchBreadcrumb() : expanded ? editor.details().get() : module.getDescription(), (width - 45) / 0.8),
                 x + 7, y + 25, Math.min(.8,10/(9*Theme.number("Font Scale",1))), Theme.opacity(Theme.SECONDARY, opacity));
         if(hovered>.9&&mouseY>=y+23&&mouseY<y+HEADER_HEIGHT&&mouseX<x+width-30){
             graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(module.getDescription()),net.minecraft.network.chat.Component.literal("Click card to inspect · On/Off toggles module")),java.util.Optional.empty(),(int)mouseX,(int)mouseY);

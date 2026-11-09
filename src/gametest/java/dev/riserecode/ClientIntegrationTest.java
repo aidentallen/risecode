@@ -67,6 +67,7 @@ public final class ClientIntegrationTest implements FabricClientGameTest {
         if(Boolean.getBoolean("riserecode.reviewGpuOnly")){ReviewGpuIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.reviewOverlayOnly")){ReviewOverlayIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.reviewRaceOnly")){ReviewRaceIntegrationTest.run(context);return;}
+        if(Boolean.getBoolean("riserecode.uxViewportOnly")){UxViewportIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.uxJourneyOnly")){UxJourneyIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.keyboardReviewOnly")){KeyboardReviewIntegrationTest.run(context);return;}
         if(Boolean.getBoolean("riserecode.flyOnly")){FlyIntegrationTest.run(context);return;}

@@ -33,7 +33,9 @@ public final class ToggleSwitch extends UIComponent {
         slide.animateTo(value.getAsBoolean() ? 1 : 0);
         double active = slide.update(deltaSeconds);
         String text = Theme.label(Theme.displayName(label));
-        double textScale = Math.max(.01,Math.min(0.88, (width - (LiquidGlass.enabled()?30:24)) / Math.max(1, RenderUtil.textWidth(font, text, false))));
+        double textScale=.88;
+        String fullText=text;text=RenderUtil.ellipsize(font,text,Math.max(1,width-(LiquidGlass.enabled()?30:24))/textScale);
+        if(contains(mouseX,mouseY)){graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(fullText)),java.util.Optional.empty(),(int)mouseX,(int)mouseY);}
         RenderUtil.text(graphics, font, text, x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), y + (height - 9 * Theme.number("Font Scale", 1) * textScale) / 2, textScale,
                 Theme.opacity(Theme.blendPalette(Theme.TEXT, 0xFFFFFFFF, hovered), opacity));
         if(LiquidGlass.enabled()){

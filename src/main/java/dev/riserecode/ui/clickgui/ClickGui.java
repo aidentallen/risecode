@@ -79,7 +79,10 @@ public final class ClickGui extends Screen {
     private dev.riserecode.ui.component.HeaderLayout header;
     private UIComponent.Bounds contentBounds;
     public dev.riserecode.ui.component.HeaderLayout getHeaderLayout() { return header; }
-    private boolean confirmingDraft;
+    private boolean confirmingDraft,choosing;
+    public void suspendForChoice(){choosing=true;dev.riserecode.ui.component.FocusedInput.commit();releaseCapture();dev.riserecode.ui.animation.ButtonFeedback.cancelAll();Client.INSTANCE.getKeybindManager().cancelCapture();}
+    public void resumeFromChoice(){choosing=false;}
+    public void abandonChoice(){choosing=false;removed();}
     private boolean closing;
     private void openPageAppearance(){if(!guardDraft(this::openPageAppearance)){minecraft.gui.setScreen(new dev.riserecode.ui.menu.PageAppearanceScreen(this,dev.riserecode.ui.menu.MenuTheme.pageId(this)));}}
     private boolean guardDraft(Runnable leave) {
@@ -346,7 +349,7 @@ public final class ClickGui extends Screen {
                 String help = panel.getVisibleButtons().size() + (Theme.isGerman()?" Module · + Einstellungen · Strg+F Suche":" modules · On/Off toggles · Ctrl+F Search");
                 RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,help,contentBounds.width()/.65),contentBounds.x(),contentBounds.y()+contentBounds.height()-10,.65,Theme.opacity(Theme.SECONDARY,contentAlpha));
                 panel.render(graphics, font, closing ? -1e6 : pointerX, closing ? -1e6 : pointerY, seconds, contentAlpha);
-            } else { if(getClientSettingsEditor()!=null){getClientSettingsEditor().editor().setQuery(field.getValue());}if(page==Page.APPEARANCE){themeEditor.setQuery(field.getValue());RenderUtil.text(graphics,font,Theme.isGerman()?"Automatisch gespeichert · Strg+F Suche":"Changes save automatically · Ctrl+F Search",contentBounds.x(),contentBounds.y()+contentBounds.height()-9,.7,Theme.opacity(Theme.SECONDARY,contentAlpha));} renderUtility(graphics, pointerX, pointerY, seconds, contentAlpha); }
+            } else { if(getClientSettingsEditor()!=null){getClientSettingsEditor().editor().setQuery(field.getValue());}if(page==Page.APPEARANCE){themeEditor.setQuery(field.getValue());RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,contentBounds.width()<240?(Theme.isGerman()?"Gespeichert":"Auto-saved"):(Theme.isGerman()?"Automatisch gespeichert · Strg+F Suche":"Changes save automatically · Ctrl+F Search"),contentBounds.width()/.7),contentBounds.x(),contentBounds.y()+contentBounds.height()-9,.7,Theme.opacity(Theme.SECONDARY,contentAlpha));} renderUtility(graphics, pointerX, pointerY, seconds, contentAlpha); }
             messageTime = Math.max(0, messageTime - seconds); feedback.animateTo(messageTime > 0 ? 1 : 0);
             double notice = feedback.update(seconds);
             if (notice > 0) {
@@ -593,7 +596,7 @@ public final class ClickGui extends Screen {
         dev.riserecode.ui.animation.ButtonFeedback.cancelAll();releaseCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); closing = true; field.setFocused(false); opening.animateTo(0); persistPreferences(); saveChanges.run();
     }
     @Override
-    public void removed() { if(confirmingDraft){return;} dev.riserecode.ui.animation.ButtonFeedback.cancelAll(); dev.riserecode.ui.component.FocusedInput.commit(); Client.INSTANCE.getKeybindManager().cancelCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); releaseCapture(); persistPreferences(); saveChanges.run(); }
+    public void removed() { if(confirmingDraft||choosing){return;} dev.riserecode.ui.animation.ButtonFeedback.cancelAll(); dev.riserecode.ui.component.FocusedInput.commit(); Client.INSTANCE.getKeybindManager().cancelCapture(); themeEditor.unfocus(); clientEditors.values().forEach(dev.riserecode.ui.component.ClientSettingsEditor::unfocus); resourcesEditor.discard(); cosmeticsEditor.discard(); themes.save(); releaseCapture(); persistPreferences(); saveChanges.run(); }
     @Override
     public boolean isPauseScreen() { return false; }
 }

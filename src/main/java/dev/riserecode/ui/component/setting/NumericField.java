@@ -14,7 +14,7 @@ public final class NumericField extends UIComponent {
     private final TextField field = new TextField(() -> "Block coordinate");
     private double original;
     public NumericField(DoubleSetting setting, Runnable changed) {
-        this.setting = setting;
+        this.setting = setting;field.accessibleName(()->setting.getName()+", "+setting.getDescription()+", integer range "+setting.getMin()+" to "+setting.getMax());field.inlineValidation(false);field.contextBounds(this::getBounds);
         field.onChange(text -> {
             try {
                 if (!text.matches("[+-]?[0-9]+")) { throw new IllegalArgumentException(); }
@@ -30,11 +30,12 @@ public final class NumericField extends UIComponent {
     public void beginEditing(){if(!field.isFocused()&&field.validation().isEmpty()){original=setting.getValue();field.setValue(Long.toString((long)original));}field.setFocused(true);field.selectAll();}
     @Override public void render(GuiGraphicsExtractor g, Font font, double mx, double my, double dt, double alpha) {
         RenderUtil.text(g,font,setting.getName(),x,y,.8,Theme.opacity(Theme.SECONDARY,alpha));
-        double labelHeight=9*Theme.number("Font Scale",1)*.8+5;
-        field.setBounds(x,y+labelHeight,width,Math.max(20,height-labelHeight-12));
+        double labelHeight=dev.riserecode.ui.component.SettingMetrics.labelHeight();
+        field.setBounds(x,y+labelHeight,width,dev.riserecode.ui.component.SettingMetrics.fieldHeight());
         if (!field.isFocused()&&field.validation().isEmpty()) { field.setValue(Long.toString(setting.getValue().longValue())); }
         RenderUtil.drawSurfaceTransition(g,x,field.getBounds().y(),width,field.getBounds().height(),3,updateHover(mx,my,dt),alpha);
         field.render(g,font,mx,my,dt,alpha);
+        dev.riserecode.ui.component.SettingMetrics.validation(g,font,field,alpha);
     }
     @Override public boolean mouseClicked(double mx,double my,int button) {
         if (button != 0 || !contains(mx,my)) { return false; }

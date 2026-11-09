@@ -33,6 +33,7 @@ public final class CosmeticsEditor extends UIComponent {
     private double listScroll,settingsScroll,maxList,maxSettings,previousX,yaw=160,zoom=1;
     private double previewTime;
     private int pose;
+    private enum PreviewPose { STANDING, WALKING, CROUCHING, FLYING }
     private Bounds previewBounds,listBounds;
     private final TextField search=new TextField(()->"Search cosmetics");
     private final TextField importPath=new TextField(()->"PNG cape path");
@@ -43,7 +44,10 @@ public final class CosmeticsEditor extends UIComponent {
     private UIComponent captured;
     private final List<ActionButton> rows=new ArrayList<>();
     private final Map<String,ActionButton> rowCache=new HashMap<>();
-    private final ActionButton poseButton=new ActionButton(()->new String[]{"Standing","Walking","Crouching","Flying"}[pose],()->pose=(pose+1)%4);
+    private final ActionButton poseButton=new ActionButton(()->Theme.displayName(PreviewPose.values()[pose].name())+" ›",()->openChoice("Preview pose",PreviewPose.values(),PreviewPose.values()[pose],value->pose=value.ordinal()));
+    public ActionButton poseButton(){return poseButton;}
+    public List<UIComponent> getControls(){return List.copyOf(controls);}
+    private <E extends Enum<E>> void openChoice(String title,E[] values,E value,Consumer<E> choose){var mc=Minecraft.getInstance();mc.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(mc.gui.screen(),title,List.of(values),value,choose));}
     private final ActionButton importButton=new ActionButton("Import PNG cape",this::importCape);
     private final ActionButton downloadButton;
     private long revision;
@@ -51,7 +55,7 @@ public final class CosmeticsEditor extends UIComponent {
 
     public CosmeticsEditor(CosmeticsManager manager,Consumer<String> notice){
         this.manager=manager;this.notice=notice;draft=manager.outfit();downloadButton=new ActionButton(()->manager.library().busy()?"Cancel download":"Download",this::download);
-        top.add(new ActionButton(()->category.label+" >",()->{category(CosmeticCategory.values()[(category.ordinal()+1)%CosmeticCategory.values().length]);}));
+        top.add(new ActionButton(()->category.label+" >",()->openChoice("Cosmetic category",CosmeticCategory.values(),category,this::category)));
         top.add(new ActionButton(()->catalog?"Catalog":"Installed",()->{catalog=!catalog;listScroll=0;}));
         top.add(new ActionButton("Refresh",()->{manager.retry();manager.library().refresh();}));
         top.add(new ActionButton(()->"Visible: "+(draft.visible()?"On":"Off"),()->draft=new CosmeticLoadout(!draft.visible(),draft.items())));
@@ -106,23 +110,31 @@ public final class CosmeticsEditor extends UIComponent {
         try{
             if(editing){
                 itemSection.setBounds(listBounds.x(),listBounds.y(),listBounds.width()-4,SettingsSection.HEADER);itemSection.render(g,font,mx,my,dt,alpha);
-                double total=controls.stream().mapToDouble(c->(c instanceof ColorPicker picker?picker.getPreferredHeight():c instanceof Slider?26:23)+5).sum();
-                double body=itemSection.bodyHeight(total);
-                RenderUtil.scissorPush(g,listBounds.x(),listBounds.y()+SettingsSection.HEADER,listBounds.width(),Math.min(body,Math.max(0,listBounds.height()-SettingsSection.HEADER)));
-                try{double cy=listBounds.y()+SettingsSection.HEADER-settingsScroll;for(var control:controls){double ch=control instanceof ColorPicker c?c.getPreferredHeight():control instanceof Slider?26:23;control.setBounds(listBounds.x(),cy,listBounds.width()-4,ch);if(cy+ch>listBounds.y()&&cy<listBounds.y()+listBounds.height()){control.render(g,font,mx,my>=listBounds.y()&&my<listBounds.y()+listBounds.height()?my:-1e6,dt,alpha);}cy+=ch+5;}maxSettings=Math.max(0,SettingsSection.HEADER+body-listBounds.height());settingsScroll=Math.clamp(settingsScroll,0,maxSettings);}finally{RenderUtil.scissorPop(g);}}
+                double total=controls.stream().mapToDouble(c->SettingMetrics.height(c,23)+5).sum(),body=itemSection.bodyHeight(total),bodyTop=listBounds.y()+SettingsSection.HEADER,viewport=Math.max(0,listBounds.height()-SettingsSection.HEADER);
+                maxSettings=Math.max(0,total-viewport);settingsScroll=Math.clamp(settingsScroll,0,maxSettings);
+                if(body>.01){
+                    KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<bodyTop?bounds.y()-bodyTop:Math.max(0,bounds.y()+bounds.height()-bodyTop-viewport);if(shift!=0){settingsScroll=Math.clamp(settingsScroll+shift,0,maxSettings);}});
+                    RenderUtil.scissorPush(g,listBounds.x(),bodyTop,listBounds.width(),Math.min(body,viewport));
+                    try{double cy=bodyTop-settingsScroll;for(var control:controls){double ch=SettingMetrics.height(control,23);control.setBounds(listBounds.x(),cy,listBounds.width()-4,ch);if(KeyboardNavigation.collectingOffscreen()||cy+ch>bodyTop&&cy<bodyTop+viewport){control.render(g,font,itemSection.isExpanded()?mx:-1e6,itemSection.isExpanded()&&my>=bodyTop&&my<bodyTop+viewport?my:-1e6,dt,alpha*itemSection.amount(total));}cy+=ch+5;}}
+                    finally{RenderUtil.scissorPop(g);KeyboardNavigation.popScrollRegion();}
+                }
+            }
             else{
                 var entries=manager.library().definitions().stream().filter(d->d.category()==category&&(catalog||manager.library().available(d))&&d.name().toLowerCase(Locale.ROOT).contains(search.getValue().toLowerCase(Locale.ROOT))).toList();
-                maxList=Math.max(0,entries.size()*37-listBounds.height());listScroll=Math.clamp(listScroll,0,maxList);
-                for(int i=0;i<entries.size();i++){var def=entries.get(i);double cy=listBounds.y()+i*37-listScroll;if(cy+33<=listBounds.y()||cy>=listBounds.y()+listBounds.height()){continue;}
+                double rowHeight=Math.max(39,9*Theme.number("Font Scale",1)*1.5+18);
+                maxList=Math.max(0,entries.size()*rowHeight-listBounds.height());listScroll=Math.clamp(listScroll,0,maxList);
+                KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<listBounds.y()?bounds.y()-listBounds.y():Math.max(0,bounds.y()+bounds.height()-listBounds.y()-listBounds.height());if(shift!=0){listScroll=Math.clamp(listScroll+shift,0,maxList);}});
+                try{for(int i=0;i<entries.size();i++){var def=entries.get(i);double cy=listBounds.y()+i*rowHeight-listScroll;if(!KeyboardNavigation.collectingOffscreen()&&(cy+rowHeight<=listBounds.y()||cy>=listBounds.y()+listBounds.height())){continue;}
                     var button=rowCache.computeIfAbsent(def.id(),key->new ActionButton(def.name(),()->select(key)));boolean thumbnail=!def.preview().isEmpty()&&CosmeticsEditor.class.getResource("/assets/riserecode/cosmetics/"+def.preview())!=null;
-                    double iconSpace=thumbnail?22:0;button.setBounds(listBounds.x()+iconSpace,cy,listBounds.width()-3-iconSpace,23);
+                    double iconSpace=thumbnail?22:0;button.setBounds(listBounds.x()+iconSpace,cy,listBounds.width()-3-iconSpace,Math.max(23,9*Theme.number("Font Scale",1)*.8+10));
                     if(thumbnail){g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,CosmeticsManager.id(def.preview()),(int)listBounds.x(),(int)cy+1,0,0,20,20,128,128,128,128,Theme.opacity(-1,alpha));}button.render(g,font,mx,my>=listBounds.y()&&my<listBounds.y()+listBounds.height()?my:-1e6,dt,alpha);rows.add(button);
                     if(def.id().equals(selected)){RenderUtil.drawRoundedBorder(g,listBounds.x(),cy,listBounds.width()-3,23,3,Theme.opacity(Theme.accent(),alpha),1);}
                     String detail=def.creator()+" · "+(manager.library().available(def)?def.license():"Download");
                     if(button.contains(mx,my)&&my>=listBounds.y()&&my<listBounds.y()+listBounds.height()){
                         g.setTooltipForNextFrame(font,List.of(net.minecraft.network.chat.Component.literal(def.name()+" · "+def.creator()),net.minecraft.network.chat.Component.literal(def.license()),net.minecraft.network.chat.Component.literal(def.source())),Optional.empty(),(int)mx,(int)my);
-                    }RenderUtil.text(g,font,RenderUtil.ellipsize(font,detail,(listBounds.width()-5)/.52),listBounds.x()+2,cy+26,.52,Theme.opacity(Theme.SECONDARY,alpha));
+                    }RenderUtil.text(g,font,RenderUtil.ellipsize(font,detail,(listBounds.width()-5)/.7),listBounds.x()+2,cy+Math.max(26,9*Theme.number("Font Scale",1)*.8+13),.7,Theme.opacity(Theme.SECONDARY,alpha));
                 }
+                }finally{KeyboardNavigation.popScrollRegion();}
             }
         }finally{RenderUtil.scissorPop(g);}
         double maximum=editing?maxSettings:maxList,scroll=editing?settingsScroll:listScroll;
@@ -148,7 +160,8 @@ public final class CosmeticsEditor extends UIComponent {
                 () -> "Cosmetic preview, rotation, "+Math.round(yaw),()->yaw=160,direction->yaw+=direction*15);
         KeyboardNavigation.control(g,zoomFocus,new Bounds(previewBounds.x()+4,top+19,previewBounds.width()-8,15),alpha,
                 () -> "Cosmetic preview, zoom, "+zoom,()->zoom=1,direction->zoom=Math.clamp(zoom+direction*.08,.5,1.6));
-        RenderUtil.text(g,font,"Rotation / Zoom · Tab, arrows",previewBounds.x()+8,top+5,.55,Theme.opacity(Theme.SECONDARY,alpha));
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Tab: rotate / zoom",(previewBounds.width()-16)/.65),previewBounds.x()+8,top+5,.65,Theme.opacity(Theme.SECONDARY,alpha));
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Arrows: adjust",(previewBounds.width()-16)/.65),previewBounds.x()+8,top+22,.65,Theme.opacity(Theme.SECONDARY,alpha));
         poseButton.setBounds(previewBounds.x()+3,previewBounds.y()+2,previewBounds.width()-6,18);poseButton.render(g,font,mx,my,0.016,alpha);rows.add(poseButton);
         var selectedDef=manager.library().find(selected);
         if(selectedDef!=null&&!manager.library().available(selectedDef)){

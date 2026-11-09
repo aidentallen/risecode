@@ -63,19 +63,21 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
         sections.add(new Section(new SettingsSection("glass:"+name,name,()->{release();FocusedInput.commit();}),List.copyOf(rows)));
     }
     private static <E extends Enum<E>> UIComponent enumControl(EnumSetting<E> setting,Runnable change){return new EnumSelector<>(setting,change);}
-    private static double rowHeight(Row row){return row.control() instanceof ColorPicker p?p.getPreferredHeight()+5:row.setting() instanceof DoubleSetting?32:23;}
+    private static double rowHeight(Row row){return SettingMetrics.height(row.control(),23)+5;}
     @Override public void extractBackground(GuiGraphicsExtractor g,int x,int y,float partial) { }
     @Override public boolean isPauseScreen(){return false;}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float partial){
         long now=System.nanoTime();double dt=lastTime==0?0:Math.min(.1,(now-lastTime)*1e-9);lastTime=now;
         RenderUtil.drawRoundedRect(g,0,0,width,height,0,0xF5111722);
-        RenderUtil.accentText(g,font,"Glass",16,13,1.5,1);
-        RenderUtil.text(g,font,"Customize / Preview",74,18,.85,Theme.SECONDARY);
-        RenderUtil.text(g,font,module.isEnabled()?"Gameplay enabled":"Preview · gameplay disabled",16,38,.75,Theme.SECONDARY);
-        panelWidth=Math.min(340,width*.48);panelX=12;panelY=58;panelHeight=Math.max(24,height-104);
-        previewX=panelX+panelWidth+12;previewY=58;previewW=Math.max(24,width-previewX-12);previewH=panelHeight;
+        double fontScale=Theme.number("Font Scale",1),titleHeight=9*fontScale*1.25+7,lineHeight=9*fontScale*.75+4;
+        RenderUtil.accentText(g,font,"Glass",16,10,1.25,1);
+        RenderUtil.text(g,font,"Customize / Preview",16,10+titleHeight,.75,Theme.SECONDARY);
+        RenderUtil.text(g,font,module.isEnabled()?"Gameplay enabled":"Preview · gameplay disabled",16,10+titleHeight+lineHeight,.7,Theme.SECONDARY);
+        panelWidth=Math.min(340+60*Math.max(0,fontScale-1),width*.52);panelX=12;panelY=14+titleHeight+lineHeight*2;panelHeight=Math.max(24,height-panelY-46);
+        previewX=panelX+panelWidth+12;previewY=panelY;previewW=Math.max(24,width-previewX-12);previewH=panelHeight;
         RenderUtil.drawRoundedRect(g,panelX,panelY,panelWidth,panelHeight,8,Theme.SURFACE);
         hitControls.clear();
+        KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<panelY?bounds.y()-panelY:Math.max(0,bounds.y()+bounds.height()-panelY-panelHeight);if(shift!=0){scroll=Math.clamp(scroll+shift,0,maxScroll);}});
         RenderUtil.scissorPush(g,panelX,panelY,panelWidth,panelHeight);
         double y=panelY+6-scroll;
         try{
@@ -89,14 +91,14 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
                         for(var row:section.rows()){
                             if(!row.setting().isVisible())continue;
                             double h=rowHeight(row);row.control().setBounds(panelX+13,ry,panelWidth-26,h-5);
-                            row.control().render(g,font,header.isExpanded()?mx:-10000,header.isExpanded()?my:-10000,dt,1);
+                            row.control().render(g,font,header.isExpanded()?mx:-10000,header.isExpanded()?my:-10000,dt,header.amount(content));
                             if(header.isExpanded()&&ry+h<=y+body+.01)hitControls.add(row.control());ry+=h;
                         }
                     }finally{RenderUtil.scissorPop(g);}
                 }
                 y+=body+4;
             }
-        }finally{RenderUtil.scissorPop(g);}
+        }finally{RenderUtil.scissorPop(g);KeyboardNavigation.popScrollRegion();}
         maxScroll=Math.max(0,y+scroll-panelY-panelHeight+6);scroll=Math.clamp(scroll,0,maxScroll);
         var state=previewState(partial);
         g.entity(state,(float)(Math.min(previewW*.34,previewH*.40)*zoom),new Vector3f(),new Quaternionf().rotateZ((float)Math.PI).rotateX((float)Math.toRadians(tilt)).rotateY((float)Math.toRadians(rotation)),null,(int)previewX,(int)previewY,(int)(previewX+previewW),(int)(previewY+previewH));
@@ -110,8 +112,8 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
                     direction -> {if(axis==0){rotation+=direction*15;}else if(axis==1){tilt=Math.clamp(tilt+direction*5,-35,35);}else{zoom=Math.clamp(zoom+direction*.08,.5,1.6);}});
             RenderUtil.text(g,font,previewLabels[i]+" · arrows",previewX+12,controlY+3,.6,Theme.SECONDARY);
         }
-        RenderUtil.text(g,font,"Drag to rotate · Scroll to zoom",previewX+8,previewY+8,.7,Theme.TEXT);
-        RenderUtil.text(g,font,minecraft.player==null?"Sample loadout":"Your skin & equipment",previewX+8,previewY+previewH-16,.7,Theme.TEXT);
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Drag to rotate · Scroll to zoom",(previewW-16)/.7),previewX+8,previewY+8,.7,Theme.TEXT);
+        if(previewH>=120){RenderUtil.text(g,font,RenderUtil.ellipsize(font,minecraft.player==null?"Sample loadout":"Your skin & equipment",(previewW-16)/.7),previewX+8,previewY+previewH-16,.7,Theme.TEXT);}
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,module.status(),(width-190)/.65),16,height-23,.65,Theme.SECONDARY);
         reset.setBounds(width-174,height-35,100,28);done.setBounds(width-70,height-35,60,28);reset.render(g,font,mx,my,dt,1);done.render(g,font,mx,my,dt,1);
     }
@@ -136,6 +138,7 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
         if(slot!=null)components.set(net.minecraft.core.component.DataComponents.EQUIPPABLE,net.minecraft.world.item.equipment.Equippable.builder(slot).setAsset(net.minecraft.world.item.equipment.EquipmentAssets.DIAMOND).build());
         return new ItemStack(net.minecraft.core.Holder.direct(item,components.build()),1);
     }
+    public List<UIComponent> getControls(){return sections.stream().flatMap(section->section.rows().stream()).map(Row::control).toList();}
     public double rotation(){return rotation;}
     public double zoom(){return zoom;}
     private boolean previewContains(double x,double y){return x>=previewX&&x<previewX+previewW&&y>=previewY&&y<previewY+previewH;}

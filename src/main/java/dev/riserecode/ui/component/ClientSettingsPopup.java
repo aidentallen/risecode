@@ -89,9 +89,9 @@ public final class ClientSettingsPopup extends UIComponent {
         switch(row){
             case 0->{close();owner.selectPage(ClickGui.Page.PROFILES);}
             case 1->{close();owner.selectPage(ClickGui.Page.FRIENDS);}
-            case 2->{if(setting){panel(ClientSettingsScreen.Section.SOUNDS);}else{prefs.sounds.setValue(!prefs.sounds.getValue());}}
+            case 2->panel(ClientSettingsScreen.Section.SOUNDS);
             case 3->prefs.suggestions.setValue(!prefs.suggestions.getValue());
-            case 4->{if(setting){panel(ClientSettingsScreen.Section.DISCORD);}else{prefs.discord.setValue(!prefs.discord.getValue());}}
+            case 4->panel(ClientSettingsScreen.Section.DISCORD);
             case 5->Client.INSTANCE.getKeybindManager().beginMenuCapture();
             case 6->panel(ClientSettingsScreen.Section.SCALE);
             default->panel(ClientSettingsScreen.Section.PERFORMANCE);

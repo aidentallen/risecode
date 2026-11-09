@@ -63,7 +63,6 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
         if(choicePresenter!=null){choicePresenter.run();return;}
         var mc=net.minecraft.client.Minecraft.getInstance();
         dev.riserecode.ui.component.FocusedInput.commit();
-        if(mc.gui.screen() instanceof dev.riserecode.ui.menu.PageAppearanceScreen page){page.suspendForChoice();}
         mc.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(mc.gui.screen(),setting.getName(),setting.getOptions(),setting.getValue(),value->{setting.setValue(value);changed.run();dev.riserecode.ui.sound.UiSounds.play();}));
     }
     private void choose(int direction) {

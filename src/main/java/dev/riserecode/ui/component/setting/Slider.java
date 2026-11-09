@@ -26,6 +26,12 @@ public final class Slider extends UIComponent {
         if (!input.isFocused()&&input.validation().isEmpty()) { original = setting.getValue(); input.setValue(Double.toString(original)); }
         input.setFocused(true); input.selectAll();
     }
+    public double value(){return setting.getValue();}
+    public String name(){return setting.getName();}
+    public void synchronizeExternal(double value){if(Double.compare(setting.getValue(),value)!=0){setting.setValue(value);replaceDraft();}}
+    private void replaceDraft(){original=setting.getValue();input.setValue(Double.toString(original));input.validation("");}
+    private void adjustTo(double value){setting.setValue(value);replaceDraft();changed.run();}
+    public void adjust(int direction){double increment=step>0?step:setting.keyboardIncrement();adjustTo(Math.clamp(setting.getValue()+direction*increment,setting.getMin(),setting.getMax()));}
     private void preview(String text) {
         try {
             if (!text.matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")) { throw new IllegalArgumentException(); }
@@ -40,12 +46,13 @@ public final class Slider extends UIComponent {
     }
     public Slider(DoubleSetting setting, Runnable changed, double step) {
         this.setting = setting; this.changed = changed; this.step = step;
+        input.accessibleName(()->setting.getName()+", "+setting.getDescription()+", range "+setting.getMin()+" to "+setting.getMax());input.inlineValidation(false);input.contextBounds(this::getBounds);
         input.onKey(event -> {
             if (event.key() != 265 && event.key() != 264) { return false; }
             double increment = (step > 0 ? step : setting.keyboardIncrement()) * (event.hasShiftDown() ? 10 : 1);
-            setting.setValue(Math.clamp(setting.getValue() + (event.key()==265?increment:-increment),setting.getMin(),setting.getMax()));
-            input.setValue(Double.toString(setting.getValue())); input.validation(""); changed.run(); return true;
+            setting.setValue(Math.clamp(setting.getValue() + (event.key()==265?increment:-increment),setting.getMin(),setting.getMax()));input.setValue(Double.toString(setting.getValue()));input.validation("");changed.run(); return true;
         });
+        input.beforeFocus(()->{if(input.validation().isEmpty()){original=setting.getValue();}});
         input.onChange(this::preview);
         input.onCancel(() -> { setting.setValue(original);input.setValue(Double.toString(original));input.validation("");changed.run(); });
         input.onCommit(() -> {if(input.validation().isEmpty()){input.setValue(Double.toString(setting.getValue()));}});
@@ -59,26 +66,23 @@ public final class Slider extends UIComponent {
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
-        keyboard(graphics, opacity, () -> setting.getName() + ", slider, " + setting.getValue()+", "+setting.getDescription()+", range "+setting.getMin()+" to "+setting.getMax(), this::beginEditing, direction -> {
-            double increment = step > 0 ? step : setting.keyboardIncrement();
-            setting.setValue(Math.clamp(setting.getValue() + direction * increment, setting.getMin(), setting.getMax())); changed.run();
-        });
+        keyboard(graphics, opacity, () -> setting.getName() + ", slider, " + setting.getValue()+", "+setting.getDescription()+", range "+setting.getMin()+" to "+setting.getMax(), this::beginEditing, this::adjust);
         double hovered = updateHover(mouseX, mouseY, deltaSeconds);
         position.animateTo(normalized());
         double progress = MathUtil.clamp01(position.update(deltaSeconds));
         if (cachedNumber != setting.getValue()) { cachedNumber = setting.getValue(); cachedValue = String.format(Locale.ROOT, step == 1 ? "%.0f" : "%.2f", cachedNumber); }
         String value = cachedValue;
-        String label = Theme.displayName(setting.getName()) + ": " + value;
+        String label = Theme.displayName(setting.getName());
         double labelScale=.88;
         String fullLabel=label;label=RenderUtil.ellipsize(font,label,(width-4)/labelScale);
         if(contains(mouseX,mouseY)){graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(fullLabel),net.minecraft.network.chat.Component.literal(setting.getDescription())),java.util.Optional.empty(),(int)mouseX,(int)mouseY);}
         RenderUtil.text(graphics, font, label,
                 x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), y + 1, labelScale, Theme.opacity(Theme.TEXT, opacity));
-        input.setBounds(x, y, width, Math.max(12, height - 9));
-        if (input.isFocused()||!input.validation().isEmpty()) {
-            RenderUtil.drawRoundedRect(graphics, x, y, width, Math.max(12, height - 9), 2, Theme.opacity(Theme.SURFACE, opacity));
-            input.render(graphics, font, mouseX, mouseY, deltaSeconds, opacity);
-        }
+        input.setBounds(x,y+dev.riserecode.ui.component.SettingMetrics.labelHeight(),width,dev.riserecode.ui.component.SettingMetrics.fieldHeight());
+        if(!input.isFocused()&&input.validation().isEmpty()){input.setValue(Double.toString(setting.getValue()));}
+        RenderUtil.drawRoundedRect(graphics,input.getBounds().x(),input.getBounds().y(),width,input.getBounds().height(),3,Theme.opacity(Theme.SURFACE,opacity));
+        input.render(graphics,font,mouseX,mouseY,deltaSeconds,opacity);
+        dev.riserecode.ui.component.SettingMetrics.validation(graphics,font,input,opacity);
         double trackX = x + 5;
         double trackWidth = width - 10;
         double trackY = y + height - 6;
@@ -107,14 +111,14 @@ public final class Slider extends UIComponent {
         double progress = MathUtil.clamp01((mouseX - x - 5) / Math.max(1, width - 10));
         double value = setting.valueAt(progress);
         if (step > 0) { value = setting.getMin() + Math.rint((value - setting.getMin()) / step) * step; }
-        setting.setValue(Math.max(setting.getMin(), Math.min(setting.getMax(), value)));
-        changed.run();
+        adjustTo(Math.max(setting.getMin(), Math.min(setting.getMax(), value)));
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || !contains(mouseX, mouseY)) { return false; }
-        if (mouseY < y + 12) { beginEditing(); return true; }
+        if (mouseY < y + dev.riserecode.ui.component.SettingMetrics.labelHeight() || input.contains(mouseX,mouseY)) { beginEditing(); return true; }
+        if(mouseY<y+height-12){return true;}
         dev.riserecode.ui.component.FocusedInput.commit();
         dragging = true;
         setFromMouse(mouseX);

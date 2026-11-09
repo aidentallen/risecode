@@ -32,6 +32,8 @@ public final class UxJourneyIntegrationTest {
         c.waitTicks(10);c.takeScreenshot("ux-german-font2");c.runOnClient(mc->{dev.riserecode.ui.theme.Theme.setGerman(false);Client.INSTANCE.getThemeManager().reset();mc.gui.setScreen(null);});
         Client.INSTANCE.getLogger().info("UX journey checks passed: {}",checks);
         UxLayoutIntegrationTest.run(c);
+        UxAuxiliaryIntegrationTest.run(c);
+        UxViewportIntegrationTest.run(c);
         UxMotionIntegrationTest.run(c);
     }
     private static void guiDraftTest(net.minecraft.client.Minecraft mc){

@@ -13,7 +13,7 @@ public final class StringControl extends UIComponent {
     private final TextField field;
     private String original;
     public StringControl(StringSetting setting, Runnable changed) {
-        this.setting = setting; field = new TextField(() -> setting.getDescription()); field.setMaximum(setting.maximum());
+        this.setting = setting; field = new TextField(() -> setting.getDescription()); field.setMaximum(setting.maximum());field.accessibleName(()->setting.getName()+", "+setting.getDescription());field.inlineValidation(false);field.contextBounds(this::getBounds);
         field.onChange(value -> { try { setting.setValue(value); field.validation(""); changed.run(); } catch (IllegalArgumentException invalid) { field.validation(invalid.getMessage()); } });
         field.beforeFocus(() -> original = setting.getValue());
         field.onCancel(() -> { setting.setValue(original); field.setValue(original); field.validation(""); changed.run(); });
@@ -21,11 +21,12 @@ public final class StringControl extends UIComponent {
     public TextField field() { return field; }
     @Override public void render(GuiGraphicsExtractor g, Font font, double mx, double my, double delta, double opacity) {
         RenderUtil.text(g, font, Theme.displayName(setting.getName()), x, y, 0.8, Theme.opacity(Theme.SECONDARY, opacity));
-        double labelHeight=9*Theme.number("Font Scale",1)*.8+5;
-        field.setBounds(x,y+labelHeight,width,Math.max(20,height-labelHeight-12));
+        double labelHeight=dev.riserecode.ui.component.SettingMetrics.labelHeight();
+        field.setBounds(x,y+labelHeight,width,dev.riserecode.ui.component.SettingMetrics.fieldHeight());
         if (!field.isFocused()&&field.validation().isEmpty()) { field.setValue(setting.getValue()); }
         RenderUtil.drawRoundedRect(g, x,field.getBounds().y(),width,field.getBounds().height(), 3, Theme.opacity(Theme.HOVER, opacity));
         field.render(g, font, mx, my, delta, opacity);
+        dev.riserecode.ui.component.SettingMetrics.validation(g,font,field,opacity);
     }
     @Override public boolean mouseClicked(double mx, double my, int button) {
         if (button != 0 || !contains(mx, my)) { return false; }

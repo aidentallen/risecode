@@ -15,6 +15,13 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
     private final TextEditModel edit = new TextEditModel(512,false);
     private boolean focused;
     private boolean masked;
+    private Supplier<String> accessibleName;
+    private Supplier<Bounds> contextBounds;
+    public TextField contextBounds(Supplier<Bounds> value){contextBounds=value;return this;}
+    private boolean inlineValidation=true;
+    public TextField accessibleName(Supplier<String> value){accessibleName=value;return this;}
+    public String accessibleName(){return accessibleName==null?placeholder.get():accessibleName.get();}
+    public void inlineValidation(boolean value){inlineValidation=value;}
     public void masked(boolean value) { masked=value; }
     private String displayed() { return masked ? "•".repeat(edit.value().codePointCount(0,edit.value().length())) : edit.value(); }
     private String prefix(int position) { return masked ? "•".repeat(edit.value().codePointCount(0,position)) : edit.value().substring(0,position); }
@@ -49,14 +56,14 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
     }
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY, double seconds, double opacity) {
-        keyboard(graphics, opacity, () -> placeholder.get() + ", text, " + (masked ? "hidden" : edit.value()) + (validation.isEmpty() ? "" : ", error: " + validation), () -> { setFocused(true); selectAll(); }, null);
+        KeyboardNavigation.control(graphics,this,contextBounds==null?getBounds():contextBounds.get(),opacity, () -> accessibleName() + ", text, " + (masked ? "hidden" : edit.value()) + (validation.isEmpty() ? "" : ", error: " + validation), () -> { setFocused(true); selectAll(); }, null);
         renderedFont = font; time += seconds;
         double hovered = updateHover(mouseX, mouseY, seconds);
         if(dev.riserecode.ui.render.LiquidGlass.enabled()){
             RenderUtil.drawSurfaceTransition(graphics,x,y,width,height,Math.min(9,height/2),hovered*.5,opacity);
             if(focused){RenderUtil.drawRoundedBorder(graphics,x,y,width,height,Math.min(9,height/2),Theme.opacity(Theme.accent(),opacity*.7),.65);}
         }
-        String text = edit.value().isEmpty() ? placeholder.get() : displayed();
+        String text = edit.value().isEmpty() ? RenderUtil.ellipsize(font,placeholder.get(),Math.max(1,width-16)) : displayed();
         double left = edit.value().isEmpty() ? x + (width - RenderUtil.textWidth(font, text, false)) / 2 : left(font);
         double textHeight = 9 * Theme.number("Font Scale", 1);
         double top = y + (height - textHeight) / 2;
@@ -78,7 +85,7 @@ public final class TextField extends UIComponent implements FocusedInput.Owner {
         if (!validation.isEmpty()) {
             if(contains(mouseX,mouseY)){graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(validation)),java.util.Optional.empty(),(int)mouseX,(int)mouseY);}
             RenderUtil.drawRoundedBorder(graphics, x, y, width, height, 2, Theme.opacity(0xFFFF6677, opacity), 0.7);
-            RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, validation, width / 0.55), x, y + height - 5, 0.55, Theme.opacity(0xFFFF6677, opacity));
+            if(inlineValidation){RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, validation, width / 0.55), x, y + height - 5, 0.55, Theme.opacity(0xFFFF6677, opacity));}
         }
     }
     @Override
