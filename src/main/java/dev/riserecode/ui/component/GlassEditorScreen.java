@@ -30,6 +30,7 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
     private final List<UIComponent> hitControls=new ArrayList<>();
     private UIComponent captured;
     private final Object[] previewFocus={new Object(),new Object(),new Object()};
+    private final UIComponent.Bounds[] previewControls=new UIComponent.Bounds[3];
     private boolean rotating;
     private double rotation=155,tilt=0,zoom=1,scroll,maxScroll;
     private double panelX,panelY,panelWidth,panelHeight,previewX,previewY,previewW,previewH;
@@ -100,20 +101,25 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
             }
         }finally{RenderUtil.scissorPop(g);KeyboardNavigation.popScrollRegion();}
         maxScroll=Math.max(0,y+scroll-panelY-panelHeight+6);scroll=Math.clamp(scroll,0,maxScroll);
+        double hintHeight=9*fontScale*.65+9,controlHeight=Math.max(19,9*fontScale*.65+8),controlTop=previewY+previewH-controlHeight;
+        double modelTop=previewY+hintHeight,modelBottom=Math.max(modelTop+1,controlTop-4);
         var state=previewState(partial);
-        g.entity(state,(float)(Math.min(previewW*.34,previewH*.40)*zoom),new Vector3f(),new Quaternionf().rotateZ((float)Math.PI).rotateX((float)Math.toRadians(tilt)).rotateY((float)Math.toRadians(rotation)),null,(int)previewX,(int)previewY,(int)(previewX+previewW),(int)(previewY+previewH));
+        g.entity(state,(float)(Math.min(previewW*.34,(modelBottom-modelTop)*.40)*zoom),new Vector3f(),new Quaternionf().rotateZ((float)Math.PI).rotateX((float)Math.toRadians(tilt)).rotateY((float)Math.toRadians(rotation)),null,(int)previewX,(int)modelTop,(int)(previewX+previewW),(int)modelBottom);
         String[] previewLabels={"Rotation","Tilt","Zoom"};
         for(int i=0;i<3;i++) {
-            final int axis=i;
-            double controlY=previewY+26+i*16;
-            KeyboardNavigation.control(g,previewFocus[i],new UIComponent.Bounds(previewX+8,controlY,previewW-16,15),1,
-                    () -> "Glass preview, "+previewLabels[axis]+", "+(axis==0?rotation:axis==1?tilt:zoom),
-                    () -> {if(axis==0){rotation=155;}else if(axis==1){tilt=0;}else{zoom=1;}},
+            final int axis=i;double span=(previewW-8)/3;
+            var bounds=new UIComponent.Bounds(previewX+2+i*span,controlTop,span-3,controlHeight);previewControls[i]=bounds;
+            KeyboardNavigation.control(g,previewFocus[i],bounds,1,
+                    () -> "Glass preview, "+previewLabels[axis]+", "+(axis==0?rotation:axis==1?tilt:zoom)+", arrows adjust, activate resets",
+                    () -> resetPreviewAxis(axis),
                     direction -> {if(axis==0){rotation+=direction*15;}else if(axis==1){tilt=Math.clamp(tilt+direction*5,-35,35);}else{zoom=Math.clamp(zoom+direction*.08,.5,1.6);}});
-            RenderUtil.text(g,font,previewLabels[i]+" · arrows",previewX+12,controlY+3,.6,Theme.SECONDARY);
+            boolean hot=bounds.x()<=mx&&mx<bounds.x()+bounds.width()&&bounds.y()<=my&&my<bounds.y()+bounds.height();
+            RenderUtil.drawButton(g,bounds.x(),bounds.y(),bounds.width(),bounds.height(),hot?1:0,1);
+            String label=RenderUtil.ellipsize(font,previewLabels[i],Math.max(1,bounds.width()-8)/.65);
+            RenderUtil.text(g,font,label,bounds.centerX()-RenderUtil.textWidth(font,label,false)*.65/2,bounds.y()+(controlHeight-9*fontScale*.65)/2,.65,Theme.TEXT);
+            if(hot){g.setTooltipForNextFrame(font,java.util.List.of(Component.literal(previewLabels[i]+" · arrows adjust · click resets")),java.util.Optional.empty(),mx,my);}
         }
-        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Drag to rotate · Scroll to zoom",(previewW-16)/.7),previewX+8,previewY+8,.7,Theme.TEXT);
-        if(previewH>=120){RenderUtil.text(g,font,RenderUtil.ellipsize(font,minecraft.player==null?"Sample loadout":"Your skin & equipment",(previewW-16)/.7),previewX+8,previewY+previewH-16,.7,Theme.TEXT);}
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Drag rotates · Wheel zooms",(previewW-12)/.65),previewX+6,previewY+3,.65,Theme.SECONDARY);
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,module.status(),(width-190)/.65),16,height-23,.65,Theme.SECONDARY);
         reset.setBounds(width-174,height-35,100,28);done.setBounds(width-70,height-35,60,28);reset.render(g,font,mx,my,dt,1);done.render(g,font,mx,my,dt,1);
     }
@@ -139,15 +145,17 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
         return new ItemStack(net.minecraft.core.Holder.direct(item,components.build()),1);
     }
     public List<UIComponent> getControls(){return sections.stream().flatMap(section->section.rows().stream()).map(Row::control).toList();}
+    private void resetPreviewAxis(int axis){if(axis==0){rotation=155;}else if(axis==1){tilt=0;}else{zoom=1;}}
     public double rotation(){return rotation;}
     public double zoom(){return zoom;}
     private boolean previewContains(double x,double y){return x>=previewX&&x<previewX+previewW&&y>=previewY&&y<previewY+previewH;}
     @Override public boolean mouseClicked(MouseButtonEvent e,boolean twice){
         FocusedInput.pointer(e.x(),e.y());for(var section:sections)for(var row:section.rows())if(row.control() instanceof ColorPicker picker)picker.pointerFocus(e.x(),e.y());
         if(done.mouseClicked(e.x(),e.y(),e.button())||reset.mouseClicked(e.x(),e.y(),e.button()))return true;
+        if(e.button()==0){for(int i=0;i<previewControls.length;i++){var b=previewControls[i];if(b!=null&&e.x()>=b.x()&&e.x()<b.x()+b.width()&&e.y()>=b.y()&&e.y()<b.y()+b.height()){resetPreviewAxis(i);return true;}}}
         if(previewContains(e.x(),e.y())&&e.button()==0){rotating=true;return true;}
         if(e.x()<panelX||e.x()>panelX+panelWidth||e.y()<panelY||e.y()>panelY+panelHeight)return false;
-        for(var control:hitControls)if(control.getBounds().y()>=panelY&&control.getBounds().y()+control.getBounds().height()<=panelY+panelHeight&&control.mouseClicked(e.x(),e.y(),e.button())){captured=control;return true;}
+        for(var control:hitControls)if(control.mouseClicked(e.x(),e.y(),e.button())){captured=control;return true;}
         return true;
     }
     @Override public boolean mouseDragged(MouseButtonEvent e,double dx,double dy){if(rotating){rotation+=dx*.8;tilt=Math.clamp(tilt+dy*.4,-35,35);return true;}return captured!=null&&captured.mouseDragged(e.x(),e.y(),e.button());}

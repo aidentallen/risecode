@@ -76,7 +76,7 @@ public final class KeyboardReviewIntegrationTest {
         var probe=context.computeOnClient(mc->new ColorProbe());context.runOnClient(mc->mc.gui.setScreen(probe));context.waitTicks(3);
         colorFocus(context,probe,"Probe, color,");key(context,InputConstants.KEY_SPACE);context.waitTicks(15);
         colorFocus(context,probe,"Probe, end color");key(context,InputConstants.KEY_SPACE);
-        colorFocus(context,probe,"AARRGGBB, text");key(context,InputConstants.KEY_RETURN);
+        colorFocus(context,probe,"Probe, end, hex AARRGGBB, text");key(context,InputConstants.KEY_RETURN);
         type(context,"FF778899");
         key(context,InputConstants.KEY_RETURN);
         context.runOnClient(mc->check(probe.setting.getSecondary()==0xFF778899&&probe.setting.getValue()==0xFF112233,"Keyboard selects and edits end color without changing start"));

@@ -35,6 +35,7 @@ public final class UxJourneyIntegrationTest {
         UxAuxiliaryIntegrationTest.run(c);
         UxViewportIntegrationTest.run(c);
         UxMotionIntegrationTest.run(c);
+        if(Boolean.getBoolean("riserecode.resourcesOffline")){UxNestedIntegrationTest.run(c);}
     }
     private static void guiDraftTest(net.minecraft.client.Minecraft mc){
         var gui=Client.INSTANCE.getClickGui();gui.selectPage(ClickGui.Page.COSMETICS);

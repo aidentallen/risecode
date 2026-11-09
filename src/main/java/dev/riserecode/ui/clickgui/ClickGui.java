@@ -240,7 +240,8 @@ public final class ClickGui extends Screen {
     private Page layoutPage;
     private boolean layoutGerman;
     private double layoutX,layoutY,layoutWidth,layoutHeight,layoutCanvasWidth,layoutCanvasHeight,layoutShift;
-    private double sidebarWidth(){return Math.min(windowWidth*.45,107+48*Math.max(0,themes.number("Font Scale")-1));}
+    public dev.riserecode.ui.component.KeyboardNavigation getKeyboardNavigation(){return keyboardNavigation;}
+    private double sidebarWidth(){if(windowWidth<400&&themes.number("Font Scale")>=1.5){return 56;}return Math.min(windowWidth*.45,107+48*Math.max(0,themes.number("Font Scale")-1));}
     private void layout() {
         double shift=pageShift();long revision=themes.getRevision(),generation=dev.riserecode.ui.font.CustomTextRenderer.generation();
         if(layoutRevision==revision&&layoutFontGeneration==generation&&layoutPage==page&&layoutGerman==Theme.isGerman()
@@ -559,7 +560,7 @@ public final class ClickGui extends Screen {
         if (dev.riserecode.ui.component.FocusedInput.key(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard)) { return true; }
         if (closing) { return true; }
         if (event.isEscape()) { onClose(); return true; }
-        if (event.hasControlDown() && event.key() == 70) { if (page == Page.RESOURCES) { resourcesEditor.search().setFocused(true); resourcesEditor.search().selectAll(); } else { if(!settingSearch()){selectPage(Page.SEARCH);} field.setFocused(true); field.selectAll(); } return true; }
+        if (event.hasControlDown() && event.key() == 70) { if (page == Page.RESOURCES) { resourcesEditor.focusSearch(); } else { if(!settingSearch()){selectPage(Page.SEARCH);} field.setFocused(true); field.selectAll(); } return true; }
         if(page==Page.PERFORMANCE&&getClientSettingsEditor().keyPressed(event,minecraft.keyboardHandler::getClipboard,minecraft.keyboardHandler::setClipboard)){return true;}
         if (!dev.riserecode.ui.component.FocusedInput.active() && (event.key()==262 || event.key()==263)) { if(sidebar.isExpanded() != (event.key()==262)){sidebar.toggleExpanded();} return true; }
         if(!dev.riserecode.ui.component.FocusedInput.active()&&(event.key()==268||event.key()==269)&&getActivePanel()!=null){getActivePanel().scrollToBoundary(event.key()==269);return true;}

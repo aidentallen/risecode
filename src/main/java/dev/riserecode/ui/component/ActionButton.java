@@ -29,6 +29,8 @@ public final class ActionButton extends UIComponent {
         super.setBounds(slotX+(slotWidth-w)/2,slotY+(slotHeight-ButtonMetrics.HEIGHT)/2,w,ButtonMetrics.HEIGHT);
     }
     public ActionButton icon(Icon value) { icon = value; return this; }
+    public double pressScale(){return press.scale();}
+    public void activate(){if(!isEnabled()){return;}press.activate();if(clickSound){dev.riserecode.ui.sound.UiSounds.play();}action.run();}
     public String label() { return label.get(); }
 
     public ActionButton(String label, Runnable action) { this(() -> label, action); }
@@ -42,6 +44,7 @@ public final class ActionButton extends UIComponent {
             double deltaSeconds, double opacity) {
         fit(font);boolean active=isEnabled();
         if (active) { keyboard(graphics, opacity, () -> (accessibleLabel == null ? label.get() : accessibleLabel.get()) + ", button", () -> { press.activate(); if (clickSound) { dev.riserecode.ui.sound.UiSounds.play(); } action.run(); }, null); }
+        if(!KeyboardNavigation.intersectsClip(graphics,getBounds())){return;}
         double hovered = updateHover(active?mouseX:-1e6, active?mouseY:-1e6, deltaSeconds);
         if(!active){opacity*=0.5;}
         double compression = press.scale();

@@ -45,17 +45,19 @@ public final class Sidebar extends UIComponent {
     public double hoverAmount(int index) { return hovers.get(index).getValue(); }
     public void activateSelected() { if(selected>=0){presses.get(selected).activate();} }
     public int getSelected(){return selected;}
+    private boolean compact(){return width<80;}
     public boolean isExpanded(){return expanded;}
     public void toggleExpanded(){arrowPress.activate();expanded=!expanded;expansion.animateTo(expanded?1:0);dev.riserecode.ui.sound.UiSounds.play();}
     public Bounds getArrowBounds(){return new Bounds(x+10,y+navigationTop+PRIMARY*rowHeight()-scroll.getValue(),width-20,ButtonMetrics.HEIGHT);}
     public Bounds getItemBounds(int index){return new Bounds(x+10,y+navigationTop+(index+(index>=PRIMARY?1:0))*rowHeight()-scroll.getValue(),LiquidGlass.enabled()?width-20:Math.min(width-20,ButtonMetrics.width(net.minecraft.client.Minecraft.getInstance()==null?null:net.minecraft.client.Minecraft.getInstance().font,items.get(index).label())),ButtonMetrics.HEIGHT);}
     public List<Integer> keyboardItems(){return java.util.stream.IntStream.range(0,expanded?items.size():Math.min(PRIMARY,items.size())).boxed().toList();}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
-        double logoScale=Math.min(1.65,(width-37)/Math.max(1,RenderUtil.textWidth(font,Client.INSTANCE.getName(),false)));
-        RenderUtil.text(g,font,Client.INSTANCE.getName(),x+14,y+14,logoScale,Theme.opacity(Theme.TEXT,alpha));
+        String brand=compact()?Client.INSTANCE.getName().substring(0,1):Client.INSTANCE.getName();
+        double logoScale=compact()?1.2:Math.min(1.65,(width-37)/Math.max(1,RenderUtil.textWidth(font,brand,false)));
+        RenderUtil.text(g,font,brand,x+14,y+14,logoScale,Theme.opacity(Theme.TEXT,alpha));
         double versionY=y+14+9*Theme.number("Font Scale",1)*logoScale+4;
-        navigationTop=Math.max(43,versionY-y+9*Theme.number("Font Scale",1)*.55+7);
-        RenderUtil.text(g,font,Client.INSTANCE.getVersion(),x+14,versionY,0.55,Theme.opacity(Theme.accent(),alpha*.85));
+        navigationTop=compact()?44:Math.max(43,versionY-y+9*Theme.number("Font Scale",1)*.55+7);
+        if(!compact()){RenderUtil.text(g,font,Client.INSTANCE.getVersion(),x+14,versionY,0.55,Theme.opacity(Theme.accent(),alpha*.85));}
         double expandedAmount=expansion.update(dt),available=Math.max(1,height-navigationTop-8);
         maximum=Math.max(0,(Math.min(PRIMARY,items.size())+1+(items.size()-PRIMARY)*expandedAmount)*rowHeight()-available);
         if(scroll.getValue()>maximum){scroll.reset(maximum);}scroll.animateTo(Math.clamp(scroll.getTarget(),0,maximum));scroll.update(dt);
@@ -99,8 +101,9 @@ public final class Sidebar extends UIComponent {
                 if(i!=selected){RenderUtil.drawRoundedRect(g,b.x(),b.y(),b.width(),17,LiquidGlass.enabled()?8.5:4,Theme.opacity(Theme.HOVER,alpha*hovered*.4));}
                 double rowAlpha=alpha*(i>=PRIMARY?expandedAmount:1),shift=hovered*.65*Animation.movement(ThemeManager.Channel.HOVER);
                 int color=Theme.opacity(i==selected?Theme.manager().colorSetting("Selected Tab Color").sample(b.x(),b.y()):Theme.blendPalette(Theme.SECONDARY,Theme.TEXT,hovered),rowAlpha);
-                items.get(i).icon().draw(g,b.x()+4+shift,b.y()+3,color);
-                RenderUtil.text(g,font,Theme.label(items.get(i).label()),b.x()+19+shift,b.y()+4,Math.min(ButtonMetrics.textScale(b.height()),(b.width()-21)/Math.max(1,RenderUtil.textWidth(font,Theme.label(items.get(i).label()),false))),color);
+                items.get(i).icon().draw(g,b.x()+(compact()?(b.width()-10)/2:4)+shift,b.y()+3,color);
+                if(compact()&&over){g.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(Theme.label(items.get(i).label()))),java.util.Optional.empty(),(int)mx,(int)my);}
+                if(!compact()){RenderUtil.text(g,font,Theme.label(items.get(i).label()),b.x()+19+shift,b.y()+4,Math.min(ButtonMetrics.textScale(b.height()),(b.width()-21)/Math.max(1,RenderUtil.textWidth(font,Theme.label(items.get(i).label()),false))),color);}
                 g.pose().popMatrix();
             }
             Bounds arrow=getArrowBounds();
@@ -109,7 +112,8 @@ public final class Sidebar extends UIComponent {
             arrowHover.animateTo(contains(mx,my)&&my>=arrow.y()&&my<arrow.y()+arrow.height()?1:0);
             double arrowAmount=arrowHover.update(dt);
             RenderUtil.drawRoundedRect(g,arrow.x(),arrow.y(),arrow.width(),17,4,Theme.opacity(Theme.HOVER,alpha*arrowAmount*.4));
-            RenderUtil.text(g,font,Theme.label("Utilities"),arrow.x()+19,arrow.y()+4,Math.min(ButtonMetrics.textScale(arrow.height()),(arrow.width()-21)/Math.max(1,RenderUtil.textWidth(font,Theme.label("Utilities"),false))),Theme.opacity(Theme.blendPalette(Theme.SECONDARY,Theme.TEXT,arrowAmount),alpha));
+            if(compact()&&contains(mx,my)&&my>=arrow.y()&&my<arrow.y()+arrow.height()){g.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal("Utilities")),java.util.Optional.empty(),(int)mx,(int)my);}
+            if(!compact()){RenderUtil.text(g,font,Theme.label("Utilities"),arrow.x()+19,arrow.y()+4,Math.min(ButtonMetrics.textScale(arrow.height()),(arrow.width()-21)/Math.max(1,RenderUtil.textWidth(font,Theme.label("Utilities"),false))),Theme.opacity(Theme.blendPalette(Theme.SECONDARY,Theme.TEXT,arrowAmount),alpha));}
             g.pose().pushMatrix();g.pose().translate((float)(arrow.x()+8),(float)(arrow.y()+9));g.pose().rotate((float)(expandedAmount*Math.PI/2));
             RenderUtil.line(g,-2,-3,1,0,1.3,Theme.opacity(Theme.TEXT,alpha));RenderUtil.line(g,1,0,-2,3,1.3,Theme.opacity(Theme.TEXT,alpha));g.pose().popMatrix();g.pose().popMatrix();
         }finally{RenderUtil.scissorPop(g);KeyboardNavigation.popScrollRegion();}

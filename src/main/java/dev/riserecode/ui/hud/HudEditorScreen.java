@@ -124,7 +124,8 @@ public final class HudEditorScreen extends Screen implements dev.riserecode.ui.c
         if (selected != null && event.x() >= panelX && event.x() <= panelX + panelWidth && event.y() >= panelY && event.y() <= panelY + panelHeight) {
             if(settingsSection.mouseClicked(event.x(),event.y(),event.button())){return true;}
             if(!settingsSection.isExpanded()){return true;}
-            for (UIComponent control : controls) { if (control.getBounds().y()>=contextTop&&control.getBounds().y()+control.getBounds().height()<=contextTop+contextVisibleHeight&&control.mouseClicked(event.x(), event.y(), event.button())) { captured = control; return true; } }
+            if(event.y()<contextTop||event.y()>=contextTop+contextVisibleHeight){return true;}
+            for (UIComponent control : controls) { if (control.mouseClicked(event.x(), event.y(), event.button())) { captured = control; return true; } }
             return true;
         }
         List<HudRenderer.Box> boxes = hud.getBoxes();

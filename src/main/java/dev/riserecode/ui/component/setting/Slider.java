@@ -20,6 +20,9 @@ public final class Slider extends UIComponent {
     private final dev.riserecode.ui.component.TextField input = new dev.riserecode.ui.component.TextField(() -> "Value");
     private double original;
     private String cachedValue = "";
+    private java.util.function.Supplier<String> accessibleName;
+    public Slider accessibleName(java.util.function.Supplier<String> name){accessibleName=name;return this;}
+    private String contextName(){return accessibleName==null?setting.getName():accessibleName.get();}
     private double cachedNumber = Double.NaN;
     public dev.riserecode.ui.component.TextField input() { return input; }
     public void beginEditing() {
@@ -46,13 +49,13 @@ public final class Slider extends UIComponent {
     }
     public Slider(DoubleSetting setting, Runnable changed, double step) {
         this.setting = setting; this.changed = changed; this.step = step;
-        input.accessibleName(()->setting.getName()+", "+setting.getDescription()+", range "+setting.getMin()+" to "+setting.getMax());input.inlineValidation(false);input.contextBounds(this::getBounds);
+        input.accessibleName(()->contextName()+", "+setting.getDescription()+", range "+setting.getMin()+" to "+setting.getMax());input.inlineValidation(false);input.contextBounds(this::getBounds);
         input.onKey(event -> {
             if (event.key() != 265 && event.key() != 264) { return false; }
             double increment = (step > 0 ? step : setting.keyboardIncrement()) * (event.hasShiftDown() ? 10 : 1);
             setting.setValue(Math.clamp(setting.getValue() + (event.key()==265?increment:-increment),setting.getMin(),setting.getMax()));input.setValue(Double.toString(setting.getValue()));input.validation("");changed.run(); return true;
         });
-        input.beforeFocus(()->{if(input.validation().isEmpty()){original=setting.getValue();}});
+        input.beforeFocus(()->{if(input.validation().isEmpty()){original=setting.getValue();input.setValue(Double.toString(original));}});
         input.onChange(this::preview);
         input.onCancel(() -> { setting.setValue(original);input.setValue(Double.toString(original));input.validation("");changed.run(); });
         input.onCommit(() -> {if(input.validation().isEmpty()){input.setValue(Double.toString(setting.getValue()));}});
@@ -66,12 +69,11 @@ public final class Slider extends UIComponent {
     @Override
     public void render(GuiGraphicsExtractor graphics, Font font, double mouseX, double mouseY,
             double deltaSeconds, double opacity) {
-        keyboard(graphics, opacity, () -> setting.getName() + ", slider, " + setting.getValue()+", "+setting.getDescription()+", range "+setting.getMin()+" to "+setting.getMax(), this::beginEditing, this::adjust);
+        keyboard(graphics, opacity, () -> contextName() + ", slider, " + setting.getValue()+", "+setting.getDescription()+", range "+setting.getMin()+" to "+setting.getMax(), this::beginEditing, this::adjust);
         double hovered = updateHover(mouseX, mouseY, deltaSeconds);
         position.animateTo(normalized());
         double progress = MathUtil.clamp01(position.update(deltaSeconds));
-        if (cachedNumber != setting.getValue()) { cachedNumber = setting.getValue(); cachedValue = String.format(Locale.ROOT, step == 1 ? "%.0f" : "%.2f", cachedNumber); }
-        String value = cachedValue;
+        if (cachedNumber != setting.getValue()) { cachedNumber = setting.getValue(); double increment=step>0?step:setting.keyboardIncrement();int digits=increment>0?Math.clamp(Math.max(step>0?0:2,(int)Math.ceil(-Math.log10(increment))),0,6):2;cachedValue=java.math.BigDecimal.valueOf(cachedNumber).setScale(digits,java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString(); }
         String label = Theme.displayName(setting.getName());
         double labelScale=.88;
         String fullLabel=label;label=RenderUtil.ellipsize(font,label,(width-4)/labelScale);
@@ -79,7 +81,7 @@ public final class Slider extends UIComponent {
         RenderUtil.text(graphics, font, label,
                 x + hovered * 0.7 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.HOVER), y + 1, labelScale, Theme.opacity(Theme.TEXT, opacity));
         input.setBounds(x,y+dev.riserecode.ui.component.SettingMetrics.labelHeight(),width,dev.riserecode.ui.component.SettingMetrics.fieldHeight());
-        if(!input.isFocused()&&input.validation().isEmpty()){input.setValue(Double.toString(setting.getValue()));}
+        if(!input.isFocused()&&input.validation().isEmpty()&&!input.getValue().equals(cachedValue)){input.setValue(cachedValue);}
         RenderUtil.drawRoundedRect(graphics,input.getBounds().x(),input.getBounds().y(),width,input.getBounds().height(),3,Theme.opacity(Theme.SURFACE,opacity));
         input.render(graphics,font,mouseX,mouseY,deltaSeconds,opacity);
         dev.riserecode.ui.component.SettingMetrics.validation(graphics,font,input,opacity);

@@ -25,17 +25,26 @@ public final class KeyboardNavigation {
     public static void pushScrollRegion(java.util.function.Consumer<UIComponent.Bounds> reveal){regions.push(new ScrollRegion(reveal));}
     public static void popScrollRegion(){regions.pop();}
     public static boolean collectingOffscreen(){return collecting!=null&&collecting.focused!=null;}
-    public void pointerUsed(){focused=null;}
+    public void pointerUsed(){focused=null;pendingReveal=false;requestedReveal=null;}
     private static KeyboardNavigation collecting;
     private final List<Entry> entries = new ArrayList<>();
     private Object focused;
+    private boolean pendingReveal;
+    private Runnable requestedReveal;
+    public static void requestFocus(Object id){var mc=Minecraft.getInstance();if(mc==null){return;}var screen=mc.gui.screen();var navigation=screen instanceof dev.riserecode.ui.clickgui.ClickGui gui?gui.getKeyboardNavigation():auxiliary(screen);if(navigation!=null){navigation.focused=id;navigation.pendingReveal=true;}}
     public void begin() { entries.clear(); regions.clear(); collecting = this; }
-    public void end() { collecting = null; regions.clear(); }
+    public void end() { collecting = null; regions.clear();if(requestedReveal!=null){var reveal=requestedReveal;requestedReveal=null;pendingReveal=false;reveal.run();} }
     public String focusedLabel() {
         return entries.stream().filter(entry -> entry.id() == focused).findFirst().map(entry -> entry.label().get()).orElse("");
     }
     public List<String> labels() { return entries.stream().map(entry -> entry.label().get()).toList(); }
-    public void clear() { entries.clear(); focused = null; }
+    public void clear() { entries.clear(); focused = null; pendingReveal=false;requestedReveal=null; }
+    /** Extraction can skip invisible paint after registering logical keyboard actions. */
+    public static boolean intersectsClip(GuiGraphicsExtractor graphics, UIComponent.Bounds bounds){
+        var clip=graphics.scissorStack.peek();if(clip==null){return true;}
+        var rectangle=new ScreenRectangle((int)Math.floor(bounds.x()),(int)Math.floor(bounds.y()),(int)Math.ceil(bounds.width()),(int)Math.ceil(bounds.height())).transformMaxBounds(graphics.pose());
+        return rectangle.right()>clip.left()&&rectangle.left()<clip.right()&&rectangle.bottom()>clip.top()&&rectangle.top()<clip.bottom();
+    }
     public static void control(GuiGraphicsExtractor graphics, Object id, UIComponent.Bounds bounds, double opacity,
             Supplier<String> label, Runnable activate, IntConsumer adjust) {
         var navigation = collecting;
@@ -47,6 +56,7 @@ public final class KeyboardNavigation {
                 || rectangle.top() < clip.top() || rectangle.bottom() > clip.bottom())) { return; }
         var region=regions.peek();
         navigation.entries.add(new Entry(id,label,activate,adjust,region==null?()->{}:()->region.reveal().accept(bounds)));
+        if(navigation.focused==id&&navigation.pendingReveal){navigation.requestedReveal=region==null?()->{}:()->region.reveal().accept(bounds);}
         if (navigation.focused == id) {
             RenderUtil.drawRoundedBorder(graphics, bounds.x(), bounds.y(), bounds.width(), bounds.height(), 3, Theme.accent(), 1);
         }
