@@ -16,6 +16,7 @@ public abstract class TooltipMotionMixin {
     @WrapMethod(method="tooltip")
     private void risecode$tooltip(Font font,List<ClientTooltipComponent> components,int x,int y,ClientTooltipPositioner positioner,Identifier sprite,Operation<Void> original){
         if(!MenuTheme.activeMenu()){original.call(font,components,x,y,positioner,sprite);return;}
+        if(net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof dev.riserecode.ui.clickgui.ClickGui gui&&gui.getKeyboardNavigation().keyboardIntent()){return;}
         var g=(GuiGraphicsExtractor)(Object)this;var presentation=dev.riserecode.ui.menu.TooltipPresentation.prepare(font,components,g.guiWidth(),g.guiHeight());components=presentation.components();var anchor=dev.riserecode.ui.menu.TooltipPresentation.anchor(x,y);x=anchor[0];y=anchor[1];
         var preferred=positioner;positioner=(w,h,px,py,tw,th)->{var at=preferred.positionTooltip(w,h,px,py,tw,th);int left=Math.clamp(at.x(),8,Math.max(8,w-tw-8)),top=Math.clamp(at.y(),8,Math.max(8,h-th-8));dev.riserecode.ui.menu.TooltipPresentation.shown(presentation,left,top);return new org.joml.Vector2i(left,top);};
         double previous=TooltipMotion.alpha(),progress=TooltipMotion.progress(font,components),scale=PopIn.windowScale("Tooltips",progress);

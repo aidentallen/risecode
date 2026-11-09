@@ -29,7 +29,7 @@ public final class CosmeticDetailsScreen extends RetainedScreen {
     public boolean previewView(){return previewView;}
     private void selectInDraft(){editor.select(inspected);localStatus="Selected in draft · Back, then Apply when ready";}
     private String status(){return localStatus.isEmpty()?editor.importing()?"Importing cape…":editor.manager().library().status():localStatus;}
-    @Override public Component getNarrationMessage(){var definition=editor.manager().library().find(inspected);return Component.literal((definition==null?"Cape import. ":definition.name()+". ")+(previewView?"Item preview. Viewing does not change your outfit. Select in draft, then Apply in outfit to use it.":title.getString())+". Left/Right rotate. Up/Down zoom. R resets view. Import PNG cape path. "+status());}
+    @Override public Component getNarrationMessage(){var definition=editor.manager().library().find(inspected);return Component.literal((definition==null?"Cape import. ":definition.name()+". ")+(previewView?editor.isDraftSelected(inspected)?"Item is in the outfit draft. Return to outfit to Apply or Cancel.":"Item preview. Viewing does not change your outfit. Select in draft, then Apply in outfit to use it.":title.getString())+". Left/Right rotate. Up/Down zoom. R resets view. Import PNG cape path. "+status());}
     public EditBox path(){return path;}
     public boolean controlsView(){return controlsView;}
     public String fullStatus(){return status();}
@@ -76,7 +76,7 @@ public final class CosmeticDetailsScreen extends RetainedScreen {
         super.extractRenderState(g,mx,my,partial);
         RenderUtil.readabilitySurface(g,8,30,width-16,36,4,1);
         String name=def==null?"Import a PNG cape, or return to installed items.":def.name()+" · "+(available?"Installed":"Download needed")+" · "+(editor.isDraftSelected(inspected)?"In draft":"Preview only")+" · "+def.license();ScreenText.draw(g,font,dev.riserecode.util.RenderUtil.ellipsize(font,name,(width-24)/.7),12,34,.7,0xFFFFFFFF);
-        ScreenText.draw(g,font,previewView?"Preview only · Select in draft, then Apply in outfit":controlsView?"Arrows: view · R: reset":"PNG cape path (64×32 or scaled)",12,52,.6,0xFFB7CBD9);
+        ScreenText.draw(g,font,previewView?(editor.isDraftSelected(inspected)?"In draft · Return to outfit to Apply or Cancel":"Preview only · Select in draft, then Apply in outfit"):controlsView?"Arrows: view · R: reset":"PNG cape path (64×32 or scaled)",12,52,.6,0xFFB7CBD9);
         editor.renderAvatar(g,avatarBounds(),inspected);
         if(controlsView&&!previewView&&dev.riserecode.ui.theme.Theme.bool("Reduced Motion",false)){ScreenText.draw(g,font,"Reduced Motion: animation paused",12,height-108,.6,0xFFB7CBD9);}
     }

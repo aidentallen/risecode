@@ -61,14 +61,15 @@ public final class Sidebar extends UIComponent {
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
         String brand=compact()?Client.INSTANCE.getName().substring(0,1):Client.INSTANCE.getName();
         double logoScale=compact()?1.2:Math.min(1.65,(width-37)/Math.max(1,RenderUtil.textWidth(font,brand,false)));
-        if(compact()){
-            pagesBounds=new Bounds(x+4,y+10,width-8,22);
+        if(!compact()){double brandScale=Math.min(1.2,(width-60)/Math.max(1,RenderUtil.textWidth(font,brand,false)));RenderUtil.text(g,font,brand,x+14,y+14,brandScale,Theme.opacity(Theme.TEXT,alpha));}
+        {
+            pagesBounds=compact()?new Bounds(x+4,y+10,width-8,22):new Bounds(x+width-44,y+12,38,18);
             KeyboardNavigation.control(g,pagesFocus,pagesBounds,alpha,()->"Pages, choose a named destination",this::openPages,null);
             pagesHover.animateTo(pagesBounds.x()<=mx&&mx<pagesBounds.x()+pagesBounds.width()&&pagesBounds.y()<=my&&my<pagesBounds.y()+pagesBounds.height()?1:0);
             RenderUtil.drawButton(g,pagesBounds.x(),pagesBounds.y(),pagesBounds.width(),pagesBounds.height(),pagesHover.update(dt),alpha);
             double labelScale=Math.min(.8,(pagesBounds.width()-8)/Math.max(1,RenderUtil.textWidth(font,"Pages",false)));
             RenderUtil.text(g,font,"Pages",pagesBounds.centerX()-RenderUtil.textWidth(font,"Pages",false)*labelScale/2,pagesBounds.centerY()-9*Theme.number("Font Scale",1)*labelScale/2,labelScale,Theme.opacity(Theme.TEXT,alpha));
-        }else{pagesBounds=new Bounds(0,0,0,0);RenderUtil.text(g,font,brand,x+14,y+14,logoScale,Theme.opacity(Theme.TEXT,alpha));}
+        }
         double versionY=y+14+9*Theme.number("Font Scale",1)*logoScale+4;
         navigationTop=compact()?44:Math.max(43,versionY-y+9*Theme.number("Font Scale",1)*.55+7);
         if(!compact()){RenderUtil.text(g,font,Client.INSTANCE.getVersion(),x+14,versionY,0.55,Theme.opacity(Theme.accent(),alpha*.85));}
@@ -134,7 +135,7 @@ public final class Sidebar extends UIComponent {
         if(maximum>0){double thumb=Math.max(12,available*available/(available+maximum));RenderUtil.drawRoundedRect(g,x+width-4,y+navigationTop+scroll.getValue()/maximum*(available-thumb),1.5,thumb,1,Theme.opacity(Theme.accent(),alpha*.6));}
     }
     @Override public boolean mouseClicked(double mx,double my,int button){
-        if(button==0&&compact()&&pagesBounds.x()<=mx&&mx<pagesBounds.x()+pagesBounds.width()&&pagesBounds.y()<=my&&my<pagesBounds.y()+pagesBounds.height()){openPages();return true;}
+        if(button==0&&pagesBounds.x()<=mx&&mx<pagesBounds.x()+pagesBounds.width()&&pagesBounds.y()<=my&&my<pagesBounds.y()+pagesBounds.height()){openPages();return true;}
         if(button!=0||!contains(mx,my)||my<y+navigationTop-3){return false;}Bounds a=getArrowBounds();
         if(mx>=a.x()&&mx<a.x()+a.width()&&my>=a.y()&&my<a.y()+a.height()){toggleExpanded();arrowPress.press();return true;}
         for(int i:keyboardItems()){Bounds b=getItemBounds(i);if(mx>=b.x()&&mx<b.x()+b.width()&&my>=b.y()&&my<b.y()+b.height()){

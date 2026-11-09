@@ -30,7 +30,9 @@ public final class KeyboardNavigation {
     private final List<Entry> entries = new ArrayList<>();
     private Object focused;
     private boolean keyboardMode;
-    public void keyboardUsed(){keyboardMode=true;}
+    public boolean keyboardIntent(){return keyboardMode;}
+    public void keyboardUsed(){keyboardMode=true;dev.riserecode.ui.menu.TooltipPresentation.hide();}
+    public static boolean pointerHelpAllowed(){return collecting==null||!collecting.keyboardMode;}
     public static boolean instantGeometry(){return collecting!=null&&collecting.keyboardMode;}
     private boolean pendingReveal;
     private Runnable requestedReveal;
@@ -68,7 +70,7 @@ public final class KeyboardNavigation {
     private void announce(Entry entry) { Minecraft.getInstance().getNarrator().saySystemNow(entry.label().get()); }
     public boolean key(KeyEvent event) {
         if (entries.isEmpty()) { return false; }
-        if(event.key()==258&&!event.hasControlDown()||!FocusedInput.active()&&(event.isConfirmation()||event.key()==32||event.key()>=262&&event.key()<=265)){keyboardMode=true;}
+        if(event.key()==258&&!event.hasControlDown()||!FocusedInput.active()&&(event.isConfirmation()||event.key()==32||event.key()>=262&&event.key()<=265)){keyboardUsed();}
         int index = -1;
         for (int i = 0; i < entries.size(); i++) { if (entries.get(i).id() == focused) { index = i; break; } }
         if (event.key() == 258 && !event.hasControlDown()) {

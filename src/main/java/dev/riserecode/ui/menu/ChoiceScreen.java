@@ -20,6 +20,8 @@ public final class ChoiceScreen<E extends Enum<E>> extends Screen implements Men
     private EditBoxDraft searchDraft;
     private E focusOption;
     private String focusAction="search";
+    private boolean returnFirst;
+    public ChoiceScreen<E> afterReturn(){returnFirst=true;return this;}
     private int page;
     private boolean returning;
     private int pageSize=6;
@@ -45,7 +47,7 @@ public final class ChoiceScreen<E extends Enum<E>> extends Screen implements Men
     @Override protected void init(){
         String query=search==null?"":search.getValue();rows.clear();pageSize=Math.clamp((height-112)/24,1,6);int w=paneWidth(),left=(width-w)/2,top=36,footer=height-28,slot=(w-8)/3;
         search=addRenderableWidget(new EditBox(font,left,top,w,20,Component.literal("Search options")));search.setHint(Component.literal("Search options…"));search.setValue(query);search.setResponder(value->{page=0;refresh();});
-        for(int i=0;i<pageSize;i++){final int row=i;rows.add(addRenderableWidget(Button.builder(Component.empty(),b->{var values=filtered();int index=page*pageSize+row;if(index<values.size()){choose.accept(values.get(index));onClose();}}).bounds(left,top+28+i*24,w,20).build()));}
+        for(int i=0;i<pageSize;i++){final int row=i;rows.add(addRenderableWidget(Button.builder(Component.empty(),b->{var values=filtered();int index=page*pageSize+row;if(index<values.size()){var value=values.get(index);if(returnFirst){onClose();choose.accept(value);}else{choose.accept(value);onClose();}}}).bounds(left,top+28+i*24,w,20).build()));}
         previous=addRenderableWidget(Button.builder(Component.literal("Previous"),b->{page--;refresh();}).bounds(left,footer,slot,20).build());
         next=addRenderableWidget(Button.builder(Component.literal("Next"),b->{page++;refresh();}).bounds(left+slot+4,footer,slot,20).build());
         cancel=addRenderableWidget(Button.builder(Component.literal("Cancel"),b->onClose()).bounds(left+2*(slot+4),footer,slot,20).build());if(focusOption!=null){int index=filtered().indexOf(focusOption);if(index>=0){page=index/pageSize;}}refresh();setInitialFocus();

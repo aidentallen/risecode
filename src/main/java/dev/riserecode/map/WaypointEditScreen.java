@@ -15,21 +15,22 @@ public final class WaypointEditScreen extends Screen {
     private int focused=-1,validationOwner=-1;
     private Button saveButton,cancelButton,dimensionButton,colorButton;
     private enum DimensionChoice {
-        OVERWORLD("minecraft:overworld"), NETHER("minecraft:the_nether"), THE_END("minecraft:the_end");
+        OVERWORLD("minecraft:overworld"), NETHER("minecraft:the_nether"), THE_END("minecraft:the_end"), CUSTOM_ID("");
         final String id;DimensionChoice(String id){this.id=id;}
     }
     private enum ColorChoice {
-        MINT("64D8C4"), BLUE("64A8FF"), RED("FF6B6B"), GOLD("FFD166"), PURPLE("C792EA"), WHITE("FFFFFF");
+        MINT("64D8C4"), BLUE("64A8FF"), RED("FF6B6B"), GOLD("FFD166"), PURPLE("C792EA"), WHITE("FFFFFF"), CUSTOM_HEX("");
         final String hex;ColorChoice(String hex){this.hex=hex;}
     }
     private void captureDrafts(){if(fields.isEmpty()){return;}focused=fields.indexOf(getFocused());if(getFocused()==saveButton){focused=7;}else if(getFocused()==cancelButton){focused=8;}else if(getFocused()==dimensionButton){focused=9;}else if(getFocused()==colorButton){focused=10;}drafts=fields.stream().map(dev.riserecode.ui.menu.EditBoxDraft::capture).toList();}
     @Override public void removed(){captureDrafts();}
     private String choiceCaption(int index,String value){
-        if(index==4){return Arrays.stream(DimensionChoice.values()).filter(v->v.id.equals(value)).map(v->dev.riserecode.ui.theme.Theme.displayName(v.name())+" ›").findFirst().orElse("Worlds ›");}
-        return Arrays.stream(ColorChoice.values()).filter(v->v.hex.equalsIgnoreCase(value.replace("#",""))).map(v->dev.riserecode.ui.theme.Theme.displayName(v.name())+" ›").findFirst().orElse("Colors ›");
+        if(index==4){return Arrays.stream(DimensionChoice.values()).filter(v->v!=DimensionChoice.CUSTOM_ID&&v.id.equals(value)).map(v->dev.riserecode.ui.theme.Theme.displayName(v.name())+" ›").findFirst().orElse("Worlds ›");}
+        return Arrays.stream(ColorChoice.values()).filter(v->v!=ColorChoice.CUSTOM_HEX&&v.hex.equalsIgnoreCase(value.replace("#",""))).map(v->dev.riserecode.ui.theme.Theme.displayName(v.name())+" ›").findFirst().orElse("Colors ›");
     }
-    private void chooseDimension(){captureDrafts();focused=9;var selected=Arrays.stream(DimensionChoice.values()).filter(v->v.id.equals(fields.get(4).getValue())).findFirst().orElse(null);minecraft.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(this,"Choose dimension",List.of(DimensionChoice.values()),selected,v->applyChoice(4,v.id)));}
-    private void chooseColor(){captureDrafts();focused=10;var selected=Arrays.stream(ColorChoice.values()).filter(v->v.hex.equalsIgnoreCase(fields.get(6).getValue().replace("#",""))).findFirst().orElse(null);minecraft.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(this,"Choose color",List.of(ColorChoice.values()),selected,v->applyChoice(6,v.hex)));}
+    private void chooseDimension(){captureDrafts();focused=9;var selected=Arrays.stream(DimensionChoice.values()).filter(v->v.id.equals(fields.get(4).getValue())).findFirst().orElse(null);minecraft.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(this,"Choose dimension",List.of(DimensionChoice.values()),selected,v->{if(v==DimensionChoice.CUSTOM_ID){editAdvanced(4);}else{applyChoice(4,v.id);}}).afterReturn());}
+    private void chooseColor(){captureDrafts();focused=10;var selected=Arrays.stream(ColorChoice.values()).filter(v->v.hex.equalsIgnoreCase(fields.get(6).getValue().replace("#",""))).findFirst().orElse(null);minecraft.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(this,"Choose color",List.of(ColorChoice.values()),selected,v->{if(v==ColorChoice.CUSTOM_HEX){editAdvanced(6);}else{applyChoice(6,v.hex);}}).afterReturn());}
+    private void editAdvanced(int index){captureDrafts();focused=index==4?9:10;minecraft.gui.setScreen(new dev.riserecode.ui.menu.TextValueScreen(this,index==4?"Custom dimension ID":"Custom hex color",dev.riserecode.ui.menu.EditBoxDraft.capture(fields.get(index)),index==4?160:80,value->{value.restore(fields.get(index));var next=new ArrayList<>(drafts);next.set(index,value);drafts=List.copyOf(next);}));}
     private void applyChoice(int index,String value){fields.get(index).setValue(value);var copy=new ArrayList<>(drafts);copy.set(index,new dev.riserecode.ui.menu.EditBoxDraft(value,value.length(),value.length(),false));drafts=List.copyOf(copy);}
     private final dev.riserecode.ui.menu.ScreenText.Layout errorLayout=new dev.riserecode.ui.menu.ScreenText.Layout();
     public WaypointEditScreen(Screen parent,MapService maps,WaypointStore.Waypoint point){super(Component.literal("Edit waypoint"));this.parent=parent;this.maps=maps;this.point=point;}

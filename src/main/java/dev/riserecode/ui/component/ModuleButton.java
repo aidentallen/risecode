@@ -31,7 +31,9 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 /** A compact card; modules own behavior, this adapter owns all presentation. */
 public final class ModuleButton extends UIComponent {
     public static final double HEADER_HEIGHT = 40;
-    private final Object disclosureFocus=new Object();
+    private final Object disclosureFocus=new Object(),helpFocus=new Object();
+    private double helpWidth;
+    private void openHelp(){var mc=net.minecraft.client.Minecraft.getInstance();mc.gui.setScreen(new dev.riserecode.ui.menu.InfoScreen(mc.gui.screen(),module.getName()+" help",module.getDescription()+"\n\n"+module.classification().label()+": "+module.classification().description()+"\n\nClick the card to inspect settings. On/Off changes whether the module is enabled."));}
     private final Object stateFocus=new Object();
     private void expand(boolean value){expanded=value;if(!expanded){cancelKeyCapture();appearance.unfocus();FocusedInput.commit();mouseReleased(0,0,0);}}
     public record SettingControl(Setting<?> setting, UIComponent component, double height) { }
@@ -163,8 +165,9 @@ public final class ModuleButton extends UIComponent {
         double active = enabled.update(seconds);
         RenderUtil.drawSurfaceTransition(graphics, x, y, width, height, Theme.BUTTON_RADIUS, hovered * 0.65, opacity);
 
-        String badge = module.classification().label();
-        double badgeWidth = RenderUtil.textWidth(font,badge,false)*.62+8;
+        String badge = module.classification().label()+" · i";
+        double badgeWidth = RenderUtil.textWidth(font,badge,false)*.62+8;helpWidth=badgeWidth;
+        KeyboardNavigation.control(graphics,helpFocus,new Bounds(x+width-badgeWidth-29,y+7,badgeWidth,12),opacity,()->module.getName()+", help",this::openHelp,null);
         RenderUtil.text(graphics,font,expanded ? "−" : "+",x+width-18,y+9,1,Theme.opacity(Theme.TEXT,opacity));
         RenderUtil.drawRoundedRect(graphics,x+width-38,y+24,33,14,7,Theme.opacity(module.isEnabled()?Theme.accent():Theme.HOVER,opacity*.65));
         RenderUtil.text(graphics,font,module.isEnabled() ? "On" : "Off",x+width-25,y+26,.7,Theme.opacity(Theme.TEXT,opacity));
@@ -186,8 +189,8 @@ public final class ModuleButton extends UIComponent {
         }
         RenderUtil.text(graphics, font, RenderUtil.ellipsize(font, mouseX>=x+width-badgeWidth-29 && mouseX<x+width-7 && mouseY>=y+7 && mouseY<y+22 ? module.classification().description() : searchTarget!=null ? searchBreadcrumb() : expanded ? editor.details().get() : module.getDescription(), (width - 45) / 0.8),
                 x + 7, y + 25, Math.min(.8,10/(9*Theme.number("Font Scale",1))), Theme.opacity(Theme.SECONDARY, opacity));
-        if(hovered>.9&&mouseY>=y+23&&mouseY<y+HEADER_HEIGHT&&mouseX<x+width-30){
-            graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(module.getDescription()),net.minecraft.network.chat.Component.literal("Click card to inspect · On/Off toggles module")),java.util.Optional.empty(),(int)mouseX,(int)mouseY);
+        if(KeyboardNavigation.pointerHelpAllowed()&&hovered>.9&&mouseY>=y+23&&mouseY<y+HEADER_HEIGHT&&mouseX<x+width-30){
+            graphics.setTooltipForNextFrame(font,net.minecraft.client.Minecraft.getInstance().gui.screen().width<=400?java.util.List.of(net.minecraft.network.chat.Component.literal("Full description: use the i help button")):java.util.List.of(net.minecraft.network.chat.Component.literal(module.getDescription()),net.minecraft.network.chat.Component.literal("Click card to inspect · On/Off toggles module")),java.util.Optional.empty(),(int)mouseX,(int)mouseY);
         }
         if (height - HEADER_HEIGHT <= 0.1) { return; }
         RenderUtil.scissorPush(graphics, x + 3, y + HEADER_HEIGHT, width - 6, height - HEADER_HEIGHT - 2);
@@ -225,6 +228,7 @@ public final class ModuleButton extends UIComponent {
         if (!super.contains(mouseX, mouseY)||(button!=0&&button!=1)) { return false; }
         if (mouseY < y + HEADER_HEIGHT) {
             press.activate();dev.riserecode.ui.sound.UiSounds.play();
+            if(button==0&&mouseX>=x+width-helpWidth-29&&mouseX<x+width-29&&mouseY>=y+7&&mouseY<y+19){openHelp();return true;}
             if (button == 1 || mouseX < x+width-40 || mouseY < y+24) {
                 expand(!expanded);
             } else if (button == 0) { manager.toggle(module); }

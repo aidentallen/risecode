@@ -300,6 +300,7 @@ public final class ClickGui extends Screen {
     }
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        mouseMoved(mouseX,mouseY);
         long now = System.nanoTime(); double seconds = previousFrame == 0 ? 0 : Math.max(0, (now - previousFrame) / 1e9); previousFrame = now;
         windowWidth=themes.number("Window Width"); windowHeight=themes.number("Window Height");
         preferredScale = themes.number("Interface Scale"); canvasZoom.animateTo(fittedScale());
@@ -474,6 +475,8 @@ public final class ClickGui extends Screen {
     }
     private double pageShift() { return (1 - pageFade.getValue()) * 5 * Animation.movement(dev.riserecode.ui.theme.ThemeManager.Channel.NAVIGATION); }
     private double windowScale() { return dev.riserecode.ui.animation.PopIn.windowScale("Client",opening.getValue()); }
+    private double lastHelpX=Double.NaN,lastHelpY;
+    @Override public void mouseMoved(double x,double y){if(Double.isNaN(lastHelpX)||Math.hypot(x-lastHelpX,y-lastHelpY)>.5){keyboardNavigation.pointerUsed();}lastHelpX=x;lastHelpY=y;super.mouseMoved(x,y);}
     private double pointerX(double mouseX) { double center = windowX + windowWidth / 2; return center + (mouseX / canvasScale - center) / windowScale(); }
     private double pointerY(double mouseY) { double center = windowY + windowHeight / 2; return center + (mouseY / canvasScale - center) / windowScale(); }
     @Override

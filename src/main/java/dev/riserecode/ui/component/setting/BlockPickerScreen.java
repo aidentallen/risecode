@@ -21,7 +21,9 @@ public final class BlockPickerScreen extends Screen implements MenuTheme.Transie
     private List<String> filtered;
     private final java.util.List<Button> rows=new java.util.ArrayList<>();
     private EditBox search;
-    private Button previous,next,selectedView;
+    private Button previous,next,selectedView,done;
+    private dev.riserecode.ui.menu.EditBoxDraft searchDraft;
+    private String focusBlock,focusAction="search";
     private boolean selectedOnly;
     private final java.util.Map<String,String> names=new java.util.HashMap<>();
     private final java.util.Set<String> known=new java.util.HashSet<>();
@@ -32,6 +34,19 @@ public final class BlockPickerScreen extends Screen implements MenuTheme.Transie
         registry=ids.stream().sorted(java.util.Comparator.comparing((String id)->names.get(id)).thenComparing(id->id)).toList();filtered=registry;
     }
     private int paneWidth(){return Math.min(420,Math.max(120,width-24));}
+    private void captureContext(){
+        if(search==null){return;}searchDraft=dev.riserecode.ui.menu.EditBoxDraft.capture(search);focusBlock=null;
+        focusAction=getFocused()==selectedView?"selected":getFocused()==previous?"previous":getFocused()==next?"next":getFocused()==done?"done":"search";
+        int row=rows.indexOf(getFocused()),index=page*pageSize+row;if(row>=0&&index<filtered.size()){focusBlock=filtered.get(index);}
+    }
+    @Override protected void repositionElements(){captureContext();super.repositionElements();}
+    @Override public void removed(){captureContext();}
+    @Override protected void setInitialFocus(){
+        if(search==null){return;}int index=focusBlock==null?-1:filtered.indexOf(focusBlock);
+        net.minecraft.client.gui.components.events.GuiEventListener target=index>=0?rows.get(index%pageSize):switch(focusAction){case "selected"->selectedView;case "previous"->previous;case "next"->next;case "done"->done;default->search;};
+        if(target instanceof Button button&&(!button.visible||!button.active)){target=search;}setInitialFocus(target);
+        if(searchDraft!=null){search.setCursorPosition(searchDraft.cursor());search.setHighlightPos(searchDraft.highlight());}
+    }
     @Override protected void init(){
         String query=search==null?"":search.getValue();rows.clear();pageSize=Math.clamp((height-112)/36,1,12);
         int w=paneWidth(),left=(width-w)/2,slot=(w-8)/3;
@@ -41,7 +56,7 @@ public final class BlockPickerScreen extends Screen implements MenuTheme.Transie
         for(int i=0;i<pageSize;i++){final int row=i;rows.add(addRenderableWidget(Button.builder(Component.empty(),b->{int index=page*pageSize+row;if(index<filtered.size()){setting.toggle(filtered.get(index));changed.run();filter();}}).bounds(left,56+i*36,w,20).build()));}
         previous=addRenderableWidget(Button.builder(Component.literal("Previous"),b->{page--;refresh();}).bounds(left,height-28,slot,20).build());
         next=addRenderableWidget(Button.builder(Component.literal("Next"),b->{page++;refresh();}).bounds(left+slot+4,height-28,slot,20).build());
-        addRenderableWidget(Button.builder(Component.literal("Done"),b->onClose()).bounds(left+2*(slot+4),height-28,slot,20).build());filter();setInitialFocus(search);
+        done=addRenderableWidget(Button.builder(Component.literal("Done"),b->onClose()).bounds(left+2*(slot+4),height-28,slot,20).build());filter();if(focusBlock!=null){int index=filtered.indexOf(focusBlock);if(index>=0){page=index/pageSize;refresh();}}setInitialFocus();
     }
     private void filter(){String query=search.getValue().strip().toLowerCase(Locale.ROOT);filtered=registry.stream().filter(id->(!selectedOnly||setting.getValue().contains(id))&&(id+" "+names.get(id)).toLowerCase(Locale.ROOT).contains(query)).toList();refresh();}
     private void refresh(){if(selectedView!=null){selectedView.setMessage(Component.literal((selectedOnly?"✓ ":"")+"Selected"));}page=Math.clamp(page,0,Math.max(0,(filtered.size()-1)/pageSize));for(int i=0;i<rows.size();i++){int index=page*pageSize+i;var row=rows.get(i);row.visible=index<filtered.size();if(row.visible){String id=filtered.get(index);row.setMessage(Component.literal((setting.getValue().contains(id)?"✓ ":"○ ")+names.get(id)));row.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(id+(known.contains(id)?"":" · unavailable block, retained in selection"))));}}if(previous!=null){previous.active=page>0;next.active=(page+1)*pageSize<filtered.size();}}
