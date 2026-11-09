@@ -60,7 +60,10 @@ public final class CosmeticsEditor extends UIComponent {
     public ActionButton poseButton(){return poseButton;}
     public List<UIComponent> getControls(){return List.copyOf(controls);}
     private <E extends Enum<E>> void openChoice(String title,E[] values,E value,Consumer<E> choose){var mc=Minecraft.getInstance();mc.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(mc.gui.screen(),title,List.of(values),value,choose));}
-    private final ActionButton importButton=new ActionButton("Import PNG cape",this::importCape);
+    private boolean importing;
+    private String importStatus="";
+    private final ActionButton importButton=new ActionButton(()->importing?"Importing…":"Import PNG cape",this::importCape).enabled(()->!importing);
+    private final ActionButton importStatusDetails=new ActionButton(()->importStatus.startsWith("Importing")?"Importing cape…":importStatus.startsWith("Import failed")?"Import failed · Details":"Cape import · Details",()->{var mc=Minecraft.getInstance();mc.gui.setScreen(new dev.riserecode.ui.menu.InfoScreen(mc.gui.screen(),"Cape import",importStatus));}).accessibleLabel(()->"Cape import status. "+importStatus);
     private final ActionButton detailsButton=new ActionButton("Preview / acquire",()->{var mc=Minecraft.getInstance();mc.gui.setScreen(new CosmeticDetailsScreen(mc.gui.screen(),this));});
     private final ActionButton clearSearch=new ActionButton("Clear search",()->{search.setValue("");listScroll=0;KeyboardNavigation.requestFocus(search);});
     private final ActionButton showCatalog=new ActionButton("Show catalog",()->{catalog=true;listScroll=0;});
@@ -110,8 +113,35 @@ public final class CosmeticsEditor extends UIComponent {
     private void number(String label,double value,double min,double max){var setting=DoubleSetting.extended(label,"Cosmetic appearance",value,min,max);numbers.put(label,setting);controls.add(new Slider(setting,this::updateItem,.01));}
     private double value(String name){return numbers.get(name).getValue();}
     private void updateItem(){var item=draft.items().get(category);if(item==null||numbers.size()<8){return;}draft=draft.with(category,new CosmeticLoadout.Item(item.id(),primary.getValue(),secondary.getValue(),value("Opacity"),value("Scale"),value("Offset X"),value("Offset Y"),value("Offset Z"),value("Animation speed"),value("Motion strength"),value("Density")));}
-    private void importCape(){FocusedInput.commit();long token=revision;try{manager.library().importCape(Path.of(importPath.getValue())).whenComplete((def,error)->Minecraft.getInstance().execute(()->{
-        if(error!=null){notice.accept("Could not import cape: "+error.getCause().getMessage());return;}if(token==revision){select(def.id());}notice.accept("Cape imported");}));}catch(RuntimeException invalid){notice.accept("Enter a PNG cape path");}}
+    public boolean importing(){return importing;}
+    /** One pending import and completion policy across inline and retained acquisition routes. */
+    public void importCape(Path path,java.util.function.BooleanSupplier ownsImport,Consumer<String> completion){
+        if(importing){completion.accept("A cape import is already in progress");return;}importing=true;
+        long token=revision;var before=draft;String previous=selected;var previousCategory=category;
+        importStatus="Importing cape…";
+        manager.library().importCape(path).whenComplete((definition,failure)->Minecraft.getInstance().execute(()->{
+            importing=false;String result;
+            if(failure!=null){
+                Throwable error=failure;while((error instanceof java.util.concurrent.CompletionException||error instanceof java.util.concurrent.ExecutionException)&&error.getCause()!=null){error=error.getCause();}
+                String cause=error instanceof java.nio.file.NoSuchFileException missing?"File not found: "+Objects.requireNonNullElse(missing.getFile(),"selected file"):error instanceof java.nio.file.AccessDeniedException denied?"Permission denied: "+Objects.requireNonNullElse(denied.getFile(),"selected file"):error.getMessage();
+                result="Import failed: "+(cause==null||cause.isBlank()?error.getClass().getSimpleName():cause);
+            }else if(token==revision&&draft.equals(before)&&selected.equals(previous)&&category==previousCategory&&ownsImport.getAsBoolean()){
+                select(definition.id());result="Cape imported and selected in draft";
+            }else{result="Cape imported to library; outfit was left unchanged";}
+            importStatus=result;notice.accept(result);completion.accept(result);
+        }));
+    }
+    private boolean ownsInlineImport(String source){
+        var screen=Minecraft.getInstance().gui.screen();var gui=Client.INSTANCE.getClickGui();
+        return gui.getPage()==dev.riserecode.ui.clickgui.ClickGui.Page.COSMETICS&&gui.getCosmeticsEditor()==this&&importPath.getValue().equals(source)&&(screen==gui||screen instanceof dev.riserecode.ui.menu.RetainedScreen retained&&retained.retains(gui));
+    }
+    private void importCape(){
+        if(importing){return;}FocusedInput.commit();String source=importPath.getValue();
+        try{
+            if(source.isBlank()){throw new IllegalArgumentException("Empty PNG path");}var path=Path.of(source);notice.accept("Importing cape…");
+            importCape(path,()->ownsInlineImport(source),result->{});
+        }catch(RuntimeException invalid){importing=false;importStatus="Import failed: Enter a valid PNG cape path";notice.accept(importStatus);}
+    }
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
         advancePreview(dt);boolean compactEdit=editing&&height<220;if(compactEdit&&search.isFocused()){search.commit();}if(height<220&&importPath.isFocused()){importPath.commit();}double gap=4,header=compactEdit?0:48,footer=height<220&&!editing?66:43;
         if(!compactEdit){
@@ -186,7 +216,8 @@ public final class CosmeticsEditor extends UIComponent {
         if(bottom>top&&size>0){g.entity(state,size,new Vector3f(0,state.boundingBoxHeight/2,0),rotation,new Quaternionf(),(int)area.x(),(int)top,(int)(area.x()+area.width()),(int)bottom);}
     }
     private void preview(GuiGraphicsExtractor g,Font font,double mx,double my,double alpha){
-        renderAvatar(g,new Bounds(previewBounds.x(),previewBounds.y()+22,previewBounds.width(),Math.max(0,previewBounds.height()-65)));double top=previewBounds.y()+22,bottom=previewBounds.y()+previewBounds.height()-43;
+        boolean showImportStatus=category==CosmeticCategory.CAPE&&!importStatus.isEmpty();
+        renderAvatar(g,new Bounds(previewBounds.x(),previewBounds.y()+22,previewBounds.width(),Math.max(0,previewBounds.height()-65-(showImportStatus?22:0))));double top=previewBounds.y()+22,bottom=previewBounds.y()+previewBounds.height()-43;
         KeyboardNavigation.control(g,rotationFocus,new Bounds(previewBounds.x()+4,top+2,previewBounds.width()-8,15),alpha,
                 () -> "Cosmetic preview, rotation, "+Math.round(yaw),()->yaw=defaultPreviewYaw(),direction->yaw+=direction*15);
         KeyboardNavigation.control(g,zoomFocus,new Bounds(previewBounds.x()+4,top+19,previewBounds.width()-8,15),alpha,
@@ -195,6 +226,7 @@ public final class CosmeticsEditor extends UIComponent {
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Arrows: adjust",(previewBounds.width()-16)/.65),previewBounds.x()+8,top+22,.65,Theme.opacity(Theme.SECONDARY,alpha));
         poseButton.setBounds(previewBounds.x()+3,previewBounds.y()+2,previewBounds.width()-6,18);poseButton.render(g,font,mx,my,0.016,alpha);rows.add(poseButton);
         var selectedDef=manager.library().find(selected);
+        if(showImportStatus){importStatusDetails.setBounds(previewBounds.x()+3,bottom-20,previewBounds.width()-6,18);importStatusDetails.render(g,font,mx,my,.016,alpha);rows.add(importStatusDetails);}
         if(selectedDef!=null&&!manager.library().available(selectedDef)){
             downloadButton.setBounds(previewBounds.x()+3,bottom+2,previewBounds.width()-6,20);downloadButton.render(g,font,mx,my,.016,alpha);rows.add(downloadButton);
         }else if(category==CosmeticCategory.CAPE){importPath.setBounds(previewBounds.x()+3,bottom+2,previewBounds.width()-6,18);importPath.render(g,font,mx,my,.016,alpha);

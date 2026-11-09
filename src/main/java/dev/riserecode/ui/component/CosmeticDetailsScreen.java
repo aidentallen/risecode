@@ -14,18 +14,21 @@ public final class CosmeticDetailsScreen extends RetainedScreen {
     private final CosmeticsEditor editor;
     private EditBox path;
     private EditBoxDraft pathDraft;
-    private Button acquire,equip,view,status,back,pose,pause;
+    private Button acquire,equip,view,status,back,pose,pause,importButton;
     private final List<AbstractWidget> acquisition=new ArrayList<>(),controls=new ArrayList<>();
     private String localStatus="",lastStatus="";
-    private boolean importing,controlsView;
+    private boolean importing,controlsView,acceptImports=true;
+    private int focusedControl=-1;
     private long previousFrame;
     public CosmeticDetailsScreen(Screen parent,CosmeticsEditor editor){super(parent,"Cosmetic preview & acquisition");this.editor=editor;}
-    private String status(){return localStatus.isEmpty()?editor.manager().library().status():localStatus;}
+    private String status(){return localStatus.isEmpty()?editor.importing()?"Importing cape…":editor.manager().library().status():localStatus;}
     @Override public Component getNarrationMessage(){return Component.literal(title.getString()+". Left/Right rotate. Up/Down zoom. R resets view. Import PNG cape path. "+status());}
     public EditBox path(){return path;}
     public boolean controlsView(){return controlsView;}
     public String fullStatus(){return status();}
-    @Override protected void repositionElements(){if(path!=null){pathDraft=EditBoxDraft.capture(path);}super.repositionElements();}
+    private void captureDraft(){if(path!=null){pathDraft=EditBoxDraft.capture(path);focusedControl=children().indexOf(getFocused());}}
+    @Override protected void repositionElements(){captureDraft();super.repositionElements();}
+    @Override public void removed(){captureDraft();if(!hasRetainedChildren()){acceptImports=false;}super.removed();}
     private Button button(String label,int x,int y,int w,Runnable action){return addRenderableWidget(Button.builder(Component.literal(label),b->action.run()).bounds(x,y,w,20).build());}
     @Override protected void init(){
         acquisition.clear();controls.clear();lastStatus="";previousFrame=0;
@@ -36,7 +39,7 @@ public final class CosmeticDetailsScreen extends RetainedScreen {
         pose=button("Pose: "+editor.previewPose(),12,height-114,Math.max(80,width-152),this::choosePose);acquisition.add(pose);
         status=button("Status / error details",12,height-89,width-24,()->minecraft.gui.setScreen(new InfoScreen(this,"Cosmetic status",status())));acquisition.add(status);
         path=addRenderableWidget(new EditBox(font,12,height-52,Math.max(80,width-132),20,Component.literal("PNG cape path")));path.setMaxLength(4096);path.setHint(Component.literal("PNG cape path…"));if(pathDraft!=null){pathDraft.restore(path);}acquisition.add(path);
-        acquisition.add(button("Import PNG",width-112,height-52,100,this::importCape));
+        importButton=button(editor.importing()?"Importing…":"Import PNG",width-112,height-52,100,this::importCape);importButton.active=!editor.importing();acquisition.add(importButton);
         controls.add(button("Rotate left",12,height-88,90,()->editor.turn(-15)));controls.add(button("Rotate right",106,height-88,90,()->editor.turn(15)));
         var reset=button("Reset view",width-120,height-88,108,editor::resetPreviewView);reset.setTooltip(Tooltip.create(Component.literal("Reset rotation and zoom; outfit and pose stay unchanged")));controls.add(reset);
         controls.add(button("Zoom out",12,height-62,90,()->editor.zoomBy(-.08)));controls.add(button("Zoom in",106,height-62,90,()->editor.zoomBy(.08)));
@@ -44,13 +47,20 @@ public final class CosmeticDetailsScreen extends RetainedScreen {
         pause=button(editor.previewPaused()?"Resume animation":"Pause animation",12,height-36,150,()->editor.previewPaused(!editor.previewPaused()));controls.add(pause);
         back=button("Back to outfit",width/2-65,height-26,130,this::onClose);updateView();if(pathDraft!=null&&pathDraft.focused()&&!controlsView){setInitialFocus(path);pathDraft.restore(path);}
     }
-    @Override protected void setInitialFocus(){if(pathDraft!=null&&pathDraft.focused()&&!controlsView){setInitialFocus(path);pathDraft.restore(path);}else{super.setInitialFocus();}}
+    @Override protected void setInitialFocus(){if(focusedControl>=0&&focusedControl<children().size()&&children().get(focusedControl) instanceof AbstractWidget widget&&widget.visible&&widget.active){setInitialFocus(widget);if(pathDraft!=null){pathDraft.restore(path);}return;}if(pathDraft!=null&&pathDraft.focused()&&!controlsView){setInitialFocus(path);pathDraft.restore(path);}else{super.setInitialFocus();}}
     private void updateView(){for(var widget:acquisition){widget.visible=!controlsView;}for(var widget:controls){widget.visible=controlsView;}if(back!=null){back.setRectangle(controlsView?136:130,20,controlsView?width-148:width/2-65,height-(controlsView?36:26));}}
     private void choosePose(){minecraft.gui.setScreen(new ChoiceScreen<>(this,"Preview pose",List.of(CosmeticsEditor.PreviewPose.values()),editor.previewPose(),editor::previewPose));}
-    private void importCape(){if(importing)return;long token=editor.revision();try{importing=true;localStatus="Importing cape…";editor.manager().library().importCape(Path.of(path.getValue())).whenComplete((def,error)->minecraft.execute(()->{importing=false;if(error!=null){localStatus="Import failed: "+(error.getCause()==null?error.getMessage():error.getCause().getMessage());}else if(editor.revision()==token){editor.select(def.id());localStatus="Cape imported and selected in draft";}else{localStatus="Cape imported to library; outfit was left unchanged";}}));}catch(RuntimeException error){importing=false;localStatus="Enter a valid PNG path";}}
+    private void importCape(){
+        if(importing||editor.importing()){return;}String source=path.getValue();
+        try{
+            if(source.isBlank()){throw new IllegalArgumentException("Empty PNG path");}var file=Path.of(source);importing=true;acceptImports=true;localStatus="Importing cape…";
+            editor.importCape(file,()->acceptImports&&path.getValue().equals(source),result->{importing=false;localStatus=result;if(minecraft.gui.screen()==this){minecraft.getNarrator().saySystemNow(result);}});
+        }catch(RuntimeException error){importing=false;localStatus="Enter a valid PNG path";}
+    }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float partial){
         long now=System.nanoTime();editor.advancePreview(previousFrame==0?0:(now-previousFrame)*1e-9);previousFrame=now;
         var lib=editor.manager().library();var def=lib.find(editor.selectedId());boolean available=lib.available(def);acquire.active=lib.busy()||def!=null&&!available;acquire.setMessage(Component.literal(lib.busy()?"Cancel download":available?"Installed":"Download / retry"));equip.active=available;
+        importButton.active=!editor.importing();importButton.setMessage(Component.literal(editor.importing()?"Importing…":"Import PNG"));
         view.setMessage(Component.literal(controlsView?"Acquire / import":"View controls"));pose.setMessage(Component.literal("Pose: "+dev.riserecode.ui.theme.Theme.displayName(editor.previewPose().name())+" ›"));pause.setMessage(Component.literal(editor.previewPaused()?"Resume animation":"Pause animation"));
         String current=status();if(!current.equals(lastStatus)){lastStatus=current;status.setMessage(Component.literal("Status details: "+current));status.setTooltip(Tooltip.create(Component.literal(current)));}
         super.extractRenderState(g,mx,my,partial);

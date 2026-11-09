@@ -8,6 +8,8 @@ public abstract class RetainedScreen extends Screen implements MenuTheme.Transie
     protected final Screen parent;
     private boolean returning;
     private int children;
+    public boolean retains(Screen owner){return parent==owner||parent instanceof RetainedScreen retained&&retained.retains(owner);}
+    protected boolean hasRetainedChildren(){return children>0;}
     public void suspendForChild(){children++;}
     public void resumeFromChild(){if(children>0){children--;}}
     protected RetainedScreen(Screen parent,String title){
