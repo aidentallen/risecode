@@ -89,9 +89,12 @@ public final class ProfileManager implements AutoCloseable {
     }
     public boolean saveProfile(String name) {
         Path file = getFile(name);
-        try { backupLegacy(file); JsonStorage.write(file, config.profileSnapshot()); config.setActiveProfile(name); return true; }
+        try { backupLegacy(file); if(Files.exists(file)){JsonStorage.write(previousFile(name),readDocument(file));} JsonStorage.write(file, config.profileSnapshot()); config.setActiveProfile(name); return true; }
         catch (IOException | RuntimeException failure) { logger.error("Could not save profile {}", name, failure); return false; }
     }
+    private Path previousFile(String name){return getFile(name).resolveSibling(name+".previous.json.bak");}
+    public boolean hasPrevious(String name){return Files.isRegularFile(previousFile(name));}
+    public boolean restorePrevious(String name){try{var old=readDocument(previousFile(name));JsonStorage.write(getFile(name),old);Files.deleteIfExists(previousFile(name));return true;}catch(IOException|RuntimeException failure){logger.error("Could not restore profile {}",name,failure);return false;}}
     public boolean loadProfile(String name) {
         Path file = getFile(name);
         if (!Files.isRegularFile(file)) { return false; }

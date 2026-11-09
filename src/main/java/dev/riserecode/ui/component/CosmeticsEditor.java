@@ -49,6 +49,10 @@ public final class CosmeticsEditor extends UIComponent {
     public List<UIComponent> getControls(){return List.copyOf(controls);}
     private <E extends Enum<E>> void openChoice(String title,E[] values,E value,Consumer<E> choose){var mc=Minecraft.getInstance();mc.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(mc.gui.screen(),title,List.of(values),value,choose));}
     private final ActionButton importButton=new ActionButton("Import PNG cape",this::importCape);
+    private final ActionButton detailsButton=new ActionButton("Preview / acquire",()->{var mc=Minecraft.getInstance();mc.gui.setScreen(new CosmeticDetailsScreen(mc.gui.screen(),this));});
+    private final ActionButton clearSearch=new ActionButton("Clear search",()->{search.setValue("");listScroll=0;KeyboardNavigation.requestFocus(search);});
+    private final ActionButton showCatalog=new ActionButton("Show catalog",()->{catalog=true;listScroll=0;});
+    private boolean empty;
     private final ActionButton downloadButton;
     private long revision;
     private void download(){var d=manager.library().find(selected);if(manager.library().busy()){manager.library().cancel();}else if(d!=null){manager.library().download(d);}}
@@ -97,7 +101,7 @@ public final class CosmeticsEditor extends UIComponent {
     private void importCape(){FocusedInput.commit();long token=revision;try{manager.library().importCape(Path.of(importPath.getValue())).whenComplete((def,error)->Minecraft.getInstance().execute(()->{
         if(error!=null){notice.accept("Could not import cape: "+error.getCause().getMessage());return;}if(token==revision){select(def.id());}notice.accept("Cape imported");}));}catch(RuntimeException invalid){notice.accept("Enter a PNG cape path");}}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
-        previewTime+=Math.min(.05,Math.max(0,dt));boolean compactEdit=editing&&height<220;if(compactEdit&&search.isFocused()){search.commit();}if(height<220&&importPath.isFocused()){importPath.commit();}double gap=4,header=compactEdit?0:48,footer=43;
+        previewTime+=Math.min(.05,Math.max(0,dt));boolean compactEdit=editing&&height<220;if(compactEdit&&search.isFocused()){search.commit();}if(height<220&&importPath.isFocused()){importPath.commit();}double gap=4,header=compactEdit?0:48,footer=height<220&&!editing?66:43;
         if(!compactEdit){
         search.setBounds(x,y,width*.43-2,20);search.render(g,font,mx,my,dt,alpha);
         top.get(1).setBounds(x+width*.43,y,width*.28-2,20);top.get(2).setBounds(x+width*.71,y,width*.29,20);
@@ -123,10 +127,14 @@ public final class CosmeticsEditor extends UIComponent {
             }
             else{
                 var entries=manager.library().definitions().stream().filter(d->d.category()==category&&(catalog||manager.library().available(d))&&d.name().toLowerCase(Locale.ROOT).contains(search.getValue().toLowerCase(Locale.ROOT))).toList();
+                empty=entries.isEmpty();
+
                 double rowHeight=Math.max(39,9*Theme.number("Font Scale",1)*1.5+18);
-                maxList=Math.max(0,entries.size()*rowHeight-listBounds.height());listScroll=Math.clamp(listScroll,0,maxList);
+                maxList=Math.max(0,(empty?9*Theme.number("Font Scale",1)*.7+5+ButtonMetrics.flowHeight(ButtonMetrics.flow(font,List.of("Clear search","Show catalog"),listBounds.width())):entries.size()*rowHeight)-listBounds.height());listScroll=Math.clamp(listScroll,0,maxList);
                 KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<listBounds.y()?bounds.y()-listBounds.y():Math.max(0,bounds.y()+bounds.height()-listBounds.y()-listBounds.height());if(shift!=0){listScroll=Math.clamp(listScroll+shift,0,maxList);}});
-                try{for(int i=0;i<entries.size();i++){var def=entries.get(i);double cy=listBounds.y()+i*rowHeight-listScroll;if(!KeyboardNavigation.collectingOffscreen()&&(cy+rowHeight<=listBounds.y()||cy>=listBounds.y()+listBounds.height())){continue;}
+                try{
+                if(empty){double line=9*Theme.number("Font Scale",1)*.7+5;RenderUtil.text(g,font,RenderUtil.ellipsize(font,"No matches in "+category.label+" · "+(catalog?"Catalog":"Installed"),listBounds.width()/.7),listBounds.x(),listBounds.y()+2-listScroll,.7,Theme.TEXT);var layout=ButtonMetrics.flow(font,List.of("Clear search","Show catalog"),listBounds.width());for(int i=0;i<2;i++){var b=layout.get(i);var action=i==0?clearSearch:showCatalog;action.setBounds(listBounds.x()+b.x(),listBounds.y()+line+b.y()-listScroll,b.width(),b.height());action.render(g,font,mx,my,dt,alpha);}}
+                for(int i=0;i<entries.size();i++){var def=entries.get(i);double cy=listBounds.y()+i*rowHeight-listScroll;if(!KeyboardNavigation.collectingOffscreen()&&(cy+rowHeight<=listBounds.y()||cy>=listBounds.y()+listBounds.height())){continue;}
                     var button=rowCache.computeIfAbsent(def.id(),key->new ActionButton(def.name(),()->select(key)));boolean thumbnail=!def.preview().isEmpty()&&CosmeticsEditor.class.getResource("/assets/riserecode/cosmetics/"+def.preview())!=null;
                     double iconSpace=thumbnail?22:0;button.setBounds(listBounds.x()+iconSpace,cy,listBounds.width()-3-iconSpace,Math.max(23,9*Theme.number("Font Scale",1)*.8+10));
                     if(thumbnail){g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,CosmeticsManager.id(def.preview()),(int)listBounds.x(),(int)cy+1,0,0,20,20,128,128,128,128,Theme.opacity(-1,alpha));}button.render(g,font,mx,my>=listBounds.y()&&my<listBounds.y()+listBounds.height()?my:-1e6,dt,alpha);rows.add(button);
@@ -141,11 +149,18 @@ public final class CosmeticsEditor extends UIComponent {
         }finally{RenderUtil.scissorPop(g);}
         double maximum=editing?maxSettings:maxList,scroll=editing?settingsScroll:listScroll;
         if(maximum>0){double thumb=Math.max(12,listBounds.height()*listBounds.height()/(listBounds.height()+maximum));RenderUtil.drawRoundedRect(g,listBounds.x()+listBounds.width()-2,listBounds.y()+scroll/maximum*(listBounds.height()-thumb),1.5,thumb,.75,Theme.opacity(Theme.accent(),alpha*.6));}
+        if(compactLayout&&!editing){detailsButton.setBounds(x,y+height-63,width,20);detailsButton.render(g,font,mx,my,dt,alpha);}
         double bottomY=y+height-20;for(int i=0;i<bottom.size();i++){var b=bottom.get(i);b.setBounds(x+i*(width/4),bottomY,width/4-3,20);b.render(g,font,mx,my,dt,alpha);}
         String status=manager.library().status();if(manager.failed(selected)){status="Asset unavailable · Refresh to retry";}
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,status,width/.58),x,y+height-34,.58,Theme.opacity(Theme.SECONDARY,alpha));
     }
-    private void preview(GuiGraphicsExtractor g,Font font,double mx,double my,double alpha){
+    public ActionButton detailsButton(){return detailsButton;}
+    public long revision(){return revision;}
+    public String selectedId(){return selected;}
+    public CosmeticsManager manager(){return manager;}
+    public void turn(double amount){yaw+=amount;}
+    public void zoomBy(double amount){zoom=Math.clamp(zoom+amount,.5,1.6);}
+    public void renderAvatar(GuiGraphicsExtractor g,Bounds area){
         var mc=Minecraft.getInstance();var state=new AvatarRenderState();state.entityType=EntityTypes.PLAYER;state.scale=state.ageScale=1;state.boundingBoxWidth=.6F;state.boundingBoxHeight=pose==3?.6F:pose==2?1.5F:1.8F;state.eyeHeight=1.62F;
         state.skin=mc.player==null?DefaultPlayerSkin.getDefaultSkin():mc.player.getSkin();state.showCape=state.showHat=state.showJacket=state.showLeftSleeve=state.showRightSleeve=state.showLeftPants=state.showRightPants=true;
         state.lightCoords=15728880;state.bodyRot=180;state.pose=pose==2?Pose.CROUCHING:pose==3?Pose.FALL_FLYING:Pose.STANDING;state.isCrouching=pose==2;state.isFallFlying=pose==3;state.fallFlyingTimeInTicks=pose==3?100:0;
@@ -153,11 +168,13 @@ public final class CosmeticsEditor extends UIComponent {
         var bridge=(CosmeticRenderState)state;bridge.risecode$outfit(draft);bridge.risecode$preview(true);manager.patchCape(state,draft);
         var capePhysics=Client.INSTANCE.getModuleManager().getByClass(dev.riserecode.module.modules.CapePhysicsModule.class).orElseThrow();
         if(capePhysics.isEnabled()){((dev.riserecode.render.LegacyCapeState)state).risecode$legacyCape(new dev.riserecode.render.LegacyCapeMotion.Angles(state.capeFlap,state.capeLean,0));}
-        double top=previewBounds.y()+22,bottom=previewBounds.y()+previewBounds.height()-43;
+        double top=area.y(),bottom=area.y()+area.height();
         var rotation=new Quaternionf().rotateZ((float)Math.PI).rotateY((float)Math.toRadians(yaw));
-        float size=(float)Math.min(previewBounds.width()/3,(bottom-top)/2.5)* (float)zoom;
-        if(bottom>top&&size>0){g.entity(state,size,new Vector3f(0,state.boundingBoxHeight/2,0),rotation,new Quaternionf(),(int)previewBounds.x(),(int)top,(int)(previewBounds.x()+previewBounds.width()),(int)bottom);}
-
+        float size=(float)Math.min(area.width()/3,(bottom-top)/2.5)* (float)zoom;
+        if(bottom>top&&size>0){g.entity(state,size,new Vector3f(0,state.boundingBoxHeight/2,0),rotation,new Quaternionf(),(int)area.x(),(int)top,(int)(area.x()+area.width()),(int)bottom);}
+    }
+    private void preview(GuiGraphicsExtractor g,Font font,double mx,double my,double alpha){
+        renderAvatar(g,new Bounds(previewBounds.x(),previewBounds.y()+22,previewBounds.width(),Math.max(0,previewBounds.height()-65)));double top=previewBounds.y()+22,bottom=previewBounds.y()+previewBounds.height()-43;
         KeyboardNavigation.control(g,rotationFocus,new Bounds(previewBounds.x()+4,top+2,previewBounds.width()-8,15),alpha,
                 () -> "Cosmetic preview, rotation, "+Math.round(yaw),()->yaw=160,direction->yaw+=direction*15);
         KeyboardNavigation.control(g,zoomFocus,new Bounds(previewBounds.x()+4,top+19,previewBounds.width()-8,15),alpha,
@@ -174,6 +191,8 @@ public final class CosmeticsEditor extends UIComponent {
     }
     @Override public boolean mouseClicked(double mx,double my,int button){
         if(!contains(mx,my)){return false;}FocusedInput.pointer(mx,my);
+        if(height<220&&!editing&&detailsButton.mouseClicked(mx,my,button)){return true;}
+        if(!editing&&empty){if(clearSearch.mouseClicked(mx,my,button)||showCatalog.mouseClicked(mx,my,button)){return true;}}
         if(!(editing&&height<220)){for(var b:top){if(b.mouseClicked(mx,my,button)){return true;}}}for(var b:bottom){if(b.mouseClicked(mx,my,button)){return true;}}
         for(var b:List.copyOf(rows)){if(b.contains(mx,my)&&(inside(listBounds,mx,my)||inside(previewBounds,mx,my))&&b.mouseClicked(mx,my,button)){return true;}}
         if(!(editing&&height<220)&&search.mouseClicked(mx,my,button)){return true;}if(previewBounds.width()>0&&category==CosmeticCategory.CAPE&&importPath.mouseClicked(mx,my,button)){return true;}

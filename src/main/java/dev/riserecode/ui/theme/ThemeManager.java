@@ -429,9 +429,13 @@ public final class ThemeManager implements AutoCloseable {
     }
     public boolean saveProfile(String name) {
         Path file = profilePath(name);
-        try { write(file, snapshot()); activeProfile = name.toLowerCase(Locale.ROOT); return true; }
+        try { if(Files.exists(file)){write(previousProfilePath(name),read(file));} write(file, snapshot()); activeProfile = name.toLowerCase(Locale.ROOT); return true; }
         catch (IOException failure) { logger.warn("Could not save theme profile {}", name, failure); return false; }
     }
+    private Path previousProfilePath(String name){var file=profilePath(name);return file.resolveSibling(file.getFileName()+".previous.bak");}
+    public boolean hasPreviousProfile(String name){return Files.isRegularFile(previousProfilePath(name));}
+    public boolean profileExists(String name){return Files.isRegularFile(profilePath(name));}
+    public boolean restorePreviousProfile(String name){try{write(profilePath(name),read(previousProfilePath(name)));Files.deleteIfExists(previousProfilePath(name));return true;}catch(IOException|RuntimeException failure){logger.warn("Could not restore appearance profile {}",name,failure);return false;}}
     public boolean loadProfile(String name) {
         Path file = profilePath(name);
         try { apply(read(file)); activeProfile = name.toLowerCase(Locale.ROOT); return true; }

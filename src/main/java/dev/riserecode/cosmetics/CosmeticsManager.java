@@ -58,6 +58,7 @@ public final class CosmeticsManager implements AutoCloseable {
     private volatile long generation;
     private Object world;
     public CosmeticsManager(Path directory){library=new CosmeticsLibrary(directory.resolve("cosmetics"));}
+    public CosmeticsManager(Path directory,CosmeticsLibrary.Fetcher fetcher){library=new CosmeticsLibrary(directory.resolve("cosmetics"),fetcher);}
     public CosmeticsLibrary library(){return library;}
     public CosmeticLoadout outfit(){return outfit;}
     public CosmeticsMotion motion(){return motion;}

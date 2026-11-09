@@ -24,6 +24,9 @@ public final class HudEditorScreen extends Screen implements dev.riserecode.ui.c
     private record Guide(double value, boolean vertical) { }
     private final HudRenderer hud;
     private final dev.riserecode.ui.component.ActionButton done=new dev.riserecode.ui.component.ActionButton("Done",this::onClose);
+    public static final String SHORTCUT_HELP="Tab / Shift+Tab: choose a HUD element or setting. Enter: edit the selected element. Ctrl+arrows: move by one pixel. Ctrl+Shift+arrows: move by ten pixels. G: toggle grid snapping. Page Up/Down: scroll the inspector. Escape or Done: save and return.";
+    private final dev.riserecode.ui.component.ActionButton help=new dev.riserecode.ui.component.ActionButton("Help",this::openHelp);
+    private void openHelp(){minecraft.gui.setScreen(new dev.riserecode.ui.menu.InfoScreen(this,"HUD controls",SHORTCUT_HELP));}
     private final List<Guide> guides = new ArrayList<>();
     private final List<UIComponent> controls = new ArrayList<>();
     private final Animation contextOpening = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.EXPANSION, 0, 0.18, MathUtil.Easing.OUT_QUART);
@@ -83,9 +86,10 @@ public final class HudEditorScreen extends Screen implements dev.riserecode.ui.c
             if (guide.vertical()) { RenderUtil.line(g, guide.value(), 0, guide.value(), height, 0.8, Theme.opacity(Theme.accent(), 0.7)); }
             else { RenderUtil.line(g, 0, guide.value(), width, guide.value(), 0.8, Theme.opacity(Theme.accent(), 0.7)); }
         }
-        RenderUtil.drawRoundedRect(g,width-124,4,120,30,6,Theme.BACKGROUND|0xFF000000);
+        RenderUtil.drawRoundedRect(g,width-194,4,190,30,6,Theme.BACKGROUND|0xFF000000);
         done.setBounds(width-112,8,72,21);done.render(g,font,mouseX,mouseY,seconds,1);
-        String hint = (selected==null?"HUD":selected.label())+" · Tab/Enter: select · Ctrl+arrows: nudge · Shift: 10px · G: grid · Esc: save";
+        help.setBounds(width-184,8,60,21);help.render(g,font,mouseX,mouseY,seconds,1);
+        String hint = (selected==null?"HUD":selected.label())+" · H: all controls";
         hint=RenderUtil.ellipsize(font,hint,(width-40)/.8);
         double hintWidth = RenderUtil.textWidth(font, hint, false) * .8 + 22;
         RenderUtil.drawRoundedRect(g, (width - hintWidth) / 2, height - 26, hintWidth, 21, 6, 0xDF111820);
@@ -117,6 +121,7 @@ public final class HudEditorScreen extends Screen implements dev.riserecode.ui.c
         }
     }
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
+        if(help.mouseClicked(event.x(),event.y(),event.button())){return true;}
         if(done.mouseClicked(event.x(),event.y(),event.button())){return true;}
         dev.riserecode.ui.component.FocusedInput.pointer(event.x(),event.y());
         controls.forEach(control -> { if (control instanceof ColorPicker picker) { picker.pointerFocus(event.x(), event.y()); } });
@@ -180,6 +185,7 @@ public final class HudEditorScreen extends Screen implements dev.riserecode.ui.c
         if (dev.riserecode.ui.component.FocusedInput.key(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard)) { return true; }
         if (event.isEscape() || event.key() == 344) { onClose(); return true; }
         if (controls.stream().anyMatch(control -> control instanceof ColorPicker picker && picker.keyPressed(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard))) { return true; }
+        if(event.key()==72){openHelp();return true;}
         if (event.key() == 71) { hud.getSnap().setValue(!hud.getSnap().getValue()); changed(); return true; }
         return super.keyPressed(event);
     }
