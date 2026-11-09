@@ -63,34 +63,52 @@ public final class ThemeEditor extends UIComponent {
     private final Map<String,dev.riserecode.setting.Setting<?>> settingsByName=new LinkedHashMap<>();
     private dev.riserecode.setting.Setting<?> setting(String name){return settingsByName.getOrDefault(name,manager.getSetting(name));}
     private String query="";
+    private String[] queryTerms=new String[0];
+    private boolean matchingInvalid=true,matchingGerman;
+    private final Map<Control,String> searchText=new java.util.IdentityHashMap<>();
+    private final Map<Control,Boolean> visibility=new java.util.IdentityHashMap<>();
+    private final Map<String,List<Control>> matchingGroups=new LinkedHashMap<>();
+    private final Map<List<Control>,List<List<Control>>> rowCache=new java.util.IdentityHashMap<>();
+    private double rowsWidth=Double.NaN,rowsPad=Double.NaN,rowsFont=Double.NaN;
+    private void prepareMatches(){
+        boolean changed=matchingInvalid||matchingGerman!=Theme.isGerman();
+        if(matchingGerman!=Theme.isGerman()){matchingGerman=Theme.isGerman();searchText.clear();}
+        for(var values:groups.values()){for(var control:values){boolean visible=control.model.setting().isVisible();Boolean previous=visibility.put(control,visible);if(previous==null||previous!=visible){changed=true;}}}
+        if(!changed){return;}matchingInvalid=false;matchingGroups.clear();rowCache.clear();
+        for(var entry:groups.entrySet()){var values=new ArrayList<Control>();for(var control:entry.getValue()){if(matches(entry.getKey(),control)){values.add(control);}}if(!values.isEmpty()){matchingGroups.put(entry.getKey(),List.copyOf(values));}}
+    }
+
     private final Map<String,Boolean> beforeSearch=new LinkedHashMap<>();
     public void setQuery(String value){
         String next=value.strip().toLowerCase(java.util.Locale.ROOT);if(next.equals(query)){return;}
         unfocus();
+        if(matchingGerman!=Theme.isGerman()){matchingGerman=Theme.isGerman();searchText.clear();}
         if(query.isEmpty()&&!next.isEmpty()){groups.keySet().forEach(name->beforeSearch.put(name,section(name).isExpanded()));}
-        query=next;
+        query=next;queryTerms=next.isEmpty()?new String[0]:next.split("\\s+");matchingInvalid=true;
         if(query.isEmpty()){beforeSearch.forEach((name,expanded)->section(name).setExpanded(expanded));beforeSearch.clear();}
         else{groups.forEach((name,values)->{if(values.stream().anyMatch(c->matches(name,c))){section(name).setExpanded(true);}});}
         scroll.reset(0);
     }
     private boolean matches(String group,Control control){
-        String text=(group+" "+control.model.setting().getName()+" "+Theme.displayName(control.model.setting().getName())+" "+control.model.setting().getDescription()).toLowerCase(java.util.Locale.ROOT);
-        return control.model.setting().isVisible() && java.util.Arrays.stream(query.split("\\s+")).allMatch(text::contains);
+        if(!control.model.setting().isVisible()){return false;}if(queryTerms.length==0){return true;}
+        String text=searchText.computeIfAbsent(control,key->(group+" "+control.model.setting().getName()+" "+Theme.displayName(control.model.setting().getName())+" "+control.model.setting().getDescription()).toLowerCase(java.util.Locale.ROOT));
+        for(String term:queryTerms){if(!text.contains(term)){return false;}}return true;
     }
     public double preferredHeight(double available){
-        double result=0;for(var entry:groups.entrySet()){
-            var values=entry.getValue().stream().filter(c->matches(entry.getKey(),c)).toList();if(values.isEmpty()){continue;}
+        prepareMatches();double result=0;for(var entry:matchingGroups.entrySet()){
+            var values=entry.getValue();
             result+=sectionHeight()+section(entry.getKey()).bodyHeight(groupContent(values,entry.getKey(),available))+manager.number("Content Padding");
         }return Math.max(1,result);
     }
     private List<List<Control>> rows(List<Control> values,double available){
-        double pad=manager.number("Content Padding"),column=(available-pad*3)/2;
-        List<List<Control>> rows=new ArrayList<>();for(int i=0;i<values.size();){Control first=values.get(i++);if(!cards&&column>=130*manager.number("Font Scale")&&!wide(first.view())&&i<values.size()&&!wide(values.get(i).view())){rows.add(List.of(first,values.get(i++)));}else{rows.add(List.of(first));}}return rows;
+        double pad=manager.number("Content Padding"),font=manager.number("Font Scale"),column=(available-pad*3)/2;
+        if(rowsWidth!=available||rowsPad!=pad||rowsFont!=font){rowCache.clear();rowsWidth=available;rowsPad=pad;rowsFont=font;}var cached=rowCache.get(values);if(cached!=null){return cached;}
+        List<List<Control>> rows=new ArrayList<>();for(int i=0;i<values.size();){Control first=values.get(i++);if(!cards&&column>=130*manager.number("Font Scale")&&!wide(first.view())&&i<values.size()&&!wide(values.get(i).view())){rows.add(List.of(first,values.get(i++)));}else{rows.add(List.of(first));}}rowCache.put(values,rows);return rows;
     }
     private double groupContent(List<Control> values,String group,double available){
         double inner=available-manager.number("Content Padding")*2,row=Math.max(28,18*manager.number("Font Scale")+12);
         double result=group.equals("Typography")?15:0;
-        for(var controls:rows(values,available)){result+=controls.stream().mapToDouble(c->controlHeight(c.view(),row)).max().orElse(row)+3+toolsHeight(controlActions.getOrDefault(controls.getFirst().model().setting().getName(),List.of()),inner);}
+        for(var controls:rows(values,available)){result+=rowHeight(controls,row)+3+toolsHeight(controlActions.getOrDefault(controls.getFirst().model().setting().getName(),List.of()),inner);}
         return result+toolsHeight(sectionActions.getOrDefault(group,List.of()),inner)+manager.number("Content Padding");
     }
     public void replaceSectionActions(String group,List<ActionButton> tools){sectionActions.put(group,List.copyOf(tools));}
@@ -134,12 +152,13 @@ public final class ThemeEditor extends UIComponent {
     private List<Bounds> toolBounds(List<ActionButton> tools,double available){var mc=net.minecraft.client.Minecraft.getInstance();return ButtonMetrics.flow(mc==null?null:mc.font,tools.stream().map(ActionButton::label).toList(),available);}
     private double toolsHeight(List<ActionButton> tools,double available){return tools.isEmpty()?0:ButtonMetrics.flowHeight(toolBounds(tools,available))+7;}
     private void renderTools(List<ActionButton> tools,double left,double top,double available,GuiGraphicsExtractor graphics,Font font,double mouseX,double mouseY,double seconds,double opacity){
-        var positions=toolBounds(tools,available);
+        if(tools.isEmpty()){return;}var positions=toolBounds(tools,available);
         for(int i=0;i<tools.size();i++){var action=tools.get(i);var b=positions.get(i);action.setBounds(left+b.x(),top+b.y()+3,b.width(),b.height());transforms.put(action,drawingTransform);
             if(KeyboardNavigation.collectingOffscreen()||action.getBounds().y()+ButtonMetrics.HEIGHT>viewportY&&action.getBounds().y()<y+height){action.render(graphics,font,mouseY<viewportY||mouseY>=y+height?-1e6:mouseX,mouseY<viewportY||mouseY>=y+height?-1e6:mouseY,seconds,opacity);visibleActions.add(action);}
         }
     }
     private static boolean wide(UIComponent view) { return view instanceof PresetGallery || view instanceof BackgroundGallery || view instanceof dev.riserecode.ui.component.setting.StringControl; }
+    private static double rowHeight(List<Control> controls,double fallback){double result=0;for(var control:controls){result=Math.max(result,controlHeight(control.view(),fallback));}return controls.isEmpty()?fallback:result;}
     private static double controlHeight(UIComponent view, double row) { return view instanceof BackgroundGallery ? Math.ceil(ThemeManager.Background.values().length/4.0)*41 : view instanceof PresetGallery ? 96 : SettingMetrics.height(view,row); }
     private static <E extends Enum<E>> UIComponent enumView(EnumSetting<E> option, Runnable changed) { return new EnumSelector<>(option, changed); }
     public UIComponent getControl(String label) {
@@ -162,15 +181,15 @@ public final class ThemeEditor extends UIComponent {
         maxScroll=Math.max(0,preferredHeight(width)-viewportHeight);
         if(scroll.getValue()>maxScroll){scroll.reset(maxScroll);}scroll.animateTo(Math.clamp(scroll.getTarget(),0,maxScroll));double offset=Math.max(0,scroll.update(seconds));
         double top=y-offset;
-        if(!query.isEmpty()&&groups.entrySet().stream().noneMatch(entry->entry.getValue().stream().anyMatch(c->matches(entry.getKey(),c)))){
+        if(!query.isEmpty()&&matchingGroups.isEmpty()){
             RenderUtil.text(graphics,font,Theme.isGerman()?"Keine passenden Einstellungen":"No matching settings",x+6,y+10,.85,Theme.opacity(Theme.TEXT,opacity));
             RenderUtil.text(graphics,font,Theme.isGerman()?"Suche kürzen oder löschen":"Try fewer words or Clear the search.",x+6,y+27,.7,Theme.opacity(Theme.SECONDARY,opacity));
         }
         boolean ownsReveal=maxScroll>0;if(ownsReveal){KeyboardNavigation.pushScrollRegion(this::revealControl);}
         RenderUtil.scissorPush(graphics,x,y,width,height);
         try{
-            for(var entry:groups.entrySet()){
-                String group=entry.getKey();var values=entry.getValue().stream().filter(c->matches(entry.getKey(),c)).toList();if(values.isEmpty()){continue;}
+            for(var entry:matchingGroups.entrySet()){
+                String group=entry.getKey();var values=entry.getValue();
                 var header=section(group);double content=groupContent(values,group,width),body=header.bodyHeight(content),cardHeight=sectionHeight()+body;
                 header.setBounds(x,top,width-4,sectionHeight());
                 drawingTransform=new CardTransform(x+(width-4)/2,top+cardHeight/2,header.feedbackScale());
@@ -187,7 +206,7 @@ public final class ThemeEditor extends UIComponent {
                         double controlY=top+sectionHeight(),innerWidth=width-pad*2,columnWidth=(innerWidth-pad)/2,row=Math.max(28,18*manager.number("Font Scale")+12);
                         if(group.equals("Typography")){RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,CustomTextRenderer.status(),innerWidth/.68),x+pad,controlY,.68,Theme.opacity(Theme.SECONDARY,opacity));controlY+=15;}
                         for(var rowControls:rows(values,width)){
-                            double rowHeight=rowControls.stream().mapToDouble(c->controlHeight(c.view(),row)).max().orElse(row);
+                            double rowHeight=rowHeight(rowControls,row);
                             for(int column=0;column<rowControls.size();column++){
                                 var control=rowControls.get(column);var view=control.view();transforms.put(view,drawingTransform);view.setBounds(x+pad+column*(columnWidth+pad),controlY,rowControls.size()==1?innerWidth-4:columnWidth-4,rowHeight);
                                 boolean fullyVisible=header.isExpanded()&&controlY+rowHeight<=top+sectionHeight()+body+.01;

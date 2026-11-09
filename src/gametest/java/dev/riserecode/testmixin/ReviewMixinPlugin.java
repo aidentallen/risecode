@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
 /** Avoid resolving the optional Iris test probe on vanilla or Vulkan-only fixtures. */
 public final class ReviewMixinPlugin implements IMixinConfigPlugin {
-    @Override public boolean shouldApplyMixin(String target,String mixin){return !mixin.endsWith("ReviewShadowMixin")||FabricLoader.getInstance().isModLoaded("iris");}
+    @Override public boolean shouldApplyMixin(String target,String mixin){if(mixin.endsWith("UxPreviewProbeMixin")){return Boolean.getBoolean("riserecode.uxRefinementOnly")||Boolean.getBoolean("riserecode.uxJourneyOnly");}return !mixin.endsWith("ReviewShadowMixin")||FabricLoader.getInstance().isModLoaded("iris");}
     @Override public void onLoad(String name){ }
     @Override public String getRefMapperConfig(){return null;}
     @Override public void acceptTargets(Set<String> mine,Set<String> others){ }

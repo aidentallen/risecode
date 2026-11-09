@@ -53,6 +53,9 @@ public final class ClickGui extends Screen {
     private final ActionButton noticeButton=new ActionButton(()->this.message.isEmpty()?"i":"!",()->minecraft.gui.setScreen(new dev.riserecode.ui.menu.InfoScreen(this,"Client messages",this.message.isEmpty()?"No recent messages.":this.message))).accessibleLabel(()->"Client messages, "+(this.message.isEmpty()?"no recent messages":this.message));
     public UIComponent.Bounds getNoticeBounds(){return noticeButton.getBounds();}
     public void showNotice(String text){notice(text);}
+    private final java.util.ArrayDeque<KeyEvent> entranceKeys=new java.util.ArrayDeque<>();
+    private void finishEntranceKeys(){while(!entranceKeys.isEmpty()&&!closing&&minecraft.gui.screen()==this){Page before=page;keyboardNavigation.key(entranceKeys.removeFirst());if(minecraft.gui.screen()!=this){entranceKeys.clear();break;}if(page!=before){opening.reset(1);pageFade.reset(1);break;}}}
+    private String restoredClient="",restoredAppearance="";
     private final List<ActionButton> actions = new ArrayList<>();
     private final java.util.Map<String,ActionButton> friendInspect=new java.util.HashMap<>(),friendRemove=new java.util.HashMap<>();
     private final Animation opening = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.OPENING, 0, 0.26, MathUtil.Easing.OUT_QUART);
@@ -216,7 +219,7 @@ public final class ClickGui extends Screen {
     public void open(Screen parent) {
         if(!Client.INSTANCE.resourcesReady()||minecraft.gui.overlay()!=null){return;}
         this.parent = parent; closing = false; previousFrame = System.nanoTime(); resourcesEditor.resetDraft();
-        opening.reset(0); opening.animateTo(1); searchPanel.open(); panels.forEach(Panel::open);
+        entranceKeys.clear();opening.reset(0); opening.animateTo(1); searchPanel.open(); panels.forEach(Panel::open);
         field.setFocused(page == Page.SEARCH || settingSearch() || page == Page.PROFILES || page == Page.FRIENDS);
         if (page == Page.RESOURCES) { resourcesEditor.open(); }
         if (page == Page.COSMETICS) { cosmeticsEditor.open(); }
@@ -357,6 +360,7 @@ public final class ClickGui extends Screen {
             if(noticeButton.contains(pointerX,pointerY)){graphics.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal("Client messages"),net.minecraft.network.chat.Component.literal(message.isEmpty()?"No recent messages":message)),java.util.Optional.empty(),(int)pointerX,(int)pointerY);}
             settingsPopup.render(graphics,font,pointerX,pointerY,seconds,alpha);
         } finally { keyboardNavigation.end(); try{dev.riserecode.ui.render.UiBatch.end();}finally{graphics.pose().popMatrix();} }
+        finishEntranceKeys();
     }
     private void notice(String text) {
         message = text;
@@ -383,14 +387,16 @@ public final class ClickGui extends Screen {
         if (page == Page.PROFILES) {
             actions.add(new ActionButton("Save client profile", () -> requestProfileSave(false)));
             for (String profile : Client.INSTANCE.getProfileManager().getProfiles()) {
-                actions.add(new ActionButton("Client: " + profile, () -> { notice("Loading " + profile); Client.INSTANCE.getProfileManager().loadProfileAsync(profile).thenAccept(success -> notice(success ? "Loaded " + profile : "Could not load " + profile)); }));
-                if(Client.INSTANCE.getProfileManager().hasPrevious(profile)){actions.add(new ActionButton("Restore previous client: "+profile,()->{notice(Client.INSTANCE.getProfileManager().restorePrevious(profile)?"Previous client profile restored: "+profile:"Could not restore "+profile);rebuildActions();}));}
+                actions.add(new ActionButton("Client: " + profile, () -> loadClientPreset(profile)));
+                if(profile.equals(restoredClient)){actions.add(new ActionButton("Load restored client: "+profile,()->loadClientPreset(profile)));}
+                if(Client.INSTANCE.getProfileManager().hasPrevious(profile)){actions.add(new ActionButton("Restore previous client: "+profile,()->{boolean success=Client.INSTANCE.getProfileManager().restorePrevious(profile);if(success){restoredClient=profile;}notice(success?"Saved client preset restored: "+profile+". Active setup unchanged. Load "+profile+" to use it. One previous saved version was consumed.":"Could not restore "+profile);rebuildActions();}));}
                 actions.add(new ActionButton("Delete client: " + profile, () -> confirmDeleteProfile(profile)));
             }
             actions.add(new ActionButton("Save appearance profile", () -> requestProfileSave(true)));
             for (String profile : themes.getProfiles()) {
                 actions.add(new ActionButton("Appearance: " + profile, () -> notice(themes.loadProfile(profile) ? "Appearance loaded" : "Could not load appearance profile")));
-                if(themes.hasPreviousProfile(profile)){actions.add(new ActionButton("Restore previous appearance: "+profile,()->{notice(themes.restorePreviousProfile(profile)?"Previous appearance restored: "+profile:"Could not restore "+profile);rebuildActions();}));}
+                if(profile.equals(restoredAppearance)){actions.add(new ActionButton("Load restored appearance: "+profile,()->notice(themes.loadProfile(profile)?"Loaded restored appearance: "+profile:"Could not load "+profile)));}
+                if(themes.hasPreviousProfile(profile)){actions.add(new ActionButton("Restore previous appearance: "+profile,()->{boolean success=themes.restorePreviousProfile(profile);if(success){restoredAppearance=profile;}notice(success?"Saved appearance preset restored: "+profile+". Active appearance unchanged. Load "+profile+" to use it. One previous saved version was consumed.":"Could not restore "+profile);rebuildActions();}));}
             }
         } else if (page == Page.FRIENDS) {
             actions.add(new ActionButton("Add", () -> {
@@ -404,8 +410,9 @@ public final class ClickGui extends Screen {
 
         }
     }
+    private void loadClientPreset(String profile){notice("Loading "+profile);Client.INSTANCE.getProfileManager().loadProfileAsync(profile).thenAccept(success->notice(success?"Loaded client profile: "+profile:"Could not load "+profile));}
     private boolean profileExists(boolean appearance,String name){return appearance?themes.profileExists(name):java.nio.file.Files.isRegularFile(Client.INSTANCE.getProfileManager().getFile(name));}
-    private boolean saveNamedProfile(boolean appearance,String name){boolean replaced=profileExists(appearance,name);boolean result=appearance?themes.saveProfile(name):Client.INSTANCE.getProfileManager().saveProfile(name);notice(result?(replaced?"Replaced ":"Saved ")+(appearance?"appearance: ":"client profile: ")+name+(replaced?" · Restore previous is available in Profiles":""):"Could not save "+name);rebuildActions();return result;}
+    private boolean saveNamedProfile(boolean appearance,String name){boolean replaced=profileExists(appearance,name);boolean result=appearance?themes.saveProfile(name):Client.INSTANCE.getProfileManager().saveProfile(name);if(result){if(appearance&&name.equalsIgnoreCase(restoredAppearance)){restoredAppearance="";}if(!appearance&&name.equals(restoredClient)){restoredClient="";}}notice(result?(replaced?"Replaced ":"Saved ")+(appearance?"appearance: ":"client profile: ")+name+(replaced?" · Restore previous is available in Profiles":""):"Could not save "+name);rebuildActions();return result;}
     private void requestProfileSave(boolean appearance){dev.riserecode.ui.component.FocusedInput.commit();String name=field.getValue();try{if(profileExists(appearance,name)){minecraft.gui.setScreen(new dev.riserecode.ui.menu.ProfileSaveScreen(this,appearance?"appearance":"client",name,value->profileExists(appearance,value),value->saveNamedProfile(appearance,value)));}else{saveNamedProfile(appearance,name);}}catch(IllegalArgumentException invalid){notice(invalid.getMessage());}}
     private void confirmRemoveFriend(String name){
         var manager=Client.INSTANCE.getFriendManager();var friends=manager.getFriends();int index=java.util.stream.IntStream.range(0,friends.size()).filter(i->friends.get(i).name().equals(name)).findFirst().orElse(0);
@@ -454,7 +461,7 @@ public final class ClickGui extends Screen {
                     var b=buttonPositions.get(i);actions.get(i).setBounds(left+b.x(),top+b.y()-scroll,b.width(),b.height());
                     actions.get(i).render(graphics, font, mouseX, mouseY, seconds, alpha);
                 }
-                String hint = page == Page.PROFILES ? "Select a profile to load it." : page == Page.FRIENDS ? "Select a friend to remove them." : "";
+                String hint = page == Page.PROFILES ? "Select a profile to load it." : page == Page.FRIENDS ? "Inspect a friend by name; use its explicit Remove action." : "";
                 RenderUtil.text(graphics, font, hint, left + 7, top + buttonsHeight - scroll + 5, 0.8, Theme.opacity(Theme.SECONDARY, alpha));
             } finally { RenderUtil.scissorPop(graphics);dev.riserecode.ui.component.KeyboardNavigation.popScrollRegion(); }
         }
@@ -540,7 +547,7 @@ public final class ClickGui extends Screen {
         return false;
     }
     @Override
-    public boolean charTyped(CharacterEvent event) { if(settingsPopup.isOpen()){return true;} if (dev.riserecode.ui.component.FocusedInput.character(event)) { return true; }
+    public boolean charTyped(CharacterEvent event) { if(!closing&&dev.riserecode.ui.component.FocusedInput.active()){keyboardNavigation.keyboardUsed();opening.reset(1);pageFade.reset(1);} if(settingsPopup.isOpen()){return true;} if (dev.riserecode.ui.component.FocusedInput.character(event)) { return true; }
         if (closing) { return true; }
         Panel panel = getActivePanel();
         if(getClientSettingsEditor()!=null){return getClientSettingsEditor().charTyped(event);}
@@ -548,6 +555,11 @@ public final class ClickGui extends Screen {
     }
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if(closing){return true;}
+        boolean navigation=event.key()==258&&!event.hasControlDown()||!dev.riserecode.ui.component.FocusedInput.active()&&(event.isConfirmation()||event.key()==32||event.key()>=262&&event.key()<=265);
+        if(!settingsPopup.isOpen()&&navigation&&(!entranceKeys.isEmpty()||opening.getValue()<.999||pageFade.getValue()<.999)){
+            opening.reset(1);pageFade.reset(1);entranceKeys.addLast(event);return true;
+        }
         if(settingsPopup.keyPressed(event)){return true;}
         if (page == Page.COSMETICS && cosmeticsEditor.keyPressed(event)) { return true; }
         if (page == Page.RESOURCES && resourcesEditor.keyPressed(event)) { return true; }

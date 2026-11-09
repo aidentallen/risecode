@@ -82,7 +82,7 @@ public final class ColorPicker extends UIComponent {
     public Slider speed(){return speedSlider;}
     public Slider spacing(){return spacingSlider;}
     public Bounds getSaturationBounds(){var l=layout();return new Bounds(x,y+l.sv(),Math.max(1,width-20),64);}
-    public double getPreferredHeight(){var l=layout();return l.header()+(l.total()-l.header())*opening.getValue();}
+    public double getPreferredHeight(){if(KeyboardNavigation.instantGeometry()){opening.reset(expanded?1:0);}var l=layout();return l.header()+(l.total()-l.header())*opening.getValue();}
     public void setExpanded(boolean value){expanded=value;opening.animateTo(value?1:0);if(!value){unfocus();mouseReleased(0,0,0);}}
     public void unfocus(){for(var field:hexFields){if(field.isFocused()){field.commit();}}}
     public void pointerFocus(double mx,double my){if(!hex().contains(mx,my)&&hex().isFocused()){hex().commit();}}
@@ -104,7 +104,7 @@ public final class ColorPicker extends UIComponent {
     }
     public static int hsv(double hue,double saturation,double value){return ColorUtil.hsv(hue,MathUtil.clamp01(saturation),MathUtil.clamp01(value));}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double opacity){
-        var l=layout();KeyboardNavigation.control(g,this,new Bounds(x,y,width,l.header()),opacity,()->setting.getName()+", color, "+ColorSetting.hex(current())+", "+(expanded?"expanded":"collapsed"),()->setExpanded(!expanded),null);
+        var l=layout();KeyboardNavigation.control(g,this,new Bounds(x,y,width,l.header()),opacity,()->setting.getName()+", color, "+ColorSetting.hex(current())+", "+(expanded?"expanded":"collapsed"),()->{setExpanded(!expanded);opening.reset(expanded?1:0);},null);
         opening.animateTo(expanded?1:0);opening.update(dt);if(current()!=displayed){replaceHex(secondary?1:0);readColor();}
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,Theme.displayName(setting.getName()),(width-42)/.85),x,y+4,.85,Theme.opacity(Theme.TEXT,opacity));
         RenderUtil.drawPaintRect(g,x+width-36,y+3,28,12,3,setting.paint(),opacity);RenderUtil.text(g,font,expanded?"−":"+",x+width-6,y+4,.8,Theme.opacity(Theme.SECONDARY,opacity));
@@ -150,7 +150,7 @@ public final class ColorPicker extends UIComponent {
     }
     @Override public boolean mouseClicked(double mx,double my,int button){
         pointerFocus(mx,my);if(!contains(mx,my)||button!=0&&button!=1){return false;}var l=layout();double local=my-y;
-        if(local<l.header()){setExpanded(!expanded);return true;}if(!expanded||opening.getValue()<.99){return true;}
+        if(local<l.header()){setExpanded(!expanded);return true;}if(!expanded){return true;}
         if(local>=l.endpoint()&&local<l.endpoint()+l.row()){selectEndpoint(mx>=x+width/2);return true;}
         if(button==0&&local>=l.sv()&&local<=l.sv()+64){captured=mx>=x+width-12?2:mx<x+width-20?1:0;if(captured!=0){dev.riserecode.ui.component.FocusedInput.commit();update(mx,my);}return true;}
         if(button==0&&local>=l.alpha()-2&&local<=l.alpha()+10){captured=3;dev.riserecode.ui.component.FocusedInput.commit();update(mx,my);return true;}

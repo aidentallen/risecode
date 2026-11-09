@@ -13,7 +13,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 public final class SettingsSection extends UIComponent {
     public static final double HEADER=24;
     private final String id,label;
-    private boolean expanded, card;
+    private boolean expanded, card,keyboardSnap;
     private final dev.riserecode.ui.animation.ButtonFeedback press=new dev.riserecode.ui.animation.ButtonFeedback();
     private final Animation disclosure=Animation.ui(ThemeManager.Channel.EXPANSION,0,.2,MathUtil.Easing.OUT_QUART);
     public SettingsSection card(boolean value){card=value;return this;}
@@ -31,10 +31,11 @@ public final class SettingsSection extends UIComponent {
         if(expanded==value){return;}if(!value){FocusedInput.commit();closing.run();}expanded=value;
         var config=Client.INSTANCE.getConfigManager();if(config!=null){var ui=config.getUiPreferences();var states=ui.has("sections")&&ui.get("sections").isJsonObject()?ui.getAsJsonObject("sections"):new com.google.gson.JsonObject();states.addProperty(id,value);ui.add("sections",states);config.setUiPreferences(ui);}
     }
-    public double bodyHeight(double content){body.animateTo(expanded?content:0);return Math.max(0,body.getValue());}
+    private void keyboardToggle(){setExpanded(!expanded);keyboardSnap=true;disclosure.reset(expanded?1:0);}
+    public double bodyHeight(double content){if(keyboardSnap||KeyboardNavigation.instantGeometry()){body.reset(expanded?content:0);keyboardSnap=false;}body.animateTo(expanded?content:0);return Math.max(0,body.getValue());}
     public double amount(double content){return content<=0?0:Math.clamp(bodyHeight(content)/content,0,1);}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
-        keyboard(g, alpha, () -> label + ", section, " + (expanded ? "expanded" : "collapsed"), () -> setExpanded(!expanded), null);
+        keyboard(g, alpha, () -> label + ", section, " + (expanded ? "expanded" : "collapsed"), this::keyboardToggle, null);
         double h=updateHover(mx,my,dt);body.update(dt);
         disclosure.animateTo(expanded?1:0);disclosure.update(dt);
         if(card){

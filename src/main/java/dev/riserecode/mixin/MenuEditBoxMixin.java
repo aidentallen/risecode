@@ -11,7 +11,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(EditBox.class)
-public abstract class MenuEditBoxMixin {
+public abstract class MenuEditBoxMixin implements dev.riserecode.ui.menu.EditBoxDraft.SelectionAnchor {
+    @org.spongepowered.asm.mixin.Shadow private int highlightPos;
+    @Override public int riserecode$selectionAnchor(){return highlightPos;}
     @Redirect(method = "extractWidgetRenderState", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"))
     private void riserecode$field(GuiGraphicsExtractor graphics, RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height) {
         if (MenuTheme.enabled()) { RenderUtil.drawSurfaceTransition(graphics, x, y, width, height, 8, ((EditBox) (Object) this).isFocused() ? 1 : 0, 1); }

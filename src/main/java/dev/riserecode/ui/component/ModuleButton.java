@@ -53,7 +53,8 @@ public final class ModuleButton extends UIComponent {
     private double localX(double pointer){return x+width/2+(pointer-x-width/2)/visualScale;}
     private double localY(double pointer){return y+height/2+(pointer-y-height/2)/visualScale;}
     @Override public boolean contains(double mx,double my){return super.contains(localX(mx),localY(my));}
-    private boolean expanded;
+    private boolean expanded,keyboardSnap;
+    private void expandKeyboard(boolean value){expand(value);keyboardSnap=true;expansion.reset(value?1:0);}
     private boolean showCategory;
     private UIComponent captured;
 
@@ -115,13 +116,13 @@ public final class ModuleButton extends UIComponent {
         dev.riserecode.ui.theme.ModuleAppearance.with("",()->updateScoped(deltaSeconds));
     }
     private void updateScoped(double deltaSeconds) {
-        expansion.animateTo(expanded ? 1 : 0); expansion.update(deltaSeconds);
+        if(KeyboardNavigation.instantGeometry()){expansion.reset(expanded?1:0);}expansion.animateTo(expanded ? 1 : 0); expansion.update(deltaSeconds);
         if(!expanded&&!bodyHeight.isRunning()&&bodyHeight.getValue()==0){return;}
         double result = 4 + appearance.preferredHeight(width-14) + SettingsSection.HEADER + bindings.bodyHeight(KeybindControl.HEIGHT)
                 + editor.extras().stream().mapToDouble(ModuleEditorRegistry.Extra::height).sum();
         String previousGroup="";
         for (SettingControl control : controls) { if (control.setting().isVisible()) { String group=module.settingGroup(control.setting()); if(!group.isEmpty()&&!group.equals(previousGroup)){result+=16;} previousGroup=group; result += controlHeight(control); } }
-        bodyHeight.animateTo(expanded ? result : 0); bodyHeight.update(deltaSeconds);
+        if(keyboardSnap||KeyboardNavigation.instantGeometry()){bodyHeight.reset(expanded?result:0);keyboardSnap=false;}bodyHeight.animateTo(expanded ? result : 0); bodyHeight.update(deltaSeconds);
         // Visibility changes release a captured slider before it can edit a hidden setting.
         if (captured != null && controls.stream().anyMatch(c -> c.component() == captured && !c.setting().isVisible())) {
             captured.mouseReleased(0, 0, 0); captured = null;
@@ -151,11 +152,11 @@ public final class ModuleButton extends UIComponent {
     private void renderCard(GuiGraphicsExtractor graphics,Font font,double mouseX,double mouseY,double seconds,double opacity){
         KeyboardNavigation.control(graphics, this, new Bounds(x, y, width-28, HEADER_HEIGHT), opacity,
                 () -> module.getName() + ", module, " + (module.isEnabled() ? "enabled" : "disabled") + ", " + (expanded ? "expanded" : "collapsed"),
-                () -> expand(!expanded), direction -> expand(direction>0));
+                () -> expandKeyboard(!expanded), direction -> expandKeyboard(direction>0));
         KeyboardNavigation.control(graphics,stateFocus,new Bounds(x+width-40,y+24,36,16),opacity,
                 () -> module.getName()+", toggle, "+(module.isEnabled()?"On":"Off"),()->manager.toggle(module),null);
         KeyboardNavigation.control(graphics,disclosureFocus,new Bounds(x+width-27,y,27,24),opacity,
-                () -> module.getName()+", settings, "+(expanded?"expanded":"collapsed"),()->expand(!expanded),direction->expand(direction>0));
+                () -> module.getName()+", settings, "+(expanded?"expanded":"collapsed"),()->expandKeyboard(!expanded),direction->expandKeyboard(direction>0));
         hover.animateTo(mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + HEADER_HEIGHT ? 1 : 0);
         double hovered = hover.update(seconds);
         enabled.animateTo(module.isEnabled() ? 1 : 0);
@@ -199,7 +200,7 @@ public final class ModuleButton extends UIComponent {
                 String group=module.settingGroup(control.setting());
                 if(!group.isEmpty()&&!group.equals(previousGroup)){RenderUtil.text(graphics,font,group,x+7,y+HEADER_HEIGHT+top+4,.65,Theme.opacity(Theme.SECONDARY,opacity*expansion.getValue()));top+=16;}
                 previousGroup=group;
-                Animation position = positions.get(control.component()); position.animateTo(top);
+                Animation position = positions.get(control.component()); if(KeyboardNavigation.instantGeometry()){position.reset(top);}position.animateTo(top);
                 control.component().setBounds(x + 7, y + HEADER_HEIGHT + position.update(seconds), width - 14, controlHeight(control));
                 control.component().render(graphics, font, mouseX, mouseY, seconds, opacity * expansion.getValue());
                 if(control==searchMatch){var match=control.component().getBounds();RenderUtil.drawRoundedBorder(graphics,match.x()-2,match.y(),match.width()+4,match.height(),3,Theme.opacity(Theme.accent(),opacity),.75);}

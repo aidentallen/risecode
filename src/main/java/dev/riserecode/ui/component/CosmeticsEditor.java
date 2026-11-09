@@ -32,8 +32,20 @@ public final class CosmeticsEditor extends UIComponent {
     private boolean catalog,editing,dragging;
     private double listScroll,settingsScroll,maxList,maxSettings,previousX,yaw=160,zoom=1;
     private double previewTime;
+    private boolean previewPaused;
+    public void advancePreview(double seconds){if(!previewPaused&&!Theme.bool("Reduced Motion",false)){previewTime+=Math.min(.05,Math.max(0,seconds));}}
+    public double previewTime(){return previewTime;}
+    public boolean previewPaused(){return previewPaused;}
+    public void previewPaused(boolean value){previewPaused=value;}
+    public PreviewPose previewPose(){return PreviewPose.values()[pose];}
+    public void previewPose(PreviewPose value){pose=value.ordinal();}
+    public double previewYaw(){return yaw;}
+    public double previewZoom(){return zoom;}
+    private double defaultPreviewYaw(){return category==CosmeticCategory.CAPE||category==CosmeticCategory.WINGS||category==CosmeticCategory.TAIL?160:25;}
+    public void resetPreviewView(){yaw=defaultPreviewYaw();zoom=1;}
+
     private int pose;
-    private enum PreviewPose { STANDING, WALKING, CROUCHING, FLYING }
+    public enum PreviewPose { STANDING, WALKING, CROUCHING, FLYING }
     private Bounds previewBounds,listBounds;
     private final TextField search=new TextField(()->"Search cosmetics");
     private final TextField importPath=new TextField(()->"PNG cape path");
@@ -101,7 +113,7 @@ public final class CosmeticsEditor extends UIComponent {
     private void importCape(){FocusedInput.commit();long token=revision;try{manager.library().importCape(Path.of(importPath.getValue())).whenComplete((def,error)->Minecraft.getInstance().execute(()->{
         if(error!=null){notice.accept("Could not import cape: "+error.getCause().getMessage());return;}if(token==revision){select(def.id());}notice.accept("Cape imported");}));}catch(RuntimeException invalid){notice.accept("Enter a PNG cape path");}}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
-        previewTime+=Math.min(.05,Math.max(0,dt));boolean compactEdit=editing&&height<220;if(compactEdit&&search.isFocused()){search.commit();}if(height<220&&importPath.isFocused()){importPath.commit();}double gap=4,header=compactEdit?0:48,footer=height<220&&!editing?66:43;
+        advancePreview(dt);boolean compactEdit=editing&&height<220;if(compactEdit&&search.isFocused()){search.commit();}if(height<220&&importPath.isFocused()){importPath.commit();}double gap=4,header=compactEdit?0:48,footer=height<220&&!editing?66:43;
         if(!compactEdit){
         search.setBounds(x,y,width*.43-2,20);search.render(g,font,mx,my,dt,alpha);
         top.get(1).setBounds(x+width*.43,y,width*.28-2,20);top.get(2).setBounds(x+width*.71,y,width*.29,20);
@@ -176,7 +188,7 @@ public final class CosmeticsEditor extends UIComponent {
     private void preview(GuiGraphicsExtractor g,Font font,double mx,double my,double alpha){
         renderAvatar(g,new Bounds(previewBounds.x(),previewBounds.y()+22,previewBounds.width(),Math.max(0,previewBounds.height()-65)));double top=previewBounds.y()+22,bottom=previewBounds.y()+previewBounds.height()-43;
         KeyboardNavigation.control(g,rotationFocus,new Bounds(previewBounds.x()+4,top+2,previewBounds.width()-8,15),alpha,
-                () -> "Cosmetic preview, rotation, "+Math.round(yaw),()->yaw=160,direction->yaw+=direction*15);
+                () -> "Cosmetic preview, rotation, "+Math.round(yaw),()->yaw=defaultPreviewYaw(),direction->yaw+=direction*15);
         KeyboardNavigation.control(g,zoomFocus,new Bounds(previewBounds.x()+4,top+19,previewBounds.width()-8,15),alpha,
                 () -> "Cosmetic preview, zoom, "+zoom,()->zoom=1,direction->zoom=Math.clamp(zoom+direction*.08,.5,1.6));
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Tab: rotate / zoom",(previewBounds.width()-16)/.65),previewBounds.x()+8,top+5,.65,Theme.opacity(Theme.SECONDARY,alpha));

@@ -12,6 +12,6 @@ public abstract class RenderFrameTimingMixin {
     @WrapMethod(method="renderFrame")
     private void risecode$frameTime(boolean tick,Operation<Void> original){
         long allocated=RemediationClientTest.allocated(),cpu=RemediationClientTest.cpu(),start=System.nanoTime();
-        try{original.call(tick);}finally{long elapsed=System.nanoTime()-start,bytes=RemediationClientTest.allocated()-allocated,spent=RemediationClientTest.cpu()-cpu;RemediationClientTest.rendered(elapsed,bytes,spent);dev.riserecode.GuiPerformanceTest.rendered(elapsed,bytes,spent);dev.riserecode.Release025Timings.rendered(elapsed,bytes,spent);dev.riserecode.GlassTimings.rendered(elapsed,bytes,spent);}
+        try{original.call(tick);}finally{long elapsed=System.nanoTime()-start,bytes=RemediationClientTest.allocated()-allocated,spent=RemediationClientTest.cpu()-cpu;RemediationClientTest.rendered(elapsed,bytes,spent);dev.riserecode.GuiPerformanceTest.rendered(elapsed,bytes,spent);dev.riserecode.UxPerformanceTest.rendered(elapsed,bytes,spent);dev.riserecode.Release025Timings.rendered(elapsed,bytes,spent);dev.riserecode.GlassTimings.rendered(elapsed,bytes,spent);}
     }
 }
