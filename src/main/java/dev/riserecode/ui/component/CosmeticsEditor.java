@@ -68,6 +68,7 @@ public final class CosmeticsEditor extends UIComponent {
     public void open(){if(!isDirty()){discard();}}
     public void discard(){FocusedInput.commit();revision++;draft=manager.outfit();selected=Optional.ofNullable(draft.items().get(category)).map(CosmeticLoadout.Item::id).orElse("");editing=false;search.setFocused(false);importPath.setFocused(false);captured=null;}
     public void apply(){FocusedInput.commit();manager.apply(draft);revision++;notice.accept("Cosmetics applied");}
+    public boolean isEditing(){return editing;}
     public SettingsSection getItemSection(){return itemSection;}
     public CosmeticLoadout draft(){return draft;}
     public CosmeticCategory category(){return category;}
@@ -96,16 +97,16 @@ public final class CosmeticsEditor extends UIComponent {
     private void importCape(){FocusedInput.commit();long token=revision;try{manager.library().importCape(Path.of(importPath.getValue())).whenComplete((def,error)->Minecraft.getInstance().execute(()->{
         if(error!=null){notice.accept("Could not import cape: "+error.getCause().getMessage());return;}if(token==revision){select(def.id());}notice.accept("Cape imported");}));}catch(RuntimeException invalid){notice.accept("Enter a PNG cape path");}}
     @Override public void render(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
-        previewTime+=Math.min(.05,Math.max(0,dt));boolean compactEdit=editing&&height<220;double gap=4,header=compactEdit?0:48,footer=43;
+        previewTime+=Math.min(.05,Math.max(0,dt));boolean compactEdit=editing&&height<220;if(compactEdit&&search.isFocused()){search.commit();}if(height<220&&importPath.isFocused()){importPath.commit();}double gap=4,header=compactEdit?0:48,footer=43;
         if(!compactEdit){
         search.setBounds(x,y,width*.43-2,20);search.render(g,font,mx,my,dt,alpha);
         top.get(1).setBounds(x+width*.43,y,width*.28-2,20);top.get(2).setBounds(x+width*.71,y,width*.29,20);
         top.get(0).setBounds(x,y+24,width*.48-2,20);top.get(3).setBounds(x+width*.48,y+24,width*.52,20);
         for(var button:top){button.render(g,font,mx,my,dt,alpha);}}
-        double leftWidth=compactEdit?width:width*.49-2;listBounds=new Bounds(x,y+header,leftWidth,Math.max(20,height-header-footer));
-        previewBounds=compactEdit?new Bounds(0,0,0,0):new Bounds(x+leftWidth+gap,y+header,width-leftWidth-gap,listBounds.height());
+        boolean compactLayout=height<220;double leftWidth=compactLayout?width:width*.49-2;listBounds=new Bounds(x,y+header,leftWidth,Math.max(20,height-header-footer));
+        previewBounds=compactLayout?new Bounds(0,0,0,0):new Bounds(x+leftWidth+gap,y+header,width-leftWidth-gap,listBounds.height());
         rows.clear();
-        if(!compactEdit){RenderUtil.drawRoundedRect(g,previewBounds.x(),previewBounds.y(),previewBounds.width(),previewBounds.height(),4,Theme.opacity(Theme.SURFACE,alpha));
+        if(!compactLayout){RenderUtil.drawRoundedRect(g,previewBounds.x(),previewBounds.y(),previewBounds.width(),previewBounds.height(),4,Theme.opacity(Theme.SURFACE,alpha));
         preview(g,font,mx,my,alpha);}
         RenderUtil.scissorPush(g,listBounds.x(),listBounds.y(),listBounds.width(),listBounds.height());
         try{
@@ -155,7 +156,7 @@ public final class CosmeticsEditor extends UIComponent {
         double top=previewBounds.y()+22,bottom=previewBounds.y()+previewBounds.height()-43;
         var rotation=new Quaternionf().rotateZ((float)Math.PI).rotateY((float)Math.toRadians(yaw));
         float size=(float)Math.min(previewBounds.width()/3,(bottom-top)/2.5)* (float)zoom;
-        g.entity(state,size,new Vector3f(0,state.boundingBoxHeight/2,0),rotation,new Quaternionf(),(int)previewBounds.x(),(int)top,(int)(previewBounds.x()+previewBounds.width()),(int)bottom);
+        if(bottom>top&&size>0){g.entity(state,size,new Vector3f(0,state.boundingBoxHeight/2,0),rotation,new Quaternionf(),(int)previewBounds.x(),(int)top,(int)(previewBounds.x()+previewBounds.width()),(int)bottom);}
 
         KeyboardNavigation.control(g,rotationFocus,new Bounds(previewBounds.x()+4,top+2,previewBounds.width()-8,15),alpha,
                 () -> "Cosmetic preview, rotation, "+Math.round(yaw),()->yaw=160,direction->yaw+=direction*15);
@@ -175,7 +176,7 @@ public final class CosmeticsEditor extends UIComponent {
         if(!contains(mx,my)){return false;}FocusedInput.pointer(mx,my);
         if(!(editing&&height<220)){for(var b:top){if(b.mouseClicked(mx,my,button)){return true;}}}for(var b:bottom){if(b.mouseClicked(mx,my,button)){return true;}}
         for(var b:List.copyOf(rows)){if(b.contains(mx,my)&&(inside(listBounds,mx,my)||inside(previewBounds,mx,my))&&b.mouseClicked(mx,my,button)){return true;}}
-        if(!(editing&&height<220)&&search.mouseClicked(mx,my,button)){return true;}if(!(editing&&height<220)&&category==CosmeticCategory.CAPE&&importPath.mouseClicked(mx,my,button)){return true;}
+        if(!(editing&&height<220)&&search.mouseClicked(mx,my,button)){return true;}if(previewBounds.width()>0&&category==CosmeticCategory.CAPE&&importPath.mouseClicked(mx,my,button)){return true;}
         if(editing&&inside(listBounds,mx,my)){
             if(itemSection.mouseClicked(mx,my,button)){return true;}if(!itemSection.isExpanded()||my<listBounds.y()+SettingsSection.HEADER){return true;}
             double body=itemSection.bodyHeight(controls.stream().mapToDouble(c->SettingMetrics.height(c,23)+5).sum());if(my>=listBounds.y()+SettingsSection.HEADER+Math.min(body,listBounds.height()-SettingsSection.HEADER)){return true;}
@@ -186,5 +187,5 @@ public final class CosmeticsEditor extends UIComponent {
     @Override public boolean mouseReleased(double mx,double my,int button){dragging=false;if(captured!=null){captured.mouseReleased(mx,my,button);captured=null;}return true;}
     @Override public boolean mouseScrolled(double mx,double my,double amount){if(!contains(mx,my)){return false;}if(inside(previewBounds,mx,my)){zoom=Math.clamp(zoom+amount*.1,.5,2);}else if(editing){settingsScroll=Math.clamp(settingsScroll-amount*25,0,maxSettings);}else{listScroll=Math.clamp(listScroll-amount*25,0,maxList);}return true;}
     private static boolean inside(Bounds b,double x,double y){return b!=null&&x>=b.x()&&x<b.x()+b.width()&&y>=b.y()&&y<b.y()+b.height();}
-    public boolean keyPressed(KeyEvent event){if(event.hasControlDown()&&event.key()==70){search.setFocused(true);search.selectAll();return true;}return false;}
+    public boolean keyPressed(KeyEvent event){if(event.hasControlDown()&&event.key()==70){FocusedInput.commit();editing=false;search.setFocused(true);search.selectAll();return true;}return false;}
 }

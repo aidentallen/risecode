@@ -22,6 +22,7 @@ public final class ResourcesEditor extends UIComponent {
     private final List<ActionButton> categoryButtons=new ArrayList<>();
     private final Map<String,ActionButton> cardActions=new HashMap<>(),categoryActions=new HashMap<>();
     private final Map<String,Row> rowActions=new HashMap<>();
+    private final ActionButton statusHelp;
     private final ActionButton category,tools,selectedView,cache,stop,refresh,about,apply,cancel,back,choose,clear;
     private final SettingsSection maintenanceSection=new SettingsSection("resources:tools","Catalog Tools",FocusedInput::commit);
     private ResourceCatalog known;
@@ -39,10 +40,12 @@ public final class ResourcesEditor extends UIComponent {
     private List<String> detailLines=List.of();
     public ResourcesEditor(ResourcesManager manager,Consumer<String> notice){
         this.manager=manager;this.notice=notice;search.setMaximum(160);
+
         tools=new ActionButton("Tools",()->{toolsMenu=!toolsMenu;categoryMenu=false;detail=null;menuOpened=System.nanoTime();resetScroll();if(!toolsMenu){KeyboardNavigation.requestFocus(toolsButton());}});
         category=new ActionButton(()->categoryName,()->{categoryMenu=!categoryMenu;toolsMenu=false;detail=null;menuOpened=System.nanoTime();resetScroll();});
         selectedView=new ActionButton(()->showSelected?"Browse":"Selected ("+selected.size()+")",()->{showSelected=!showSelected;categoryMenu=toolsMenu=false;detail=null;resetScroll();rebuild();KeyboardNavigation.requestFocus(showSelected&&!rows.isEmpty()?rows.getFirst().detail():!showSelected&&!cards.isEmpty()?cards.getFirst().action():selectedViewButton());});
         cache=new ActionButton(()->manager.library().progress().running()?manager.library().progress().paused()?"Resume":"Pause":manager.library().progress().ready()?"Check cache":"Cache all",()->{if(manager.library().progress().running()){manager.library().pause();}else{manager.library().start(false);}});
+        statusHelp=new ActionButton(()->manager.library().progress().phase()+" · Tools ›",()->{FocusedInput.commit();toolsMenu=true;categoryMenu=false;detail=null;maintenanceSection.setExpanded(true);menuOpened=System.nanoTime();resetScroll();KeyboardNavigation.requestFocus(cache);}).tile().accessibleLabel(()->manager.library().progress().phase()+". "+applyHelp()+". Tools: Cache all or retry, pause or resume. "+String.join(". ",manager.library().progress().failures()));
         stop=new ActionButton("Stop",()->manager.library().cancel()).enabled(()->manager.library().progress().running());
         refresh=new ActionButton("Refresh",()->manager.library().start(true)).enabled(()->!manager.library().progress().running());
         about=new ActionButton("Vanilla Tweaks",()->notice.accept("Vanilla Tweaks · vanillatweaks.net"));
@@ -187,7 +190,7 @@ public final class ResourcesEditor extends UIComponent {
     private void drawFooter(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
         var progress=manager.library().progress();String status=manager.busy()?manager.status():progress.phase();if(progress.running()&&progress.total()>0){status=(progress.paused()?"Paused · ":"")+status+" "+progress.completed()+"/"+progress.total();}
         double applyWidth=ButtonMetrics.width(font,apply.label()),cancelWidth=ButtonMetrics.width(font,"Cancel"),buttonsWidth=applyWidth+cancelWidth+5,footerTop=y+height-footerHeight;
-        RenderUtil.text(g,font,RenderUtil.ellipsize(font,status,width/.7),x,footerTop,.7,Theme.opacity(Theme.SECONDARY,alpha));
+        statusHelp.setBounds(x,footerTop,width,line(.7));statusHelp.render(g,font,mx,my,dt,alpha);
         if(!compactFooter){RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Vanilla Tweaks · vanillatweaks.net",width/.7),x,footerTop+line(.7),.7,Theme.opacity(Theme.SECONDARY,alpha));RenderUtil.text(g,font,RenderUtil.ellipsize(font,applyHelp(),width/.7),x,footerTop+2*line(.7),.7,Theme.opacity(Theme.SECONDARY,alpha));}
         else{RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Vanilla Tweaks",Math.max(1,width-buttonsWidth-5)/.7),x,y+height-15,.7,Theme.opacity(Theme.SECONDARY,alpha));}
         apply.setBounds(x+width-buttonsWidth,y+height-ButtonMetrics.HEIGHT,applyWidth,ButtonMetrics.HEIGHT);cancel.setBounds(x+width-cancelWidth,y+height-ButtonMetrics.HEIGHT,cancelWidth,ButtonMetrics.HEIGHT);apply.render(g,font,mx,my,dt,alpha);cancel.render(g,font,mx,my,dt,alpha);
@@ -202,7 +205,7 @@ public final class ResourcesEditor extends UIComponent {
         }return false;
     }
     @Override public boolean mouseClicked(double mx,double my,int button){
-        if(!contains(mx,my)){return false;}if(detail==null){if(search.mouseClicked(mx,my,button)){return true;}for(var action:List.of(selectedView,category,tools)){if(action.mouseClicked(mx,my,button)){return true;}}}for(var action:List.of(apply,cancel)){if(action.mouseClicked(mx,my,button)){return true;}}
+        if(!contains(mx,my)){return false;}if(statusHelp.mouseClicked(mx,my,button)){return true;}if(detail==null){if(search.mouseClicked(mx,my,button)){return true;}for(var action:List.of(selectedView,category,tools)){if(action.mouseClicked(mx,my,button)){return true;}}}for(var action:List.of(apply,cancel)){if(action.mouseClicked(mx,my,button)){return true;}}
         if(my<bodyTop||my>=bodyTop+available){return true;}if(toolsMenu||categoryMenu){mx=menuX(mx);my=menuY(my);}
         if(toolsMenu){if(maintenanceSection.mouseClicked(mx,my,button)){return true;}double total=4*ButtonMetrics.rowHeight()+line(.7)+8;if(!maintenanceSection.isExpanded()||my<maintenanceSection.getBounds().y()+SettingsSection.HEADER||my>=maintenanceSection.getBounds().y()+SettingsSection.HEADER+maintenanceSection.bodyHeight(total)){return true;}for(var action:List.of(cache,stop,refresh,about)){if(action.mouseClicked(mx,my,button)){return true;}}}
         else if(categoryMenu){for(var action:categoryButtons){if(action.mouseClicked(mx,my,button)){return true;}}}

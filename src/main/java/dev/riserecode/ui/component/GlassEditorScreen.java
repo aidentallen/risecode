@@ -31,6 +31,9 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
     private UIComponent captured;
     private final Object[] previewFocus={new Object(),new Object(),new Object()};
     private final UIComponent.Bounds[] previewControls=new UIComponent.Bounds[3];
+    private boolean fullPreview;
+    private final ActionButton viewToggle=new ActionButton(()->fullPreview?"Settings":"Preview",()->{FocusedInput.commit();release();fullPreview=!fullPreview;});
+    public void showPreview(boolean value){fullPreview=value;}
     private boolean rotating;
     private double rotation=155,tilt=0,zoom=1,scroll,maxScroll;
     private double panelX,panelY,panelWidth,panelHeight,previewX,previewY,previewW,previewH;
@@ -74,10 +77,11 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
         RenderUtil.accentText(g,font,"Glass",16,10,1.25,1);
         RenderUtil.text(g,font,"Customize / Preview",16,10+titleHeight,.75,Theme.SECONDARY);
         RenderUtil.text(g,font,module.isEnabled()?"Gameplay enabled":"Preview · gameplay disabled",16,10+titleHeight+lineHeight,.7,Theme.SECONDARY);
-        panelWidth=Math.min(340+60*Math.max(0,fontScale-1),width*.52);panelX=12;panelY=14+titleHeight+lineHeight*2;panelHeight=Math.max(24,height-panelY-46);
-        previewX=panelX+panelWidth+12;previewY=panelY;previewW=Math.max(24,width-previewX-12);previewH=panelHeight;
-        RenderUtil.drawRoundedRect(g,panelX,panelY,panelWidth,panelHeight,8,Theme.SURFACE);
+        boolean compact=width<500;panelWidth=compact?width-24:Math.min(340+60*Math.max(0,fontScale-1),width*.52);panelX=12;panelY=14+titleHeight+lineHeight*2;panelHeight=Math.max(24,height-panelY-46);
+        previewX=compact?12:panelX+panelWidth+12;previewY=panelY;previewW=Math.max(24,width-previewX-12);previewH=panelHeight;
         hitControls.clear();
+        if(!compact||!fullPreview){
+        RenderUtil.drawRoundedRect(g,panelX,panelY,panelWidth,panelHeight,8,Theme.SURFACE);
         KeyboardNavigation.pushScrollRegion(bounds->{double shift=bounds.y()<panelY?bounds.y()-panelY:Math.max(0,bounds.y()+bounds.height()-panelY-panelHeight);if(shift!=0){scroll=Math.clamp(scroll+shift,0,maxScroll);}});
         RenderUtil.scissorPush(g,panelX,panelY,panelWidth,panelHeight);
         double y=panelY+6-scroll;
@@ -101,25 +105,31 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
             }
         }finally{RenderUtil.scissorPop(g);KeyboardNavigation.popScrollRegion();}
         maxScroll=Math.max(0,y+scroll-panelY-panelHeight+6);scroll=Math.clamp(scroll,0,maxScroll);
-        double hintHeight=9*fontScale*.65+9,controlHeight=Math.max(19,9*fontScale*.65+8),controlTop=previewY+previewH-controlHeight;
+        }
+        if(!compact||fullPreview){
+        boolean stacked=previewW/3-12<RenderUtil.textWidth(font,"Reset Rotation",false)*.65;
+        double hintLine=9*fontScale*.65+4,hintHeight=2*hintLine+4,controlHeight=Math.max(19,9*fontScale*.65+8),controlTop=previewY+previewH-controlHeight*(stacked?3:1);
         double modelTop=previewY+hintHeight,modelBottom=Math.max(modelTop+1,controlTop-4);
         var state=previewState(partial);
         g.entity(state,(float)(Math.min(previewW*.34,(modelBottom-modelTop)*.40)*zoom),new Vector3f(),new Quaternionf().rotateZ((float)Math.PI).rotateX((float)Math.toRadians(tilt)).rotateY((float)Math.toRadians(rotation)),null,(int)previewX,(int)modelTop,(int)(previewX+previewW),(int)modelBottom);
         String[] previewLabels={"Rotation","Tilt","Zoom"};
         for(int i=0;i<3;i++) {
             final int axis=i;double span=(previewW-8)/3;
-            var bounds=new UIComponent.Bounds(previewX+2+i*span,controlTop,span-3,controlHeight);previewControls[i]=bounds;
+            var bounds=new UIComponent.Bounds(stacked?previewX+2:previewX+2+i*span,controlTop+(stacked?i*controlHeight:0),stacked?previewW-4:span-3,controlHeight);previewControls[i]=bounds;
             KeyboardNavigation.control(g,previewFocus[i],bounds,1,
                     () -> "Glass preview, "+previewLabels[axis]+", "+(axis==0?rotation:axis==1?tilt:zoom)+", arrows adjust, activate resets",
                     () -> resetPreviewAxis(axis),
                     direction -> {if(axis==0){rotation+=direction*15;}else if(axis==1){tilt=Math.clamp(tilt+direction*5,-35,35);}else{zoom=Math.clamp(zoom+direction*.08,.5,1.6);}});
             boolean hot=bounds.x()<=mx&&mx<bounds.x()+bounds.width()&&bounds.y()<=my&&my<bounds.y()+bounds.height();
             RenderUtil.drawButton(g,bounds.x(),bounds.y(),bounds.width(),bounds.height(),hot?1:0,1);
-            String label=RenderUtil.ellipsize(font,previewLabels[i],Math.max(1,bounds.width()-8)/.65);
+            String label=RenderUtil.ellipsize(font,"Reset "+previewLabels[i],Math.max(1,bounds.width()-8)/.65);
             RenderUtil.text(g,font,label,bounds.centerX()-RenderUtil.textWidth(font,label,false)*.65/2,bounds.y()+(controlHeight-9*fontScale*.65)/2,.65,Theme.TEXT);
             if(hot){g.setTooltipForNextFrame(font,java.util.List.of(Component.literal(previewLabels[i]+" · arrows adjust · click resets")),java.util.Optional.empty(),mx,my);}
         }
-        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Drag rotates · Wheel zooms",(previewW-12)/.65),previewX+6,previewY+3,.65,Theme.SECONDARY);
+        RenderUtil.text(g,font,"Drag to rotate",previewX+6,previewY+3,.65,Theme.SECONDARY);
+        RenderUtil.text(g,font,"Wheel to zoom",previewX+6,previewY+3+hintLine,.65,Theme.SECONDARY);
+        }
+        if(compact){viewToggle.setBounds(width-150,8,100,24);viewToggle.render(g,font,mx,my,dt,1);}
         RenderUtil.text(g,font,RenderUtil.ellipsize(font,module.status(),(width-190)/.65),16,height-23,.65,Theme.SECONDARY);
         reset.setBounds(width-174,height-35,100,28);done.setBounds(width-70,height-35,60,28);reset.render(g,font,mx,my,dt,1);done.render(g,font,mx,my,dt,1);
     }
@@ -148,13 +158,15 @@ public final class GlassEditorScreen extends Screen implements KeyboardNavigatio
     private void resetPreviewAxis(int axis){if(axis==0){rotation=155;}else if(axis==1){tilt=0;}else{zoom=1;}}
     public double rotation(){return rotation;}
     public double zoom(){return zoom;}
-    private boolean previewContains(double x,double y){return x>=previewX&&x<previewX+previewW&&y>=previewY&&y<previewY+previewH;}
+    private boolean previewContains(double x,double y){return (width>=500||fullPreview)&&x>=previewX&&x<previewX+previewW&&y>=previewY&&y<previewY+previewH;}
     @Override public boolean mouseClicked(MouseButtonEvent e,boolean twice){
         FocusedInput.pointer(e.x(),e.y());for(var section:sections)for(var row:section.rows())if(row.control() instanceof ColorPicker picker)picker.pointerFocus(e.x(),e.y());
         if(done.mouseClicked(e.x(),e.y(),e.button())||reset.mouseClicked(e.x(),e.y(),e.button()))return true;
-        if(e.button()==0){for(int i=0;i<previewControls.length;i++){var b=previewControls[i];if(b!=null&&e.x()>=b.x()&&e.x()<b.x()+b.width()&&e.y()>=b.y()&&e.y()<b.y()+b.height()){resetPreviewAxis(i);return true;}}}
-        if(previewContains(e.x(),e.y())&&e.button()==0){rotating=true;return true;}
+        if(width<500&&viewToggle.mouseClicked(e.x(),e.y(),e.button())){return true;}
+        if((width>=500||fullPreview)&&e.button()==0){for(int i=0;i<previewControls.length;i++){var b=previewControls[i];if(b!=null&&e.x()>=b.x()&&e.x()<b.x()+b.width()&&e.y()>=b.y()&&e.y()<b.y()+b.height()){resetPreviewAxis(i);return true;}}}
+        if((width>=500||fullPreview)&&previewContains(e.x(),e.y())&&e.button()==0){rotating=true;return true;}
         if(e.x()<panelX||e.x()>panelX+panelWidth||e.y()<panelY||e.y()>panelY+panelHeight)return false;
+        if(width<500&&fullPreview){return true;}
         for(var control:hitControls)if(control.mouseClicked(e.x(),e.y(),e.button())){captured=control;return true;}
         return true;
     }

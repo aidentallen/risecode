@@ -31,7 +31,8 @@ public final class KeyboardNavigation {
     private Object focused;
     private boolean pendingReveal;
     private Runnable requestedReveal;
-    public static void requestFocus(Object id){var mc=Minecraft.getInstance();if(mc==null){return;}var screen=mc.gui.screen();var navigation=screen instanceof dev.riserecode.ui.clickgui.ClickGui gui?gui.getKeyboardNavigation():auxiliary(screen);if(navigation!=null){navigation.focused=id;navigation.pendingReveal=true;}}
+    public void focus(Object id){focused=id;pendingReveal=true;}
+    public static void requestFocus(Object id){var mc=Minecraft.getInstance();if(mc==null){return;}var screen=mc.gui.screen();var navigation=screen instanceof dev.riserecode.ui.clickgui.ClickGui gui?gui.getKeyboardNavigation():screen instanceof ManagedScreen managed?managed.riserecode$keyboardNavigation():null;if(navigation!=null){navigation.focus(id);}}
     public void begin() { entries.clear(); regions.clear(); collecting = this; }
     public void end() { collecting = null; regions.clear();if(requestedReveal!=null){var reveal=requestedReveal;requestedReveal=null;pendingReveal=false;reveal.run();} }
     public String focusedLabel() {

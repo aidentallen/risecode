@@ -51,6 +51,7 @@ public final class ClickGui extends Screen {
     private final ActionButton editHud = new ActionButton("Edit HUD", () -> Client.INSTANCE.openHudEditor());
     private final Runnable saveChanges;
     private final List<ActionButton> actions = new ArrayList<>();
+    private final java.util.Map<String,ActionButton> friendInspect=new java.util.HashMap<>(),friendRemove=new java.util.HashMap<>();
     private final Animation opening = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.OPENING, 0, 0.26, MathUtil.Easing.OUT_QUART);
     private final Animation canvasZoom = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.NAVIGATION, 1, 0.24, MathUtil.Easing.OUT_QUART);
     private final Animation pageFade = Animation.ui(dev.riserecode.ui.theme.ThemeManager.Channel.NAVIGATION, 1, 0.18, MathUtil.Easing.OUT_QUART);
@@ -408,10 +409,18 @@ public final class ClickGui extends Screen {
                 catch (IllegalArgumentException invalid) { notice(invalid.getMessage()); }
             }));
             for (var friend : Client.INSTANCE.getFriendManager().getFriends()) {
-                actions.add(new ActionButton(friend.name() + "  ×", () -> { Client.INSTANCE.getFriendManager().remove(friend.name()); notice("Friend removed"); rebuildActions(); }));
+                actions.add(friendInspect.computeIfAbsent(friend.name(),name->new ActionButton(name,()->notice("Friend: "+name))));
+                actions.add(friendRemove.computeIfAbsent(friend.name(),name->new ActionButton("Remove "+name,()->confirmRemoveFriend(name))));
             }
 
         }
+    }
+    private void confirmRemoveFriend(String name){
+        var manager=Client.INSTANCE.getFriendManager();var friends=manager.getFriends();int index=java.util.stream.IntStream.range(0,friends.size()).filter(i->friends.get(i).name().equals(name)).findFirst().orElse(0);
+        minecraft.gui.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(confirmed->{
+            if(confirmed){manager.remove(name);rebuildActions();notice("Removed friend: "+name);}minecraft.gui.setScreen(this);
+            var remaining=manager.getFriends();Object target=confirmed?(remaining.isEmpty()?actions.getFirst():friendInspect.get(remaining.get(Math.min(index,remaining.size()-1)).name())):friendRemove.get(name);keyboardNavigation.focus(target);
+        },net.minecraft.network.chat.Component.literal("Remove friend?"),net.minecraft.network.chat.Component.literal(name)));
     }
     private void confirmDeleteProfile(String name) {
         var profiles = Client.INSTANCE.getProfileManager();

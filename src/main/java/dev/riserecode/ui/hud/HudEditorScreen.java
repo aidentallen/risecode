@@ -77,8 +77,7 @@ public final class HudEditorScreen extends Screen implements dev.riserecode.ui.c
                     () -> "HUD element, " + box.element().label() + ", activate for layout and style", () -> select(box.element()), null);
             int color = box.element() == selected ? Theme.accent() : Theme.opacity(Theme.SECONDARY, 0.6);
             RenderUtil.drawRoundedBorder(g, box.x() - 2, box.y() - 2, box.width() + 4, box.height() + 4, 2, color, 0.8);
-            double labelY = box.y() >= 12 ? box.y() - 10 : box.y() + box.height() + 3;
-            RenderUtil.text(g, font, box.element().label(), box.x(), Math.min(height - 9, labelY), 0.8, color);
+            if(mouseX>=box.x()&&mouseX<box.x()+box.width()&&mouseY>=box.y()&&mouseY<box.y()+box.height()){g.setTooltipForNextFrame(font,java.util.List.of(Component.literal(box.element().label()+" · click to edit")),java.util.Optional.empty(),mouseX,mouseY);}
         }
         for (Guide guide : guides) {
             if (guide.vertical()) { RenderUtil.line(g, guide.value(), 0, guide.value(), height, 0.8, Theme.opacity(Theme.accent(), 0.7)); }
@@ -86,7 +85,7 @@ public final class HudEditorScreen extends Screen implements dev.riserecode.ui.c
         }
         RenderUtil.drawRoundedRect(g,width-124,4,120,30,6,Theme.BACKGROUND|0xFF000000);
         done.setBounds(width-112,8,72,21);done.render(g,font,mouseX,mouseY,seconds,1);
-        String hint = "HUD · Tab/Enter: select · Ctrl+arrows: nudge · Shift: 10px · G: grid · Esc: save";
+        String hint = (selected==null?"HUD":selected.label())+" · Tab/Enter: select · Ctrl+arrows: nudge · Shift: 10px · G: grid · Esc: save";
         hint=RenderUtil.ellipsize(font,hint,(width-40)/.8);
         double hintWidth = RenderUtil.textWidth(font, hint, false) * .8 + 22;
         RenderUtil.drawRoundedRect(g, (width - hintWidth) / 2, height - 26, hintWidth, 21, 6, 0xDF111820);
