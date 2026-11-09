@@ -183,7 +183,7 @@ public final class HudEditorScreen extends Screen implements dev.riserecode.ui.c
     @Override public boolean keyPressed(KeyEvent event) {
         if(nudge(event)){return true;}
         if (dev.riserecode.ui.component.FocusedInput.key(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard)) { return true; }
-        if (event.isEscape() || event.key() == 344) { onClose(); return true; }
+        if (event.isEscape()) { onClose(); return true; }
         if (controls.stream().anyMatch(control -> control instanceof ColorPicker picker && picker.keyPressed(event, minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard))) { return true; }
         if(event.key()==72){openHelp();return true;}
         if (event.key() == 71) { hud.getSnap().setValue(!hud.getSnap().getValue()); changed(); return true; }

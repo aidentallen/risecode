@@ -35,13 +35,17 @@ public final class WorldMapScreen extends Screen {
                 new ActionButton(()->"Layer: "+maps.mode().name(),maps::cycleMode),
                 new ActionButton(()->manualAltitude==Integer.MIN_VALUE?"Y: Auto "+maps.altitude():"Y: "+manualAltitude,()->manualAltitude=manualAltitude==Integer.MIN_VALUE?maps.altitude():manualAltitude>=320?Integer.MIN_VALUE:manualAltitude+8),
                 new ActionButton("Waypoints",()->minecraft.gui.setScreen(new WaypointScreen(this,maps))),
-                new ActionButton("Add",()->add(centerX,centerZ)),
-                new ActionButton(()->panel?"Fullscreen":"Panel",()->{panel=!panel;anchored=false;save();}),new ActionButton("Done",this::onClose));
+                new ActionButton("Add",()->add(centerX,centerZ)).enabled(maps::ready),
+                new ActionButton(()->panel?"Fullscreen":"Panel",()->{panel=!panel;anchored=false;save();}),new ActionButton("Help",this::help),new ActionButton("Done",this::onClose));
     }
+    public String helpText(){return "Arrows: pan the map. + / -: zoom around the center. Drag terrain: pan. Wheel: zoom around the pointer. Shift+wheel: change altitude by eight blocks; either Shift key works. The Y action cycles manual altitude and Auto. Recenter returns to your player and current dimension. Layer selects surface/cave behavior. Dimension changes the viewed dimension. Panel/Fullscreen changes the map layout; drag the panel title to move it and its lower-right corner to resize. H or Help opens this guide. Escape or Done returns to the caller. "+(maps.ready()?"Connected: Add creates a waypoint at the map center; right-click terrain creates one at that location. Enter a name, whole-number coordinates, resource-ID dimension and six-digit color, then Save. Cancel leaves the waypoint list unchanged. Waypoints opens saved destinations to edit, track, hide or confirm deletion.":maps.connected()?"Connected: waypoint data is still loading, so Add is unavailable until loading finishes.":"Offline: connect to a world to see explored terrain, recenter on a player and add waypoints. Add is unavailable while disconnected.");}
+    private void help(){minecraft.gui.setScreen(new dev.riserecode.ui.menu.InfoScreen(this,"World map controls",helpText()));}
     private void bounds(){
-        if(panel){w=Math.clamp(nw*width,Math.min(280,width-8),width-8);h=Math.clamp(nh*height,Math.min(170,height-8),height-8);x=Math.clamp(nx*width,4,width-w-4);y=Math.clamp(ny*height,4,height-h-4);}
+        if(panel){w=Math.clamp(nw*width,Math.min(280,width-8),width-8);double minimum=23+dev.riserecode.ui.component.ButtonMetrics.flowHeight(toolbar())+footerHeight()+80;h=Math.clamp(nh*height,Math.min(minimum,height-8),height-8);x=Math.clamp(nx*width,4,width-w-4);y=Math.clamp(ny*height,4,height-h-4);}
         else{x=y=0;w=width;h=height;}
     }
+    private List<dev.riserecode.ui.component.UIComponent.Bounds> toolbar(){return dev.riserecode.ui.component.ButtonMetrics.flow(font,buttons.stream().map(ActionButton::label).toList(),Math.max(1,w-(panel?12:42)));}
+    private double footerHeight(){return dev.riserecode.ui.menu.ScreenText.lineHeight(.65)*2+8;}
     private void save(){var json=maps.preferences();json.addProperty("manualAltitude",manualAltitude);json.addProperty("panel",panel);json.addProperty("panelX",nx);json.addProperty("panelY",ny);json.addProperty("panelW",nw);json.addProperty("panelH",nh);maps.preferences(json);}
     private void recenter(){anchored=false;var p=maps.minecraft().player;if(p!=null){targetX=centerX=p.getX();targetZ=centerZ=p.getZ();dimension=maps.dimension();}}
     private void add(double wx,double wz){if(!maps.ready()){return;}int py=maps.minecraft().player==null?64:maps.minecraft().player.blockPosition().getY();var p=new WaypointStore.Waypoint(java.util.UUID.randomUUID(),"Waypoint "+(maps.waypoints().all().size()+1),(int)Math.floor(wx),py,(int)Math.floor(wz),dimension,"",0xFF64D8C4,true,false,false);minecraft.gui.setScreen(new WaypointEditScreen(this,maps,p));}
@@ -59,12 +63,14 @@ public final class WorldMapScreen extends Screen {
         if(anchored){centerX=anchorX-anchorPixelX/zoom;centerZ=anchorZ-anchorPixelZ/zoom;targetX=anchorX-anchorPixelX/targetZoom;targetZ=anchorZ-anchorPixelZ/targetZoom;}else{centerX+=(targetX-centerX)*blend;centerZ+=(targetZ-centerZ)*blend;}
         if(panel){RenderUtil.drawDropShadow(g,x,y,w,h,8,0xC0000000);}
         MapCanvas.draw(g,maps,dimension,centerX,centerZ,x,y,w,h,zoom,0,true,true,alpha,maps.mode(),manualAltitude,false,false);
-        int columns=Math.max(2,Math.min(8,(int)((w-12)/78)));double bw=(w-12-(columns-1)*3)/columns,top=y+(panel?23:7);
+        var slots=toolbar();double top=y+(panel?23:7);
         if(panel){RenderUtil.drawRoundedRect(g,x,y,w,19,4,Theme.SURFACE);RenderUtil.text(g,font,"World map · drag to move",x+8,y+6,.75,Theme.TEXT);}
-        for(int i=0;i<buttons.size();i++){var b=buttons.get(i);b.setBounds(x+6+i%columns*(bw+3),top+i/columns*24,bw,21);b.render(g,font,mx,my,dt,alpha);}
+        for(int i=0;i<buttons.size();i++){var b=buttons.get(i);var slot=slots.get(i);b.setBounds(x+6+slot.x(),top+slot.y(),slot.width(),slot.height());b.render(g,font,mx,my,dt,alpha);}
         double wx=centerX+(mx-x-w/2)/zoom,wz=centerZ+(my-y-h/2)/zoom;
         String status=maps.connected()?String.format(java.util.Locale.ROOT,"X %.0f  Z %.0f · %s Y %d · %.1f× · Shift+wheel: altitude",wx,wz,maps.layer(maps.mode()).name(),manualAltitude==Integer.MIN_VALUE?maps.altitude():manualAltitude,zoom):"Connect to a world to view explored terrain";
-        RenderUtil.drawRoundedRect(g,x+5,y+h-20,w-10,16,4,Theme.opacity(Theme.SURFACE,.9));RenderUtil.text(g,font,RenderUtil.ellipsize(font,status,(w-20)/.65),x+10,y+h-15,.65,Theme.TEXT);
+        double line=dev.riserecode.ui.menu.ScreenText.lineHeight(.65),footer=footerHeight();
+        RenderUtil.drawRoundedRect(g,x+5,y+h-footer,w-10,footer-4,4,Theme.opacity(Theme.SURFACE,.9));RenderUtil.text(g,font,RenderUtil.ellipsize(font,status,(w-20)/.65),x+10,y+h-footer+3,.65,Theme.TEXT);
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Arrows: pan · +/-: zoom · H: Help",(w-20)/.65),x+10,y+h-footer+3+line,.65,Theme.TEXT);
         if(panel){RenderUtil.line(g,x+w-10,y+h-4,x+w-4,y+h-10,1.4,Theme.TEXT);}
     }
     private boolean inside(double mx,double my){return mx>=x&&mx<x+w&&my>=y&&my<y+h;}
@@ -88,7 +94,7 @@ public final class WorldMapScreen extends Screen {
         double next=Math.clamp(targetZoom*Math.pow(1.2,vertical),.03125,24);double px=mx-x-w/2,pz=my-y-h/2;
         anchorX=centerX+px/zoom;anchorZ=centerZ+pz/zoom;anchored=true;anchorPixelX=px;anchorPixelZ=pz;targetZoom=next;return true;
     }
-    @Override public boolean keyPressed(KeyEvent e){if(navigation.key(e)){return true;} if(e.isEscape()){onClose();return true;} if(e.key()==262||e.key()==263||e.key()==264||e.key()==265){anchored=false;targetX+=(e.key()==262?1:e.key()==263?-1:0)*32/targetZoom;targetZ+=(e.key()==264?1:e.key()==265?-1:0)*32/targetZoom;return true;} if(e.key()==61||e.key()==45){targetZoom*=e.key()==61?1.2:1/1.2;return true;}return super.keyPressed(e);}
+    @Override public boolean keyPressed(KeyEvent e){if(navigation.key(e)){return true;} if(e.isEscape()){onClose();return true;}if(e.key()==72){help();return true;} if(e.key()==262||e.key()==263||e.key()==264||e.key()==265){anchored=false;targetX+=(e.key()==262?1:e.key()==263?-1:0)*32/targetZoom;targetZ+=(e.key()==264?1:e.key()==265?-1:0)*32/targetZoom;return true;} if(e.key()==61||e.key()==45){anchored=false;targetZoom*=e.key()==61?1.2:1/1.2;return true;}return super.keyPressed(e);}
     @Override public void onClose(){save();minecraft.gui.setScreen(parent);}
     @Override public void removed(){save();}
     @Override public boolean isPauseScreen(){return false;}

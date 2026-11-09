@@ -12,6 +12,7 @@ public final class WaypointEditScreen extends Screen {
     private final Screen parent;private final MapService maps;private final WaypointStore.Waypoint point;private final List<EditBox> fields=new ArrayList<>();private String error="";
     private static final List<String> LABELS=List.of("Name","X","Y","Z","Dimension","Group","Color");
     public WaypointEditScreen(Screen parent,MapService maps,WaypointStore.Waypoint point){super(Component.literal("Edit waypoint"));this.parent=parent;this.maps=maps;this.point=point;}
+    @Override protected void setInitialFocus(){if(!fields.isEmpty()){setInitialFocus(fields.getFirst());}}
     @Override protected void init(){
         List<String> values=fields.isEmpty()?List.of(point.name(),""+point.x(),""+point.y(),""+point.z(),point.dimension(),point.group(),String.format(java.util.Locale.ROOT,"%06X",point.color()&0xFFFFFF)):fields.stream().map(EditBox::getValue).toList();fields.clear();
         boolean compact=height<300;int columns=compact?2:1,rows=(LABELS.size()+columns-1)/columns,cellWidth=Math.min(240,(width-36)/columns),left=(width-columns*cellWidth)/2,top=24;
