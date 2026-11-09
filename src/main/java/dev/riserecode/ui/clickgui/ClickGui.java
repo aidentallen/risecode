@@ -139,6 +139,7 @@ public final class ClickGui extends Screen {
                 new Sidebar.Item("Utility", Icon.UTILITY), new Sidebar.Item("HUD", Icon.HUD),
                 new Sidebar.Item("Appearance", Icon.THEMES), new Sidebar.Item("Resources", Icon.RENDER),
                 new Sidebar.Item("Performance", Icon.GEAR), new Sidebar.Item("Waypoints", Icon.WORLD), new Sidebar.Item("Map settings", Icon.THEMES), new Sidebar.Item("Cosmetics", Icon.PLAYER)), index -> selectPage(NAVIGATION_PAGES.get(index)));
+        sidebar.pageChooser(()->minecraft.gui.setScreen(new dev.riserecode.ui.menu.PageNavigationScreen(this)));
         hudToggle = new ToggleSwitch("HUD", hud::isEnabled, next -> { hud.setEnabled(next); saveChanges.run(); });
         loadPreferences();
     }

@@ -19,7 +19,7 @@ public final class PageAppearanceScreen extends Screen {
     private final String target;
     private ThemeEditor editor;
     private final ActionButton done=new ActionButton("Done",this::onClose);
-    private final ActionButton reset=new ActionButton("Reset this page",this::reset);
+    private final ActionButton reset=new ActionButton("Reset page",this::requestReset);
     private long previous=System.nanoTime();
     private final long opened=System.nanoTime();
     private double visualScale=1;
@@ -39,7 +39,8 @@ public final class PageAppearanceScreen extends Screen {
     private double titleY;
     public PageAppearanceScreen(Screen parent,String target){super(Component.literal("Page appearance"));this.parent=parent;this.target=target;}
     public String target(){return target;}
-    private void reset(){editor=null;Client.INSTANCE.getThemeManager().resetPage(target);init();}
+    private String pageName(){return parent instanceof dev.riserecode.ui.clickgui.ClickGui gui?Theme.displayName(gui.getPage().name()):parent.getTitle().getString();}
+    private void requestReset(){minecraft.gui.setScreen(InfoScreen.confirm(this,"Reset page appearance?","Reset "+pageName()+" to shared appearance? Clears this page's background, color and style overrides. Other pages and shared settings stay unchanged.","Reset page","Keep page",()->{editor.unfocus();editor=null;Client.INSTANCE.getThemeManager().resetPage(target);init();notice("Page reset to shared appearance: "+pageName());KeyboardNavigation.requestFocus(reset);}));}
     @Override protected void init(){
         var manager=Client.INSTANCE.getThemeManager();var page=manager.page(target);
         var controls=new java.util.ArrayList<>(page.controls());
@@ -75,7 +76,7 @@ public final class PageAppearanceScreen extends Screen {
         g.pose().pushMatrix();g.pose().translate(width-16,16);g.pose().scale((float)visualScale,(float)visualScale);g.pose().translate(16-width,-16);
         PageAppearance.editor(()->{
             RenderUtil.drawRoundedRect(g,panel.x(),panel.y(),panel.width(),panel.height(),6,Theme.opacity(Theme.BACKGROUND,.96));
-            String title = "Page appearance · " + (parent instanceof dev.riserecode.ui.clickgui.ClickGui gui ? Theme.displayName(gui.getPage().name()) : parent.getTitle().getString());
+            String title = "Page appearance · " + pageName();
             title = RenderUtil.ellipsize(font, title, editor.getBounds().width() / .9);
             RenderUtil.text(g,font,title,width / 2.0 - RenderUtil.textWidth(font,title,false) * .9 / 2,titleY,.9,Theme.TEXT);
             editor.render(g,font,px(mx),py(my),dt,1);reset.render(g,font,px(mx),py(my),dt,1);done.render(g,font,px(mx),py(my),dt,1);

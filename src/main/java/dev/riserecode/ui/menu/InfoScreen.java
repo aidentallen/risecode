@@ -9,14 +9,17 @@ import net.minecraft.network.chat.Component;
 /** Focusable full text for notices and complete shortcut help, with keyboard/wheel paging. */
 public final class InfoScreen extends RetainedScreen {
     private final String text;
+    private record Decision(String confirm,String cancel,Runnable action){}
+    private Decision decision;
     private int scroll,max;
     private final ScreenText.Layout layout=new ScreenText.Layout();
     public int scrollPosition(){return scroll;}
     public int maximumScroll(){return max;}
     public InfoScreen(Screen parent,String title,String text){super(parent,title);this.text=text;}
+    public static InfoScreen confirm(Screen parent,String title,String text,String confirm,String cancel,Runnable action){var screen=new InfoScreen(parent,title,text);screen.decision=new Decision(confirm,cancel,action);return screen;}
     public String text(){return text;}
     @Override public Component getNarrationMessage(){return Component.literal(title.getString()+". "+text);}
-    @Override protected void init(){addRenderableWidget(Button.builder(Component.literal("Done"),b->onClose()).bounds(width/2-50,height-28,100,20).build());}
+    @Override protected void init(){if(decision==null){addRenderableWidget(Button.builder(Component.literal("Done"),b->onClose()).bounds(width/2-50,height-28,100,20).build());}else{int w=Math.min(140,(width-40)/2);addRenderableWidget(Button.builder(Component.literal(decision.cancel()),b->onClose()).bounds(width/2-w-4,height-28,w,20).build());addRenderableWidget(Button.builder(Component.literal(decision.confirm()),b->{onClose();decision.action().run();}).bounds(width/2+4,height-28,w,20).build());}}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
         super.extractRenderState(g,mx,my,delta);ScreenText.draw(g,font,dev.riserecode.util.RenderUtil.ellipsize(font,title.getString(),(width-32)/.9),16,12,.9,0xFFFFFFFF);
         var lines=layout.lines(font,text,Math.max(1,width-40),.75);double lineHeight=ScreenText.lineHeight(.75);int visible=Math.max(1,(int)((height-88)/lineHeight));max=Math.max(0,lines.size()-visible);scroll=Math.clamp(scroll,0,max);
