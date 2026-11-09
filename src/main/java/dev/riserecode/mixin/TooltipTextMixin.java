@@ -14,7 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.*;
 @Mixin(ClientTextTooltip.class)
 public abstract class TooltipTextMixin implements TooltipMotion.Text {
     @Shadow @Final private FormattedCharSequence text;
-    @Override public StyledText risecode$layout(){return StyledText.of(text);}
+    @Unique private StyledText risecode$cached;
+    @Override public StyledText risecode$layout(){if(risecode$cached==null){risecode$cached=StyledText.of(text);}return risecode$cached;}
     @Inject(method="getWidth",at=@At("HEAD"),cancellable=true)
     private void risecode$width(Font font,CallbackInfoReturnable<Integer> ci){if(MenuTheme.activeMenu()){ci.setReturnValue((int)Math.ceil(risecode$layout().width(font)));}}
     @Inject(method="getHeight",at=@At("HEAD"),cancellable=true)

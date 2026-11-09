@@ -12,9 +12,8 @@ import net.minecraft.network.chat.Component;
 
 /** A modal editor with its own theme, so disabling the parent cannot hide the recovery controls. */
 public final class PageAppearanceScreen extends Screen {
-    private static Screen suspendedContainer;
-    public static boolean suspends(Screen screen){return suspendedContainer==screen;}
-    public static void open(Screen owner){if(owner instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>){suspendedContainer=owner;}net.minecraft.client.Minecraft.getInstance().gui.setScreen(new PageAppearanceScreen(owner,MenuTheme.pageId(owner)));}
+    public static boolean suspends(Screen screen){return NativeScreenRetention.suspends(screen);}
+    public static void open(Screen owner){net.minecraft.client.Minecraft.getInstance().gui.setScreen(new PageAppearanceScreen(owner,MenuTheme.pageId(owner)));}
     private final Screen parent;
     private final String target;
     private ThemeEditor editor;
@@ -23,6 +22,7 @@ public final class PageAppearanceScreen extends Screen {
     private long previous=System.nanoTime();
     private final long opened=System.nanoTime();
     private double visualScale=1;
+    public double visualScale(){return visualScale;}
     private double px(double x){return width-16+(x-width+16)/visualScale;}
     private double py(double y){return 16+(y-16)/visualScale;}
     private boolean choosing;
@@ -37,7 +37,7 @@ public final class PageAppearanceScreen extends Screen {
     @Override public Component getNarrationMessage(){return Component.literal("Page appearance. "+(message.isEmpty()?"Changes save automatically. Import Image accepts a local PNG path.":message+". Page status opens complete details."));}
     private UIComponent.Bounds panel;
     private double titleY;
-    public PageAppearanceScreen(Screen parent,String target){super(Component.literal("Page appearance"));this.parent=parent;this.target=target;}
+    public PageAppearanceScreen(Screen parent,String target){super(Component.literal("Page appearance"));this.parent=parent;this.target=target;NativeScreenRetention.suspend(parent);}
     public String target(){return target;}
     private String pageName(){return parent instanceof dev.riserecode.ui.clickgui.ClickGui gui?Theme.displayName(gui.getPage().name()):parent.getTitle().getString();}
     private void requestReset(){minecraft.gui.setScreen(InfoScreen.confirm(this,"Reset page appearance?","Reset "+pageName()+" to shared appearance? Clears this page's background, color and style overrides. Other pages and shared settings stay unchanged.","Reset page","Keep page",()->{editor.unfocus();editor=null;Client.INSTANCE.getThemeManager().resetPage(target);init();notice("Page reset to shared appearance: "+pageName());KeyboardNavigation.requestFocus(reset);}));}
@@ -94,7 +94,7 @@ public final class PageAppearanceScreen extends Screen {
         if(e.isEscape()){onClose();return true;}return super.keyPressed(e);
     }
     @Override public boolean isPauseScreen(){return !(parent instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);}
-    @Override public void tick(){if(parent instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> container&&(minecraft.player==null||!minecraft.player.isAlive()||minecraft.player.containerMenu!=container.getMenu())){minecraft.gui.setScreen(null);}}
-    @Override public void onClose(){if(suspendedContainer==parent){suspendedContainer=null;}FocusedInput.commit();editor.unfocus();Client.INSTANCE.getThemeManager().save();minecraft.gui.setScreen(parent);}
-    @Override public void removed(){if(choosing){return;}if(suspendedContainer==parent){suspendedContainer=null;if(parent instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> container&&minecraft.player!=null&&minecraft.player.containerMenu==container.getMenu()){minecraft.player.connection.send(new net.minecraft.network.protocol.game.ServerboundContainerClosePacket(container.getMenu().containerId));minecraft.player.containerMenu=minecraft.player.inventoryMenu;}parent.removed();}FocusedInput.commit();editor.unfocus();Client.INSTANCE.getThemeManager().save();}
+    @Override public void tick(){if(!NativeScreenRetention.valid(parent)){minecraft.gui.setScreen(null);}}
+    @Override public void onClose(){NativeScreenRetention.resume(parent);FocusedInput.commit();editor.unfocus();Client.INSTANCE.getThemeManager().save();minecraft.gui.setScreen(parent);}
+    @Override public void removed(){if(choosing){return;}NativeScreenRetention.abandon(parent);FocusedInput.commit();editor.unfocus();Client.INSTANCE.getThemeManager().save();}
 }

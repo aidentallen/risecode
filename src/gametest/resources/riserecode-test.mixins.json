@@ -9,6 +9,7 @@
     "UxExtractionMixin",
     "UxFrameCapMixin",
     "UxPreviewProbeMixin",
+    "UxContainerTooltipProbeMixin",
     "ChunkClockMixin",
     "LateKeyDefaultsMixin",
     "KeyboardInputInvoker",

@@ -17,6 +17,16 @@ public final class StyledText {
     private final List<Run> runs;
     private StyledText(List<Run> runs) { this.runs = List.copyOf(runs); }
     public List<Run> runs() { return runs; }
+    public String plain(){return runs.stream().map(Run::text).collect(java.util.stream.Collectors.joining());}
+    private StyledText slice(int start,int end){var out=new ArrayList<Run>();int at=0;for(var run:runs){int next=at+run.text().length();if(next>start&&at<end){out.add(new Run(run.text().substring(Math.max(0,start-at),Math.min(run.text().length(),end-at)),run.style()));}at=next;}return new StyledText(out);}
+    /** Tooltip wrapping preserves styles, graphemes, paragraphs and every character. */
+    public List<StyledText> wrapWords(Font font,double maximum){
+        String text=plain();var out=new ArrayList<StyledText>();var breaks=java.text.BreakIterator.getCharacterInstance(java.util.Locale.ROOT);breaks.setText(text);
+        for(int start=0;start<=text.length();){int paragraph=text.indexOf('\n',start);if(paragraph<0){paragraph=text.length();}if(start==paragraph){out.add(slice(start,start));}
+            while(start<paragraph){int end=start,word=-1,next=breaks.following(start);while(next!=java.text.BreakIterator.DONE&&next<=paragraph){if(end>start&&slice(start,next).width(font)>Math.max(1,maximum)){break;}end=next;if(Character.isWhitespace(text.codePointBefore(end))){word=end;}next=breaks.next();}if(next!=java.text.BreakIterator.DONE&&next<=paragraph&&word>start){end=word;}if(end<=start){end=Math.min(paragraph,breaks.following(start));}out.add(slice(start,end));start=end;}
+            if(paragraph==text.length()){break;}start=paragraph+1;
+        }return List.copyOf(out);
+    }
     public static StyledText of(String text) { return of(Component.literal(text)); }
     public static StyledText of(net.minecraft.util.FormattedCharSequence sequence) {
         List<Run> out=new ArrayList<>();StringBuilder text=new StringBuilder();Style[] current={Style.EMPTY};

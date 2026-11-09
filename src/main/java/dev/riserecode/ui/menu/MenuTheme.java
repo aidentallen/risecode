@@ -31,7 +31,7 @@ public final class MenuTheme {
     private static int backdropPasses;
     private static long frameSerial;
     public static long frameSerial(){return frameSerial;}
-    public static void beginFrame() { frameSerial++;backdropDrawn=false; particlesDrawn=false; backdropPasses=0; }
+    public static void beginFrame() { frameSerial++;backdropDrawn=false; particlesDrawn=false; backdropPasses=0;TooltipPresentation.expire(); }
     public static void drawParticles(GuiGraphicsExtractor graphics) {
         if(!particlesDrawn && Client.INSTANCE.isInitialized() && Client.INSTANCE.resourcesReady()) {
             particlesDrawn=true;BackgroundParticles.draw(graphics,1);
@@ -97,7 +97,7 @@ public final class MenuTheme {
         if (!Client.INSTANCE.isInitialized()) { return false; }
         var mc = Minecraft.getInstance();
         return enabled(mc.gui.screen()) || mc.gui.screen() instanceof dev.riserecode.ui.clickgui.ClickGui
-            || mc.gui.screen() instanceof dev.riserecode.ui.hud.HudEditorScreen || mc.gui.overlay() instanceof net.minecraft.client.gui.screens.LoadingOverlay && Theme.bool("Loading Theme", true);
+            || mc.gui.screen() instanceof dev.riserecode.ui.hud.HudEditorScreen || mc.gui.screen() instanceof PageAppearanceScreen || mc.gui.overlay() instanceof net.minecraft.client.gui.screens.LoadingOverlay && Theme.bool("Loading Theme", true);
     }
     public static boolean enabled() { return enabled(Minecraft.getInstance().gui.screen()); }
     public static boolean photo(Screen screen) {
