@@ -288,7 +288,7 @@ public final class ClickGui extends Screen {
             case GUI_SCALE -> "Search interface scale…";
             case PERFORMANCE -> "Search performance…";
             case HUD -> "HUD";
-            case COSMETICS -> cosmeticsEditor.isDirty()?"Cosmetics · Unapplied changes":"Cosmetics";
+            case COSMETICS -> "Cosmetics";
             case RESOURCES -> resourcesEditor.isDirty()?"Resources · Unapplied changes":"Resources";
             case MAP_SETTINGS -> "Map settings";
             default -> Theme.label(page.name().substring(0, 1) + page.name().substring(1).toLowerCase(java.util.Locale.ROOT));

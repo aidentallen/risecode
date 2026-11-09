@@ -15,14 +15,21 @@ public final class RenderUtil {
     private static final RenderPipeline SHAPE = UiMesh.pipeline("shape", "shape");
     private static final RenderPipeline WINDOW = UiMesh.pipeline("window", "window");
     private RenderUtil() { }
+    /** Stable text backing, independent of the decorative panel opacity. */
+    public static void readabilitySurface(GuiGraphicsExtractor graphics,double x,double y,double width,double height,double radius,double opacity){
+        if(!Theme.bool("Readable Surfaces",true)){return;}int color=Theme.opacity(0xFF101820,opacity*.78);
+        shape(graphics,SHAPE,x,y,width,height,Theme.radius(radius),color,color,0);
+    }
     /** Floating panels have one paint; the main window's sidebar is not part of this surface. */
     public static void drawPopup(GuiGraphicsExtractor graphics,double x,double y,double width,double height,double opacity){
         if(LiquidGlass.enabled()){
             drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1)*.94);
+            readabilitySurface(graphics,x,y,width,height,10,opacity);
             LiquidGlass.sheen(graphics,x,y,width,height,10,opacity);
             return;
         }
         drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1));
+        readabilitySurface(graphics,x,y,width,height,10,opacity);
         drawRoundedBorder(graphics,x,y,width,height,10,Theme.opacity(-1,opacity*Theme.number("Border Opacity",.08)));
     }
     public static void drawWindow(GuiGraphicsExtractor graphics,double x,double y,double opacity){drawWindow(graphics,x,y,428,320,opacity);}
@@ -32,6 +39,7 @@ public final class RenderUtil {
             double density=dev.riserecode.performance.PerformancePolicy.frame().blur()||Theme.number("GUI Blur Radius",12)<=0||Theme.number("GUI Blur Opacity",.8)<=0?.95:.5;
             drawPaintRect(graphics,x,y,width,height,10,Theme.paint("Background Color"),opacity*Theme.number("Panel Opacity",1)*density);
             drawPaintRect(graphics,x+5,y+5,sidebarWidth-10,height-10,8,Theme.paint("Sidebar Color"),opacity*Theme.number("Panel Opacity",1)*.42);
+            readabilitySurface(graphics,x,y,width,height,10,opacity);
             LiquidGlass.sheen(graphics,x+5,y+5,sidebarWidth-10,height-10,8,opacity*.7);
             LiquidGlass.sheen(graphics,x,y,width,height,10,opacity);
             return;
@@ -44,6 +52,7 @@ public final class RenderUtil {
         }else{
             shape(graphics,WINDOW,x,y,width,height,Theme.number("Corner Radius",10),Theme.opacity(-1,opacity*Theme.number("Panel Opacity",1)),Theme.opacity(-1,opacity*Theme.number("Panel Opacity",1)),0);
         }
+        readabilitySurface(graphics,x,y,width,height,10,opacity);
         drawRoundedBorder(graphics,x,y,width,height,10,Theme.opacity(-1,opacity*Theme.number("Border Opacity",.08)));
     }
     public static void drawRoundedRect(GuiGraphicsExtractor graphics, double x, double y,

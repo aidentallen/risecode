@@ -16,8 +16,8 @@ public final class Theme {
     public static final int SURFACE = 0xFF111820;
     public static final int HOVER = 0xFF18242C;
     public static final int TEXT = 0xFFF0F2F3;
-    public static final int SECONDARY = 0xFF7F868E;
-    public static final int MUTED = 0xFF525C65;
+    public static final int SECONDARY = 0xFFCED8E1;
+    public static final int MUTED = 0xFFB5C1CD;
     public static final int TEAL = 0xFF59D5CB;
     public static final int BLUE = 0xFF3B82F6;
     public static final int FUCHSIA = 0xFFD946EF;

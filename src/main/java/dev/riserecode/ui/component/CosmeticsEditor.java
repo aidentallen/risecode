@@ -64,7 +64,7 @@ public final class CosmeticsEditor extends UIComponent {
     private String importStatus="";
     private final ActionButton importButton=new ActionButton(()->importing?"Importing…":"Import PNG cape",this::importCape).enabled(()->!importing);
     private final ActionButton importStatusDetails=new ActionButton(()->importStatus.startsWith("Importing")?"Importing cape…":importStatus.startsWith("Import failed")?"Import failed · Details":"Cape import · Details",()->{var mc=Minecraft.getInstance();mc.gui.setScreen(new dev.riserecode.ui.menu.InfoScreen(mc.gui.screen(),"Cape import",importStatus));}).accessibleLabel(()->"Cape import status. "+importStatus);
-    private final ActionButton detailsButton=new ActionButton("Preview / acquire",()->{var mc=Minecraft.getInstance();mc.gui.setScreen(new CosmeticDetailsScreen(mc.gui.screen(),this));});
+    private final ActionButton detailsButton=new ActionButton("Import a cape",()->{var mc=Minecraft.getInstance();mc.gui.setScreen(new CosmeticDetailsScreen(mc.gui.screen(),this));});
     private final ActionButton clearSearch=new ActionButton("Clear search",()->{search.setValue("");listScroll=0;KeyboardNavigation.requestFocus(search);});
     private final ActionButton showCatalog=new ActionButton("Show catalog",()->{catalog=true;listScroll=0;});
     private boolean empty;
@@ -78,7 +78,7 @@ public final class CosmeticsEditor extends UIComponent {
         top.add(new ActionButton(()->catalog?"Catalog":"Installed",()->{catalog=!catalog;listScroll=0;}));
         top.add(new ActionButton("Refresh",()->{manager.retry();manager.library().refresh();}));
         top.add(new ActionButton(()->"Visible: "+(draft.visible()?"On":"Off"),()->draft=new CosmeticLoadout(!draft.visible(),draft.items())));
-        bottom.add(new ActionButton("Apply",this::apply));bottom.add(new ActionButton("Cancel",this::discard));
+        bottom.add(new ActionButton("Apply",this::apply).enabled(this::isDirty));bottom.add(new ActionButton("Cancel",this::discard));
         bottom.add(new ActionButton(()->editing?"Browse":"Edit",()->{if(!selected.isEmpty()){editing=!editing;settingsScroll=0;buildControls();}}).enabled(()->!selected.isEmpty()&&draft.items().containsKey(category)));
         bottom.add(new ActionButton("Remove",()->{draft=draft.with(category,null);selected="";editing=false;}));
         search.onChange(v->listScroll=0);
@@ -177,11 +177,11 @@ public final class CosmeticsEditor extends UIComponent {
                 try{
                 if(empty){double line=9*Theme.number("Font Scale",1)*.7+5;RenderUtil.text(g,font,RenderUtil.ellipsize(font,"No matches in "+category.label+" · "+(catalog?"Catalog":"Installed"),listBounds.width()/.7),listBounds.x(),listBounds.y()+2-listScroll,.7,Theme.TEXT);var layout=ButtonMetrics.flow(font,List.of("Clear search","Show catalog"),listBounds.width());for(int i=0;i<2;i++){var b=layout.get(i);var action=i==0?clearSearch:showCatalog;action.setBounds(listBounds.x()+b.x(),listBounds.y()+line+b.y()-listScroll,b.width(),b.height());action.render(g,font,mx,my,dt,alpha);}}
                 for(int i=0;i<entries.size();i++){var def=entries.get(i);double cy=listBounds.y()+i*rowHeight-listScroll;if(!KeyboardNavigation.collectingOffscreen()&&(cy+rowHeight<=listBounds.y()||cy>=listBounds.y()+listBounds.height())){continue;}
-                    var button=rowCache.computeIfAbsent(def.id(),key->new ActionButton(def.name(),()->select(key)));boolean thumbnail=!def.preview().isEmpty()&&CosmeticsEditor.class.getResource("/assets/riserecode/cosmetics/"+def.preview())!=null;
+                    var button=rowCache.computeIfAbsent(def.id(),key->new ActionButton("Preview "+def.name(),()->openPreview(key)));boolean thumbnail=!def.preview().isEmpty()&&CosmeticsEditor.class.getResource("/assets/riserecode/cosmetics/"+def.preview())!=null;
                     double iconSpace=thumbnail?22:0;button.setBounds(listBounds.x()+iconSpace,cy,listBounds.width()-3-iconSpace,Math.max(23,9*Theme.number("Font Scale",1)*.8+10));
                     if(thumbnail){g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,CosmeticsManager.id(def.preview()),(int)listBounds.x(),(int)cy+1,0,0,20,20,128,128,128,128,Theme.opacity(-1,alpha));}button.render(g,font,mx,my>=listBounds.y()&&my<listBounds.y()+listBounds.height()?my:-1e6,dt,alpha);rows.add(button);
-                    if(def.id().equals(selected)){RenderUtil.drawRoundedBorder(g,listBounds.x(),cy,listBounds.width()-3,23,3,Theme.opacity(Theme.accent(),alpha),1);}
-                    String detail=def.creator()+" · "+(manager.library().available(def)?def.license():"Download");
+                    if(isDraftSelected(def.id())){RenderUtil.drawRoundedBorder(g,listBounds.x(),cy,listBounds.width()-3,23,3,Theme.opacity(Theme.accent(),alpha),1);}
+                    String detail=(isDraftSelected(def.id())?"In draft":manager.library().available(def)?"Installed":"Download needed")+" · "+def.creator()+" · "+def.license();
                     if(button.contains(mx,my)&&my>=listBounds.y()&&my<listBounds.y()+listBounds.height()){
                         g.setTooltipForNextFrame(font,List.of(net.minecraft.network.chat.Component.literal(def.name()+" · "+def.creator()),net.minecraft.network.chat.Component.literal(def.license()),net.minecraft.network.chat.Component.literal(def.source())),Optional.empty(),(int)mx,(int)my);
                     }RenderUtil.text(g,font,RenderUtil.ellipsize(font,detail,(listBounds.width()-5)/.7),listBounds.x()+2,cy+Math.max(26,9*Theme.number("Font Scale",1)*.8+13),.7,Theme.opacity(Theme.SECONDARY,alpha));
@@ -193,21 +193,25 @@ public final class CosmeticsEditor extends UIComponent {
         if(maximum>0){double thumb=Math.max(12,listBounds.height()*listBounds.height()/(listBounds.height()+maximum));RenderUtil.drawRoundedRect(g,listBounds.x()+listBounds.width()-2,listBounds.y()+scroll/maximum*(listBounds.height()-thumb),1.5,thumb,.75,Theme.opacity(Theme.accent(),alpha*.6));}
         if(compactLayout&&!editing){detailsButton.setBounds(x,y+height-63,width,20);detailsButton.render(g,font,mx,my,dt,alpha);}
         double bottomY=y+height-20;for(int i=0;i<bottom.size();i++){var b=bottom.get(i);b.setBounds(x+i*(width/4),bottomY,width/4-3,20);b.render(g,font,mx,my,dt,alpha);}
-        String status=manager.library().status();if(manager.failed(selected)){status="Asset unavailable · Refresh to retry";}
-        RenderUtil.text(g,font,RenderUtil.ellipsize(font,status,width/.58),x,y+height-34,.58,Theme.opacity(Theme.SECONDARY,alpha));
+        String status=(isDirty()?"Unapplied changes":"No unapplied changes")+" · "+manager.library().status();if(manager.failed(selected)){status="Asset unavailable · Refresh to retry";}
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,status,width/.65),x,y+height-34,.65,Theme.opacity(Theme.SECONDARY,alpha));
     }
+    public boolean isDraftSelected(String id){var def=manager.library().find(id);if(def==null){return false;}var item=draft.items().get(def.category());return item!=null&&item.id().equals(id);}
+    public void openPreview(String id){var def=manager.library().find(id);if(def==null){return;}if(manager.library().available(def)){manager.request(id);}var mc=Minecraft.getInstance();mc.gui.setScreen(CosmeticDetailsScreen.preview(mc.gui.screen(),this,id));}
     public ActionButton detailsButton(){return detailsButton;}
     public long revision(){return revision;}
     public String selectedId(){return selected;}
     public CosmeticsManager manager(){return manager;}
     public void turn(double amount){yaw+=amount;}
     public void zoomBy(double amount){zoom=Math.clamp(zoom+amount,.5,1.6);}
-    public void renderAvatar(GuiGraphicsExtractor g,Bounds area){
+    public void renderAvatar(GuiGraphicsExtractor g,Bounds area){renderAvatar(g,area,"");}
+    public void renderAvatar(GuiGraphicsExtractor g,Bounds area,String inspected){
+        var shown=draft;var definition=manager.library().find(inspected);if(definition!=null&&manager.library().available(definition)){var item=draft.items().get(definition.category());shown=draft.with(definition.category(),item!=null&&item.id().equals(inspected)?item:CosmeticLoadout.Item.defaults(inspected));shown=new CosmeticLoadout(true,shown.items());}
         var mc=Minecraft.getInstance();var state=new AvatarRenderState();state.entityType=EntityTypes.PLAYER;state.scale=state.ageScale=1;state.boundingBoxWidth=.6F;state.boundingBoxHeight=pose==3?.6F:pose==2?1.5F:1.8F;state.eyeHeight=1.62F;
         state.skin=mc.player==null?DefaultPlayerSkin.getDefaultSkin():mc.player.getSkin();state.showCape=state.showHat=state.showJacket=state.showLeftSleeve=state.showRightSleeve=state.showLeftPants=state.showRightPants=true;
         state.lightCoords=15728880;state.bodyRot=180;state.pose=pose==2?Pose.CROUCHING:pose==3?Pose.FALL_FLYING:Pose.STANDING;state.isCrouching=pose==2;state.isFallFlying=pose==3;state.fallFlyingTimeInTicks=pose==3?100:0;
         state.ageInTicks=(float)previewTime*20;state.walkAnimationPos=(float)previewTime*4;state.walkAnimationSpeed=pose==1?.7F:0;state.capeLean=pose==1?35:0;state.capeFlap=pose==2?25:0;
-        var bridge=(CosmeticRenderState)state;bridge.risecode$outfit(draft);bridge.risecode$preview(true);manager.patchCape(state,draft);
+        var bridge=(CosmeticRenderState)state;bridge.risecode$outfit(shown);bridge.risecode$preview(true);manager.patchCape(state,shown);
         var capePhysics=Client.INSTANCE.getModuleManager().getByClass(dev.riserecode.module.modules.CapePhysicsModule.class).orElseThrow();
         if(capePhysics.isEnabled()){((dev.riserecode.render.LegacyCapeState)state).risecode$legacyCape(new dev.riserecode.render.LegacyCapeMotion.Angles(state.capeFlap,state.capeLean,0));}
         double top=area.y(),bottom=area.y()+area.height();
