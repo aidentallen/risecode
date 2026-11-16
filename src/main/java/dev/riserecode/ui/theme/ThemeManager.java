@@ -103,7 +103,7 @@ public final class ThemeManager implements AutoCloseable {
         number("Typography", "Font Boldness", 0, 0, 100, 1);
         number("Typography", "Font Scale", 1, 0.75, 2, 0.01);
         bool("Typography", "Text Shadow", true);
-        add("Typography",new BooleanSetting("Readable Surfaces","Stable text backing over bright worlds; disable for full panel transparency",true));
+        var readableSurfaces=new BooleanSetting("Readable Surfaces","Stable text backing over bright worlds",true);readableSurfaces.setVisibleWhen(()->false);add("Typography",readableSurfaces);
         number("Typography", "Shadow Offset X", 0.5, -4, 4, 0.05);
         number("Typography", "Shadow Offset Y", 0.7, -4, 4, 0.05);
         number("Typography", "Shadow Blur", 0.65, 0, 8, 0.05);

@@ -18,7 +18,7 @@ public final class PageAppearanceScreen extends Screen {
     private final String target;
     private ThemeEditor editor;
     private final ActionButton done=new ActionButton("Done",this::onClose);
-    private final ActionButton reset=new ActionButton("Reset page",this::requestReset);
+    private final ActionButton reset=new ActionButton("Reset this page",this::requestReset);
     private long previous=System.nanoTime();
     private final long opened=System.nanoTime();
     private double visualScale=1;
@@ -34,13 +34,13 @@ public final class PageAppearanceScreen extends Screen {
     public String message(){return message;}
     public ActionButton details(){return details;}
     private void notice(String text){message=text==null?"The operation could not be completed":text;}
-    @Override public Component getNarrationMessage(){return Component.literal("Page appearance. "+(message.isEmpty()?"Changes save automatically. Import Image accepts a local PNG path.":message+". Page status opens complete details."));}
+    @Override public Component getNarrationMessage(){return Component.literal("Page appearance. "+(message.isEmpty()?"Changes save automatically. Import Image accepts a local PNG path.":message+". "));}
     private UIComponent.Bounds panel;
     private double titleY;
     public PageAppearanceScreen(Screen parent,String target){super(Component.literal("Page appearance"));this.parent=parent;this.target=target;NativeScreenRetention.suspend(parent);}
     public String target(){return target;}
     private String pageName(){return parent instanceof dev.riserecode.ui.clickgui.ClickGui gui?Theme.displayName(gui.getPage().name()):parent.getTitle().getString();}
-    private void requestReset(){minecraft.gui.setScreen(InfoScreen.confirm(this,"Reset page appearance?","Reset "+pageName()+" to shared appearance? Clears this page's background, color and style overrides. Other pages and shared settings stay unchanged.","Reset page","Keep page",()->{editor.unfocus();editor=null;Client.INSTANCE.getThemeManager().resetPage(target);init();notice("Page reset to shared appearance: "+pageName());KeyboardNavigation.requestFocus(reset);}));}
+    private void requestReset(){editor.unfocus();editor=null;Client.INSTANCE.getThemeManager().resetPage(target);init();}
     @Override protected void init(){
         var manager=Client.INSTANCE.getThemeManager();var page=manager.page(target);
         var controls=new java.util.ArrayList<>(page.controls());
@@ -80,10 +80,10 @@ public final class PageAppearanceScreen extends Screen {
             title = RenderUtil.ellipsize(font, title, editor.getBounds().width() / .9);
             RenderUtil.text(g,font,title,width / 2.0 - RenderUtil.textWidth(font,title,false) * .9 / 2,titleY,.9,Theme.TEXT);
             editor.render(g,font,px(mx),py(my),dt,1);reset.render(g,font,px(mx),py(my),dt,1);done.render(g,font,px(mx),py(my),dt,1);
-            if(!message.isEmpty()){details.render(g,font,px(mx),py(my),dt,1);}
+            if(!message.isEmpty()){RenderUtil.text(g,font,RenderUtil.ellipsize(font,message,editor.getBounds().width()/.65),editor.getBounds().x(),panel.y()+panel.height()-20,.65,Theme.SECONDARY);}
         });g.pose().popMatrix();
     }
-    @Override public boolean mouseClicked(MouseButtonEvent e,boolean twice){FocusedInput.pointer(px(e.x()),py(e.y()));return !message.isEmpty()&&details.mouseClicked(px(e.x()),py(e.y()),e.button())||done.mouseClicked(px(e.x()),py(e.y()),e.button())||reset.mouseClicked(px(e.x()),py(e.y()),e.button())||editor.mouseClicked(px(e.x()),py(e.y()),e.button());}
+    @Override public boolean mouseClicked(MouseButtonEvent e,boolean twice){FocusedInput.pointer(px(e.x()),py(e.y()));return done.mouseClicked(px(e.x()),py(e.y()),e.button())||reset.mouseClicked(px(e.x()),py(e.y()),e.button())||editor.mouseClicked(px(e.x()),py(e.y()),e.button());}
     @Override public boolean mouseDragged(MouseButtonEvent e,double dx,double dy){return editor.mouseDragged(px(e.x()),py(e.y()),e.button());}
     @Override public boolean mouseReleased(MouseButtonEvent e){return editor.mouseReleased(px(e.x()),py(e.y()),e.button());}
     @Override public boolean mouseScrolled(double x,double y,double h,double v){return editor.mouseScrolled(px(x),py(y),v);}

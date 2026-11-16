@@ -118,7 +118,7 @@ public final class ResourcesEditor extends UIComponent {
         if(known!=manager.library().catalog()||!query.equals(search.getValue())){query=search.getValue();rebuild();}
         double inputHeight=SettingMetrics.fieldHeight();var filters=ButtonMetrics.flow(font,List.of(category.label(),selectedView.label(),tools.label()),width);
         double filterHeight=ButtonMetrics.flowHeight(filters),filterY=y+inputHeight+5;
-        boolean detailView=detail!=null&&!toolsMenu&&!categoryMenu;
+        boolean detailView=false;
         if(!detailView){search.setBounds(x,y,width,inputHeight);search.render(g,font,mx,my,dt,alpha);
         var buttons=List.of(category,selectedView,tools);for(int i=0;i<buttons.size();i++){var b=filters.get(i);buttons.get(i).setBounds(x+b.x(),filterY+b.y(),b.width(),b.height());buttons.get(i).render(g,font,mx,my,dt,alpha);}}
         bodyTop=detailView?y:filterY+filterHeight+5;compactFooter=height<240||width<260;footerHeight=compactFooter?ButtonMetrics.HEIGHT+line(.7)+8:ButtonMetrics.HEIGHT+3*line(.7)+10;
@@ -126,7 +126,7 @@ public final class ResourcesEditor extends UIComponent {
         cardHeight=compactCards?Math.max(34,line(.78)+14):Math.max(68,38+line(.71)+line(.7));cardStep=cardHeight+7;
         selectedButtons=ButtonMetrics.flow(font,List.of("Details","Up","Down","×"),Math.max(1,width-12));selectedHeader=available<100?0:Math.max(24,line(.7)+6);selectedStep=Math.max(28,2*line(.75))+ButtonMetrics.flowHeight(selectedButtons)+14;detailHeader=ButtonMetrics.HEIGHT+8;
         int columns=compactCards?1:Math.clamp((int)((width+8)/150),1,6);
-        double toolsBody=4*ButtonMetrics.rowHeight()+line(.7)+8;
+        double toolsBody=3*ButtonMetrics.rowHeight()+line(.7)+8;
         if(toolsMenu){maxScroll=Math.max(0,SettingsSection.HEADER+maintenanceSection.bodyHeight(toolsBody)-available);}
         else if(categoryMenu){maxScroll=Math.max(0,categoryButtons.size()*ButtonMetrics.rowHeight()-available);}
         else if(detail!=null){layoutDetail(font);maxScroll=Math.max(0,detailContentHeight()-Math.max(1,available-detailHeader));}
@@ -142,7 +142,7 @@ public final class ResourcesEditor extends UIComponent {
             if(toolsMenu){
                 double top=bodyTop-scroll;maintenanceSection.setBounds(x,top,width,SettingsSection.HEADER);maintenanceSection.render(g,font,mx,my,dt,alpha);double body=maintenanceSection.bodyHeight(toolsBody);
                 RenderUtil.scissorPush(g,x,top+SettingsSection.HEADER,width,body);
-                try{var toolsList=List.of(cache,stop,refresh,about);for(int i=0;i<toolsList.size();i++){var button=toolsList.get(i);button.setBounds(x,top+SettingsSection.HEADER+i*ButtonMetrics.rowHeight(),width,ButtonMetrics.HEIGHT);button.render(g,font,maintenanceSection.isExpanded()?mx:-1e6,maintenanceSection.isExpanded()?my:-1e6,dt,alpha*maintenanceSection.amount(toolsBody));}RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Cache, pause, cancel or refresh",width/.7),x+4,top+SettingsSection.HEADER+4*ButtonMetrics.rowHeight(),.7,Theme.opacity(Theme.SECONDARY,alpha*maintenanceSection.amount(toolsBody)));}finally{RenderUtil.scissorPop(g);}
+                try{var toolsList=List.of(cache,stop,refresh);for(int i=0;i<toolsList.size();i++){var button=toolsList.get(i);button.setBounds(x,top+SettingsSection.HEADER+i*ButtonMetrics.rowHeight(),width,ButtonMetrics.HEIGHT);button.render(g,font,maintenanceSection.isExpanded()?mx:-1e6,maintenanceSection.isExpanded()?my:-1e6,dt,alpha*maintenanceSection.amount(toolsBody));}RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Cache, pause, cancel or refresh",width/.7),x+4,top+SettingsSection.HEADER+3*ButtonMetrics.rowHeight(),.7,Theme.opacity(Theme.SECONDARY,alpha*maintenanceSection.amount(toolsBody)));}finally{RenderUtil.scissorPop(g);}
             }else if(categoryMenu){for(int i=0;i<categoryButtons.size();i++){var button=categoryButtons.get(i);button.setBounds(x,bodyTop+i*ButtonMetrics.rowHeight()-scroll,width-3,ButtonMetrics.HEIGHT);if(KeyboardNavigation.collectingOffscreen()||button.getBounds().y()+ButtonMetrics.HEIGHT>=bodyTop&&button.getBounds().y()<bodyTop+available){button.render(g,font,mx,my,dt,alpha);}}}
             else if(detail!=null){renderDetail(g,font,mx,my,dt,alpha);}
             else if(showSelected){renderSelected(g,font,mx,my,dt,alpha);}
@@ -190,7 +190,7 @@ public final class ResourcesEditor extends UIComponent {
     private void drawFooter(GuiGraphicsExtractor g,Font font,double mx,double my,double dt,double alpha){
         var progress=manager.library().progress();String status=manager.busy()?manager.status():progress.phase();if(progress.running()&&progress.total()>0){status=(progress.paused()?"Paused · ":"")+status+" "+progress.completed()+"/"+progress.total();}
         double applyWidth=ButtonMetrics.width(font,apply.label()),cancelWidth=ButtonMetrics.width(font,"Cancel"),buttonsWidth=applyWidth+cancelWidth+5,footerTop=y+height-footerHeight;
-        statusHelp.setBounds(x,footerTop,width,line(.7));statusHelp.render(g,font,mx,my,dt,alpha);
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,status,width/.7),x,footerTop,.7,Theme.opacity(Theme.SECONDARY,alpha));
         if(!compactFooter){RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Vanilla Tweaks · vanillatweaks.net",width/.7),x,footerTop+line(.7),.7,Theme.opacity(Theme.SECONDARY,alpha));RenderUtil.text(g,font,RenderUtil.ellipsize(font,applyHelp(),width/.7),x,footerTop+2*line(.7),.7,Theme.opacity(Theme.SECONDARY,alpha));}
         else{RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Vanilla Tweaks",Math.max(1,width-buttonsWidth-5)/.7),x,y+height-15,.7,Theme.opacity(Theme.SECONDARY,alpha));}
         apply.setBounds(x+width-buttonsWidth,y+height-ButtonMetrics.HEIGHT,applyWidth,ButtonMetrics.HEIGHT);cancel.setBounds(x+width-cancelWidth,y+height-ButtonMetrics.HEIGHT,cancelWidth,ButtonMetrics.HEIGHT);apply.render(g,font,mx,my,dt,alpha);cancel.render(g,font,mx,my,dt,alpha);
@@ -205,9 +205,9 @@ public final class ResourcesEditor extends UIComponent {
         }return false;
     }
     @Override public boolean mouseClicked(double mx,double my,int button){
-        if(!contains(mx,my)){return false;}if(statusHelp.mouseClicked(mx,my,button)){return true;}if(detail==null){if(search.mouseClicked(mx,my,button)){return true;}for(var action:List.of(selectedView,category,tools)){if(action.mouseClicked(mx,my,button)){return true;}}}for(var action:List.of(apply,cancel)){if(action.mouseClicked(mx,my,button)){return true;}}
+        if(!contains(mx,my)){return false;}if(detail==null){if(search.mouseClicked(mx,my,button)){return true;}for(var action:List.of(selectedView,category,tools)){if(action.mouseClicked(mx,my,button)){return true;}}}for(var action:List.of(apply,cancel)){if(action.mouseClicked(mx,my,button)){return true;}}
         if(my<bodyTop||my>=bodyTop+available){return true;}if(toolsMenu||categoryMenu){mx=menuX(mx);my=menuY(my);}
-        if(toolsMenu){if(maintenanceSection.mouseClicked(mx,my,button)){return true;}double total=4*ButtonMetrics.rowHeight()+line(.7)+8;if(!maintenanceSection.isExpanded()||my<maintenanceSection.getBounds().y()+SettingsSection.HEADER||my>=maintenanceSection.getBounds().y()+SettingsSection.HEADER+maintenanceSection.bodyHeight(total)){return true;}for(var action:List.of(cache,stop,refresh,about)){if(action.mouseClicked(mx,my,button)){return true;}}}
+        if(toolsMenu){if(maintenanceSection.mouseClicked(mx,my,button)){return true;}double total=3*ButtonMetrics.rowHeight()+line(.7)+8;if(!maintenanceSection.isExpanded()||my<maintenanceSection.getBounds().y()+SettingsSection.HEADER||my>=maintenanceSection.getBounds().y()+SettingsSection.HEADER+maintenanceSection.bodyHeight(total)){return true;}for(var action:List.of(cache,stop,refresh)){if(action.mouseClicked(mx,my,button)){return true;}}}
         else if(categoryMenu){for(var action:categoryButtons){if(action.mouseClicked(mx,my,button)){return true;}}}
         else if(detail!=null){if(back.mouseClicked(mx,my,button)||choose.mouseClicked(mx,my,button)){return true;}}
         else if(showSelected){if(clear.mouseClicked(mx,my,button)){return true;}if(my<bodyTop+selectedHeader){return true;}for(var row:List.copyOf(rows)){for(var action:List.of(row.detail(),row.up(),row.down(),row.remove())){if(action.mouseClicked(mx,my,button)){return true;}}}int index=(int)((my-bodyTop-Math.max(24,line(.7)+6)+scroll)/selectedStep);if(button==0&&index>=0&&index<selected.size()){dragging=selected.get(index);focused=dragging;return true;}}

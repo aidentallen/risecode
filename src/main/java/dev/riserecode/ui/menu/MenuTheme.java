@@ -72,7 +72,7 @@ public final class MenuTheme {
         return screen==null?"":screen.getClass().getName();
     }
     public interface TransientScreen { }
-    public static boolean gearSupported(Screen screen){return screen!=null&&!(screen instanceof TransientScreen)&&!(screen instanceof net.minecraft.client.gui.screens.ConfirmScreen)&&!(screen instanceof dev.riserecode.ui.clickgui.ClickGui)&&!(screen instanceof PageAppearanceScreen)&&!(screen instanceof net.minecraft.client.gui.screens.ChatScreen);}
+    public static boolean gearSupported(Screen screen){return screen!=null&&!(screen instanceof dev.riserecode.ui.clickgui.ClickGui)&&!(screen instanceof PageAppearanceScreen)&&!(screen instanceof net.minecraft.client.gui.screens.ChatScreen);}
     public static String family(Screen screen) {
         if(screen instanceof PageAppearanceScreen){return null;}
         if(screen instanceof net.minecraft.client.gui.screens.ChatScreen || screen instanceof dev.riserecode.ui.clickgui.ClickGui || screen instanceof dev.riserecode.ui.hud.HudEditorScreen || screen instanceof dev.riserecode.map.WorldMapScreen){return null;}

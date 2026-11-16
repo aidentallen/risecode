@@ -137,8 +137,8 @@ public final class ColorPicker extends UIComponent {
         }finally{RenderUtil.scissorPop(g);}
     }
     public void selectEndpoint(boolean endpoint){dev.riserecode.ui.component.FocusedInput.commit();secondary=endpoint;readColor();}
-    private void openMode(){var mc=net.minecraft.client.Minecraft.getInstance();mc.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(mc.gui.screen(),setting.getName()+" · Mode",List.of(ColorSetting.Mode.values()),setting.getMode(),mode->{setting.setMode(mode);commitModeBaseline();changed.run();readColor();}));}
-    private void openDirection(){var mc=net.minecraft.client.Minecraft.getInstance();mc.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(mc.gui.screen(),setting.getName()+" · Direction",List.of(ColorUtil.GradientDirection.values()),setting.getDirection(),direction->{setting.setDirection(direction);changed.run();}));}
+    private void openMode(){var values=ColorSetting.Mode.values();setting.setMode(values[(setting.getMode().ordinal()+1)%values.length]);commitModeBaseline();changed.run();readColor();}
+    private void openDirection(){var values=ColorUtil.GradientDirection.values();setting.setDirection(values[(setting.getDirection().ordinal()+1)%values.length]);changed.run();}
     private void changeMode(int direction){dev.riserecode.ui.component.FocusedInput.commit();var options=ColorSetting.Mode.values();setting.setMode(options[Math.floorMod(setting.getMode().ordinal()+direction,options.length)]);commitModeBaseline();changed.run();readColor();}
     private void changeDirection(){setting.setDirection(setting.getDirection()==ColorUtil.GradientDirection.HORIZONTAL?ColorUtil.GradientDirection.VERTICAL:ColorUtil.GradientDirection.HORIZONTAL);changed.run();}
     private void update(double mx,double my){

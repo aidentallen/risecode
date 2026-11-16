@@ -8,6 +8,15 @@ Historical entries were recovered from retained source/JAR artifacts and develop
 documentation. Their notes identify provenance and missing history; original dates
 and development commits are not invented.
 
+## 0.30.1-beta.1 — Original controls restored (2026-11-16)
+
+- Restore the pre-review button set and interactions across navigation, modules,
+  cosmetics, resources, profiles/friends, waypoints, HUD, Glass and page appearance.
+- Remove the added button/dialog workflows; keep independent rendering, animation,
+  validation and lifecycle fixes. Existing settings and user files are preserved.
+- Verify the restored control contract with 22 native assertions and the main checks.
+  This is a preview build from the refinement branch.
+
 ## Unreleased — Whole-codebase review remediation
 
 - Contain cosmetic cache paths, bound seed database response acquisition, and keep

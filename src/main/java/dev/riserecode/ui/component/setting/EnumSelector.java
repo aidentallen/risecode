@@ -46,7 +46,7 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
         if (displayed != setting.getValue()) { displayed = setting.getValue(); change.reset(0); change.animateTo(1); }
         double progress = change.update(deltaSeconds);
         String label = Theme.displayName(setting.getName()) + ": ";
-        String option = option()+" ▾";
+        String option = option();
         double scale=.85;
         double top=y+(height-18*Theme.number("Font Scale",1)*scale)/2;
         RenderUtil.text(graphics,font,RenderUtil.ellipsize(font,label,(width-4)/scale),x,top,scale,Theme.opacity(Theme.SECONDARY,opacity));
@@ -59,12 +59,7 @@ public final class EnumSelector<E extends Enum<E>> extends UIComponent {
         if (!contains(mouseX, mouseY) || (button != 0 && button != 1)) { return false; }
         if(button==0){openChoices();}else{choose(-1);} return true;
     }
-    private void openChoices(){
-        if(choicePresenter!=null){choicePresenter.run();return;}
-        var mc=net.minecraft.client.Minecraft.getInstance();
-        dev.riserecode.ui.component.FocusedInput.commit();
-        mc.gui.setScreen(new dev.riserecode.ui.menu.ChoiceScreen<>(mc.gui.screen(),setting.getName(),setting.getOptions(),setting.getValue(),value->{setting.setValue(value);changed.run();dev.riserecode.ui.sound.UiSounds.play();}));
-    }
+    private void openChoices(){choose(1);}
     private void choose(int direction) {
         var options = setting.getOptions();
         setting.setValue(options.get(Math.floorMod(options.indexOf(setting.getValue()) + direction, options.size())));
