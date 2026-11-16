@@ -26,7 +26,7 @@ public final class PerformanceChecks {
             check(p.reducedDetail()==(mode!=Mode.CONSERVATIVE),"detail matches preset");
             check(p.suppressTrails()==(mode==Mode.STRONG),"trails match preset");
             check(p.particleDensity()==(mode==Mode.STRONG?PerformancePolicy.Density.OFF:mode==Mode.BALANCED?PerformancePolicy.Density.HALF:PerformancePolicy.Density.FULL),"density matches preset");
-            check(p.mapColumns()==16&&p.mapCaptureNanos()==500000&&p.mapCpuEntries()==256&&p.mapCpuBytes()==32L*1024*1024&&p.mapGpuEntries()==128&&p.previewEntries()==24&&p.previewPending()==8&&p.unusedCosmeticEntries()==8&&p.unusedCosmeticBytes()==32L*1024*1024,"independent reduced budgets match specification");
+            check(p.mapColumns()==64&&p.mapCaptureNanos()==500000&&p.mapCpuEntries()==2048&&p.mapCpuBytes()==64L*1024*1024&&p.mapGpuEntries()==1024&&p.previewEntries()==24&&p.previewPending()==8&&p.unusedCosmeticEntries()==8&&p.unusedCosmeticBytes()==32L*1024*1024,"independent reduced budgets match specification");
             ((BooleanSetting)prefs.options().get(0)).setValue(false);
             check(prefs.mode.getValue()==Mode.CUSTOM&&!prefs.effective().blur()&&prefs.effective().particleDensity()==p.particleDensity()&&prefs.effective().suppressTrails()==p.suppressTrails(),"edit copies effective preset then changes one control");
             var custom=prefs.custom();prefs.mode.setValue(Mode.OFF);check(prefs.effective().equals(PerformancePolicy.OFF),"Off removes every reduction");prefs.mode.setValue(Mode.BALANCED);prefs.mode.setValue(Mode.CUSTOM);check(prefs.effective().equals(custom),"preset changes retain last Custom");

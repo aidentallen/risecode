@@ -60,9 +60,11 @@ public final class MapService implements AutoCloseable {
     public MapLayerPolicy.Mode mode(){return mode;}
     public void cycleMode(){mode=MapLayerPolicy.Mode.values()[(mode.ordinal()+1)%MapLayerPolicy.Mode.values().length];preferences.addProperty("layerMode",mode.name());saveSettings();}
     public MapLayerPolicy.Layer layer(MapLayerPolicy.Mode selection){return layers.layer(selection);}
-    public int altitude(){return layers.altitude();}
+    public int altitude(){return MapLayerPolicy.band(layers.altitude());}
     public long cpuBytes(){return cpuBytes;}
-    public Key key(String dim,int x,int z,int lod,MapLayerPolicy.Mode selection,int manualAltitude){var layer=layers.layer(selection);return new Key(dim,x,z,lod,layer,layer==MapLayerPolicy.Layer.CAVE?(manualAltitude==Integer.MIN_VALUE?altitude():manualAltitude):0);}
+    public Key key(String dim,int x,int z,int lod,MapLayerPolicy.Mode selection,int manualAltitude){var layer=layers.layer(selection);return new Key(dim,x,z,lod,layer,layer==MapLayerPolicy.Layer.CAVE?(manualAltitude==Integer.MIN_VALUE?altitude():MapLayerPolicy.band(manualAltitude)):0);}
+    /** Height stored for a block, or null while its tile is not available or nothing was seen there. */
+    public Integer knownHeight(Key key,int blockX,int blockZ){var tile=tile(key);if(tile==null){return null;}int height=tile.height((blockZ&15)*16+(blockX&15));return level==null||height<level.getMinY()?null:height;}
     private final ArrayDeque<PendingDeath> bufferedDeaths=new ArrayDeque<>();
     private record PendingDeath(int x,int y,int z,String dimension,long time) { }
     private boolean enclosed(){
@@ -76,8 +78,9 @@ public final class MapService implements AutoCloseable {
             if(roof&&!level.canSeeSky(column)){roofs++;}
         }return roofs>=4;
     }
+    private static final long RESCAN_TICKS=3000;
     private static final List<int[]> OFFSETS=offsets();
-    private static List<int[]> offsets(){List<int[]> out=new ArrayList<>();for(int z=-8;z<=8;z++){for(int x=-8;x<=8;x++){out.add(new int[]{x,z});}}out.sort(Comparator.comparingInt(a->a[0]*a[0]+a[1]*a[1]));return List.copyOf(out);}
+    private static List<int[]> offsets(){List<int[]> out=new ArrayList<>();for(int z=-32;z<=32;z++){for(int x=-32;x<=32;x++){out.add(new int[]{x,z});}}out.sort(Comparator.comparingInt(a->a[0]*a[0]+a[1]*a[1]));return List.copyOf(out);}
     public MapService(Path directory,EventBus bus,Minecraft mc){
         this.mc=mc;root=directory.resolve("maps");
         try{Path settings=root.resolve("settings.json");if(Files.isRegularFile(settings)){preferences=JsonStorage.read(settings);if(preferences.has("recording")){recording=preferences.get("recording").getAsBoolean();}if(preferences.has("layerMode")){mode=MapLayerPolicy.Mode.valueOf(preferences.get("layerMode").getAsString());}}}catch(Exception e){Client.INSTANCE.getLogger().warn("Map settings could not be loaded",e);}
@@ -167,49 +170,69 @@ public final class MapService implements AutoCloseable {
     }
     public WaypointStore.Waypoint addAtPlayer(){if(!ready()||mc.player==null){return null;}var p=mc.player.blockPosition();var result=waypoints.add("Waypoint "+(waypoints.all().size()+1),p.getX(),p.getY(),p.getZ(),dimension);saveWaypoints();return result;}
     private Path file(Key key){return fileAt(worldDirectory,key);}
-    private static Path fileAt(Path directory,Key key){int pageX=MapPageLayout.globalPageFromBlock(key.x()*16),pageZ=MapPageLayout.globalPageFromBlock(key.z()*16);return directory.resolve("terrain").resolve(hash(key.dimension())).resolve(key.layer()==MapLayerPolicy.Layer.SURFACE?".":"cave_"+key.altitude()).resolve("lod"+key.level()).resolve(MapPageLayout.regionFromGlobalPage(pageX)+"_"+MapPageLayout.regionFromGlobalPage(pageZ)).resolve(key.x()+"_"+key.z()+".rsm");}
+    private static Path fileAt(Path directory,Key key){int pageX=MapPageLayout.globalPageFromBlock(key.x()*16),pageZ=MapPageLayout.globalPageFromBlock(key.z()*16);return directory.resolve("terrain").resolve(hash(key.dimension())).resolve(key.layer()==MapLayerPolicy.Layer.SURFACE?".":"cave_"+key.altitude()).resolve((key.level()==0?"lod":"hd")+key.level()).resolve(MapPageLayout.regionFromGlobalPage(pageX)+"_"+MapPageLayout.regionFromGlobalPage(pageZ)).resolve(key.x()+"_"+key.z()+".rsm");}
     public SurfaceTile tile(Key key){
         if(key.level()==0&&key.dimension().equals(dimension)&&!scanned.containsKey(key)&&visible.size()<512){visible.add(key);}
         SurfaceTile found=tiles.get(key);if(found!=null){return found;}
         if(!connected()||missing.contains(key)||pending.contains(key)||pending.size()>=16||worker.getQueue().remainingCapacity()<=2){return null;}
-        long stamp=generation;Path path=file(key);pending.add(key);
-        if(!submit(()->{SurfaceTile loaded=null;try{if(Files.isRegularFile(path)){loaded=SurfaceTile.read(path);if(loaded.x()!=key.x()||loaded.z()!=key.z()){throw new java.io.IOException("Wrong tile coordinates");}}}catch(Exception e){Client.INSTANCE.getLogger().warn("Cannot read surface tile {}",path,e);}SurfaceTile result=loaded;complete(stamp,()->{pending.remove(key);if(result!=null){publish(key,result);}else{missing.add(key);if(missing.size()>2048){missing.remove(missing.iterator().next());}}});})){pending.remove(key);}
+        long stamp=generation;Path path=file(key);Path worldPath=worldDirectory;pending.add(key);
+        if(!submit(()->{SurfaceTile loaded=null;try{if(Files.isRegularFile(path)){loaded=SurfaceTile.read(path);if(loaded.x()!=key.x()||loaded.z()!=key.z()){throw new java.io.IOException("Wrong tile coordinates");}}else if(key.level()>0){loaded=rebuild(worldPath,key,new int[]{4096});}}catch(Exception e){Client.INSTANCE.getLogger().warn("Cannot read surface tile {}",path,e);}SurfaceTile result=loaded;complete(stamp,()->{pending.remove(key);if(result!=null){publish(key,result);}else{missing.add(key);if(missing.size()>2048){missing.remove(missing.iterator().next());}}});})){pending.remove(key);}
         return null;
     }
-    private void publish(Key key,SurfaceTile tile){SurfaceTile previous=tiles.put(key,tile);cpuBytes+=tile.bytes()-(previous==null?0:previous.bytes());textures.remove(key);missing.remove(key);trimCpu();}
+    /** Rebuilds a missing overview from whatever finer tiles exist on disk, so maps saved before overviews existed still zoom out. */
+    private static SurfaceTile rebuild(Path directory,Key key,int[] budget) throws java.io.IOException{
+        Path path=fileAt(directory,key);
+        if(Files.isRegularFile(path)){return SurfaceTile.read(path);}
+        if(key.level()==0){return null;}
+        SurfaceTile result=null;
+        for(int dz=0;dz<4&&budget[0]>0;dz++){for(int dx=0;dx<4&&budget[0]>0;dx++){
+            budget[0]--;
+            SurfaceTile child=rebuild(directory,new Key(key.dimension(),key.x()*4+dx,key.z()*4+dz,key.level()-2,key.layer(),key.altitude()),budget);
+            if(child!=null){result=SurfaceOverview.merge(result,child,key.x(),key.z(),key.level()>2);}
+        }}
+        if(result!=null&&budget[0]>0){result.write(path);}
+        return result;
+    }
+    private void publish(Key key,SurfaceTile tile){SurfaceTile previous=tiles.put(key,tile);cpuBytes+=tile.bytes()-(previous==null?0:previous.bytes());textures.invalidate(key);missing.remove(key);trimCpu();}
     private void trimCpu(){while(tiles.size()>dev.riserecode.performance.PerformancePolicy.current().mapCpuEntries()||cpuBytes>dev.riserecode.performance.PerformancePolicy.current().mapCpuBytes()){var first=tiles.keySet().iterator().next();cpuBytes-=tiles.remove(first).bytes();textures.remove(first);}}
     public record MemoryStatistics(int cpuEntries,long decodedCpuBytes,int gpuEntries,long nativeImageBytes,long ownedGpuBytes,int gpuOverage,int completions) { }
     public MemoryStatistics memoryStatistics(){return new MemoryStatistics(tiles.size(),cpuBytes,textures.ownedSize(),textures.bytes(),textures.bytes(),textures.overage(),completed.size());}
+    private int captureRadius(){return Math.max(8,mc.options.getEffectiveRenderDistance());}
+    /** Underground the current cave band goes first, so the layer you are in fills in before the surface above it. */
+    private Key scanKey(int cx,int cz){
+        boolean below=mode==MapLayerPolicy.Mode.CAVE||mode==MapLayerPolicy.Mode.AUTO&&layers.layer(MapLayerPolicy.Mode.AUTO)==MapLayerPolicy.Layer.CAVE;
+        if(below){Key cave=key(dimension,cx,cz,0,MapLayerPolicy.Mode.CAVE,Integer.MIN_VALUE);if(tick-scanned.getOrDefault(cave,-RESCAN_TICKS)>=RESCAN_TICKS&&!pending.contains(cave)){return cave;}}
+        return key(dimension,cx,cz,0,MapLayerPolicy.Mode.SURFACE,Integer.MIN_VALUE);
+    }
     private void record(){
         var policy=dev.riserecode.performance.PerformancePolicy.current();long end=System.nanoTime()+policy.mapCaptureNanos();
         if(capture==null&&!visible.isEmpty()){
-            for(Key key:List.copyOf(visible)){visible.remove(key);if(!pending.contains(key)&&level.getChunkSource().getChunk(key.x(),key.z(),ChunkStatus.FULL,false)!=null){capture=new Capture(key);break;}}
+            for(Key key:List.copyOf(visible)){visible.remove(key);if(!pending.contains(key)&&level.getChunkSource().getChunk(key.x(),key.z(),ChunkStatus.FULL,false)!=null){capture=new Capture(key);break;}}visible.clear();
         }
         if(capture==null&&!dirty.isEmpty()){
             for(var key:List.copyOf(dirty)){if(pending.contains(key)){continue;}dirty.remove(key);if(level.getChunkSource().getChunk(key.x(),key.z(),ChunkStatus.FULL,false)!=null){capture=new Capture(key);break;}}
         }
         if(capture==null){
-            for(int tries=0;tries<8;tries++){
-                int[] off=OFFSETS.get(scanCursor++%OFFSETS.size());int cx=(mc.player.blockPosition().getX()>>4)+off[0],cz=(mc.player.blockPosition().getZ()>>4)+off[1];Key key=key(dimension,cx,cz,0,mode,Integer.MIN_VALUE);
-                if(tick-scanned.getOrDefault(key,-1000L)<600||pending.contains(key)){continue;}
+            for(int tries=0;tries<32;tries++){
+                int[] off=OFFSETS.get(scanCursor++%OFFSETS.size());int cx=(mc.player.blockPosition().getX()>>4)+off[0],cz=(mc.player.blockPosition().getZ()>>4)+off[1];Key key=scanKey(cx,cz);
+                if(tick-scanned.getOrDefault(key,-RESCAN_TICKS)<RESCAN_TICKS||pending.contains(key)){continue;}
                 if(level.getChunkSource().getChunk(cx,cz,ChunkStatus.FULL,false)==null){continue;}
                 capture=new Capture(key);break;
             }
         }
         if(capture==null){return;}
         if (level.getChunkSource().getChunk(capture.key.x(),capture.key.z(),ChunkStatus.FULL,false)==null
-                || Math.abs((mc.player.blockPosition().getX()>>4)-capture.key.x())>8 || Math.abs((mc.player.blockPosition().getZ()>>4)-capture.key.z())>8) { capture=null; return; }
+                || Math.abs((mc.player.blockPosition().getX()>>4)-capture.key.x())>captureRadius() || Math.abs((mc.player.blockPosition().getZ()>>4)-capture.key.z())>captureRadius()) { capture=null; return; }
         int count=0;while(capture.index<256&&count++<policy.mapColumns()&&System.nanoTime()<end){capture.column();}
         if(capture.index==256){
             Capture done=capture;capture=null;SurfaceTile capturedData=done.finish();long stamp=generation;Path path=file(done.key);Path worldPath=worldDirectory;pending.add(done.key);
-            if(submit(()->{SurfaceTile snapshot=capturedData.shaded();try{snapshot.write(path);
+            var merged=new LinkedHashMap<Key,SurfaceTile>();if(submit(()->{SurfaceTile snapshot=capturedData.shaded();try{snapshot.write(path);
                 SurfaceTile child=snapshot;
                 for(int lod=2;lod<=8;lod+=2){int px=Math.floorDiv(child.x(),4),pz=Math.floorDiv(child.z(),4);Key parentKey=new Key(done.key.dimension(),px,pz,lod,done.key.layer(),done.key.altitude());Path parentPath=fileAt(worldPath,parentKey);
                     SurfaceTile prior=Files.isRegularFile(parentPath)?SurfaceTile.read(parentPath):null;
-                    child=SurfaceOverview.merge(prior,child,px,pz);child.write(parentPath);
+                    child=SurfaceOverview.merge(prior,child,px,pz,lod>2);child.write(parentPath);merged.put(parentKey,child);
                 }
-            }catch(Exception e){Client.INSTANCE.getLogger().warn("Cannot persist surface tile",e);}complete(stamp,()->{pending.remove(done.key);publish(done.key,snapshot);
-                    int px=done.key.x(),pz=done.key.z();for(int lod=2;lod<=8;lod+=2){px=Math.floorDiv(px,4);pz=Math.floorDiv(pz,4);Key parent=new Key(done.key.dimension(),px,pz,lod,done.key.layer(),done.key.altitude());SurfaceTile removed=tiles.remove(parent);if(removed!=null){cpuBytes-=removed.bytes();}textures.remove(parent);missing.remove(parent);}});})){scanned.put(done.key,tick);while(scanned.size()>1024){scanned.remove(scanned.keySet().iterator().next());}captured++;}else{pending.remove(done.key);}
+            }catch(Exception e){Client.INSTANCE.getLogger().warn("Cannot persist surface tile",e);}complete(stamp,()->{pending.remove(done.key);publish(done.key,snapshot);merged.forEach((parent,tile)->{missing.remove(parent);if(tiles.containsKey(parent)){publish(parent,tile);}});});})){scanned.put(done.key,tick);while(scanned.size()>8192){scanned.remove(scanned.keySet().iterator().next());}captured++;}else{pending.remove(done.key);}
         }
     }
     private final class Capture {
@@ -218,7 +241,7 @@ public final class MapService implements AutoCloseable {
         private Capture(Key key){this.key=key;}
         private int height(int x,int z){
             if(key.layer()==MapLayerPolicy.Layer.SURFACE){return level.getHeight(Heightmap.Types.WORLD_SURFACE,x,z)-1;}
-            int top=Math.min(level.getMaxY()-3,key.altitude()),bottom=Math.max(level.getMinY(),key.altitude()-28);
+            int top=Math.min(level.getMaxY()-3,key.altitude()+MapLayerPolicy.BAND-1),bottom=Math.max(level.getMinY(),top-30);
             for(int y=top;y>=bottom;y--){BlockPos p=new BlockPos(x,y,z);var state=level.getBlockState(p);
                 if((!state.getFluidState().isEmpty()||!state.isAir()&&state.isSolidRender())&&level.getBlockState(p.above()).isAir()&&level.getBlockState(p.above(2)).isAir()){return y;}
             }return level.getMinY()-1;

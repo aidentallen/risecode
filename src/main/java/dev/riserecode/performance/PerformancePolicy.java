@@ -17,11 +17,11 @@ public record PerformancePolicy(boolean blur, boolean glow, boolean softShadows,
     public static void beginExtraction(){extraction=published;}
     public static void tick(){tick++;}
     public static long ticks(){return tick;}
-    public int mapColumns(){return backgroundWork?16:32;}
+    public int mapColumns(){return backgroundWork?64:128;}
     public long mapCaptureNanos(){return backgroundWork?500_000:1_500_000;}
-    public int mapCpuEntries(){return mapCpu?256:512;}
-    public long mapCpuBytes(){return (mapCpu?32L:64L)*1024*1024;}
-    public int mapGpuEntries(){return mapGpu?128:512;}
+    public int mapCpuEntries(){return mapCpu?2048:4096;}
+    public long mapCpuBytes(){return (mapCpu?64L:128L)*1024*1024;}
+    public int mapGpuEntries(){return mapGpu?1024:1536;}
     public int previewEntries(){return previews?24:48;}
     public int previewPending(){return previews?8:16;}
     public int unusedCosmeticEntries(){return cosmeticCache?8:16;}

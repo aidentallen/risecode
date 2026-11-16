@@ -9,7 +9,7 @@ public final class SettingCodecs {
     private SettingCodecs() { }
     public static boolean supported(Setting<?> setting) {
         return setting instanceof BooleanSetting || setting instanceof DoubleSetting || setting instanceof EnumSetting<?>
-                || setting instanceof StringSetting || setting instanceof ColorSetting || setting instanceof BlockListSetting;
+                || setting instanceof StringSetting || setting instanceof ColorSetting || setting instanceof BlockListSetting || setting instanceof KeySetting;
     }
     public static JsonElement encode(Setting<?> setting, Object value) {
         if (setting instanceof ColorSetting color) { return color.toJson(); }
@@ -19,6 +19,7 @@ public final class SettingCodecs {
     public static JsonElement snapshot(Setting<?> setting) { return encode(setting, setting.getValue()); }
     public static void validate(Setting<?> setting, JsonElement value) {
         if (setting instanceof dev.riserecode.setting.StringSetting text) { String decoded = stringValue(value); if (decoded.length() > text.maximum() || decoded.codePoints().anyMatch(Character::isISOControl)) { throw new IllegalArgumentException("Invalid text"); } }
+        else if (setting instanceof KeySetting) { int key = numberValue(value).getAsInt(); if (key < -1 || key > 400) { throw new IllegalArgumentException("Invalid key code"); } }
         else if (setting instanceof BooleanSetting) { booleanValue(value); }
         else if (setting instanceof DoubleSetting number) {
             double decoded = numberValue(value).getAsDouble();
@@ -33,6 +34,7 @@ public final class SettingCodecs {
     public static void apply(Setting<?> setting, JsonElement value) {
         validate(setting, value);
         if (setting instanceof dev.riserecode.setting.StringSetting text) { text.setValue(stringValue(value)); }
+        else if (setting instanceof KeySetting key) { key.setValue(numberValue(value).getAsInt()); }
         else if (setting instanceof BooleanSetting flag) { flag.setValue(booleanValue(value)); }
         else if (setting instanceof DoubleSetting number) { number.setValue(numberValue(value).getAsDouble()); }
         else if (setting instanceof ColorSetting color) { color.apply(color.decode(value)); }

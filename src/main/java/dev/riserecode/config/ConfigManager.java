@@ -368,7 +368,7 @@ public final class ConfigManager implements AutoCloseable {
         List<ModuleState> states = new ArrayList<>();
         for (Module module : modules.getModules()) {
             JsonObject entry = entries.has(module.getName()) ? requiredObject(entries.get(module.getName())) : new JsonObject();
-            boolean enabled = entry.has("enabled") ? booleanValue(entry.get("enabled")) : module instanceof dev.riserecode.module.modules.hud.WatermarkModule || module instanceof dev.riserecode.module.modules.hud.ArrayListModule;
+            boolean enabled = entry.has("enabled") ? booleanValue(entry.get("enabled")) : module instanceof dev.riserecode.module.modules.hud.WatermarkModule || module instanceof dev.riserecode.module.modules.hud.ArrayListModule || module instanceof dev.riserecode.module.modules.WorldMapModule;
             Binding binding = binding(module, entry);
             JsonObject values = entry.has("settings") ? requiredObject(entry.get("settings")) : new JsonObject();
             Map<Setting<?>, JsonElement> settings = new LinkedHashMap<>();

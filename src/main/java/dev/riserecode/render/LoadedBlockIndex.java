@@ -76,6 +76,12 @@ public final class LoadedBlockIndex implements AutoCloseable {
             dirty=true;matches.set(pos.getX(),pos.getY(),pos.getZ(),matches(state));
         }
     }
+    private final Map<String, List<String>> owners = new HashMap<>();
+    /** Several modules may watch blocks at once; the index scans for the union of their lists. */
+    public void select(String owner, List<String> ids) {
+        if (ids.isEmpty()) { owners.remove(owner); } else { owners.put(owner, List.copyOf(ids)); }
+        select(owners.values().stream().flatMap(List::stream).distinct().sorted().toList());
+    }
     public void select(List<String> ids) {
         if(selection.equals(ids)){return;}selection=List.copyOf(ids);
         Set<String> next = Set.copyOf(ids); if (selected.equals(next)) { return; }

@@ -3,5 +3,12 @@
   "key.riserecode.clickgui": "Open / close ClickGUI",
   "key.category.riserecode.maps": "risecode Maps",
   "key.riserecode.map": "Open world map",
-  "key.riserecode.waypoint": "Add waypoint"
+  "key.riserecode.waypoint": "Add waypoint",
+  "key.riserecode.waypoint_manager": "Open waypoint manager",
+  "key.riserecode.waypoint_track": "Track nearest waypoint",
+  "key.riserecode.waypoint_clear_tracking": "Stop tracking waypoints",
+  "key.riserecode.minimap_enlarge": "Minimap enlarge (hold)",
+  "key.riserecode.minimap_zoom_in": "Minimap zoom in",
+  "key.riserecode.minimap_zoom_out": "Minimap zoom out",
+  "key.riserecode.waypoint_markers": "Show / hide waypoint markers"
 }

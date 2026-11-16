@@ -16,12 +16,12 @@ import java.util.*;
 
 /** Native 26.2 integration order, deterministic centerline (launch spread is intentionally excluded). */
 public final class TrajectoryPrediction {
-    public record Path(List<Vec3> points,HitResult.Type impact){public Path{points=List.copyOf(points);}}
+    public record Path(List<Vec3> points,HitResult.Type impact,Entity target){public Path{points=List.copyOf(points);}public Path(List<Vec3> points,HitResult.Type impact){this(points,impact,null);}}
     private TrajectoryPrediction(){ }
     private static boolean loaded(ClientLevel level,Vec3 pos){return level.getChunkSource().getChunk((int)Math.floor(pos.x/16),(int)Math.floor(pos.z/16),net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false)!=null;}
     public static boolean supported(Projectile p){return p instanceof AbstractArrow||p instanceof ThrowableProjectile||p instanceof AbstractWindCharge||p instanceof FireworkRocketEntity;}
     public static Path predict(ClientLevel level,Projectile p,int ticks){
-        Vec3 pos=p.position(),motion=p.getDeltaMovement();List<Vec3> points=new ArrayList<>();points.add(pos);HitResult.Type impact=HitResult.Type.MISS;
+        Vec3 pos=p.position(),motion=p.getDeltaMovement();List<Vec3> points=new ArrayList<>();points.add(pos);HitResult.Type impact=HitResult.Type.MISS;Entity target=null;
         if(p instanceof AbstractArrow&&((ArrowPhysicsAccessor)p).risecode$grounded()){return new Path(points,impact);}
         for(int i=0;i<ticks;i++){
             if(!loaded(level,pos)||pos.y<level.getMinY()-32){break;}
@@ -41,7 +41,7 @@ public final class TrajectoryPrediction {
                 entityHit=net.minecraft.world.entity.projectile.ProjectileUtil.getManyEntityHitResult(level,p,pos,end,search,eligible,margin,ClipContext.Block.COLLIDER,false)
                         .stream().min(Comparator.comparingDouble(hit->start.distanceToSqr(hit.getLocation()))).orElse(null);
             }else{entityHit=net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(level,p,pos,end,search,eligible,margin);}
-            if(entityHit!=null){end=entityHit.getLocation();impact=HitResult.Type.ENTITY;}
+            if(entityHit!=null){end=entityHit.getLocation();impact=HitResult.Type.ENTITY;target=entityHit.getEntity();}
             if(impact!=HitResult.Type.ENTITY&&block.getType()!=HitResult.Type.MISS){impact=HitResult.Type.BLOCK;}
             points.add(end);if(impact!=HitResult.Type.MISS){break;}
             pos=next;
@@ -49,6 +49,6 @@ public final class TrajectoryPrediction {
             else if(p instanceof AbstractWindCharge){motion=motion.add(0,-gravity,0);}
             if(motion.lengthSqr()<1e-8){break;}
         }
-        return new Path(points,impact);
+        return new Path(points,impact,target);
     }
 }

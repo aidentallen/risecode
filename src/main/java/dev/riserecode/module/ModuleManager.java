@@ -57,7 +57,7 @@ public final class ModuleManager {
     }
 
     public void initDefaults(Minecraft minecraft, FriendManager friends, RotationManager rotations, AttackManager attacks, dev.riserecode.util.CameraEffectsManager camera, dev.riserecode.render.LoadedBlockIndex blocks) {
-        register(new dev.riserecode.module.modules.TrajectoriesModule(eventBus, minecraft));
+        var trajectories = register(new dev.riserecode.module.modules.TrajectoriesModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.BetterChatModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.BetterTabModule(eventBus));
         register(new dev.riserecode.module.modules.NametagsModule(eventBus, minecraft));
@@ -65,10 +65,13 @@ public final class ModuleManager {
         register(new dev.riserecode.module.modules.AutoToolModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.FastBreakModule(eventBus));
         register(new dev.riserecode.module.modules.hud.MinimapModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.WorldMapModule(eventBus));
         register(new dev.riserecode.module.modules.ZoomModule(eventBus, camera));
         register(new dev.riserecode.module.modules.CrosshairModule(eventBus));
         register(new dev.riserecode.module.modules.ViewModelModule(eventBus));
         register(new dev.riserecode.module.modules.BaseFinderModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.LowFireModule(eventBus));
+        register(new dev.riserecode.module.modules.XrayModule(eventBus, minecraft));
         register(new dev.riserecode.module.modules.StorageEspModule(eventBus, minecraft, blocks));
         register(new dev.riserecode.module.modules.PlayerEspModule(eventBus, minecraft, friends));
         register(new dev.riserecode.module.modules.BlockEspModule(eventBus, minecraft, blocks));
@@ -83,12 +86,21 @@ public final class ModuleManager {
         register(new FullBrightModule(eventBus, minecraft));
         register(new SprintModule(eventBus, minecraft));
         register(new KillAuraModule(eventBus, minecraft, friends, rotations, attacks));
+        register(new dev.riserecode.module.modules.AimLockModule(eventBus, minecraft, friends, rotations));
+        register(new dev.riserecode.module.modules.MaceAssistModule(eventBus, minecraft, friends, rotations, attacks));
+        register(new dev.riserecode.module.modules.ReachModule(eventBus));
+        register(new dev.riserecode.module.modules.FastPlaceModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.AirPlaceModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.CageModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.CriticalsModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.AutoBowModule(eventBus, minecraft, friends, trajectories, rotations));
         register(new TracersModule(eventBus, minecraft, friends));
         register(new NoFallModule(eventBus, minecraft));
         register(new FlyModule(eventBus, minecraft));
         register(new FpsModule(eventBus, minecraft)); register(new PingModule(eventBus, minecraft));
         register(new CoordinatesModule(eventBus, minecraft)); register(new PotionEffectsModule(eventBus, minecraft));
         register(new MemoryUsageModule(eventBus, minecraft));
+        register(new dev.riserecode.module.modules.hud.ArmorHudModule(eventBus, minecraft));
         register(new FreeLookModule(eventBus, minecraft)); register(new FreeCamModule(eventBus, minecraft));
         register(new EnchantEffectModule(eventBus)); register(new dev.riserecode.module.modules.GlassModule(eventBus)); register(new ItemPhysicsModule(eventBus));
         register(new HotbarModule(eventBus));
