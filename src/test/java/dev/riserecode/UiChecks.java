@@ -64,7 +64,7 @@ public final class UiChecks {
         EnumSelector<Choice> selector = new EnumSelector<>(choice, saves::incrementAndGet,openedChoices::incrementAndGet);
         selector.setBounds(0, 0, 100, 42);
         check(selector.mouseClicked(20, 20, 1) && choice.getValue() == Choice.THIRD, "enum reverse wraps");
-        check(selector.mouseClicked(20, 20, 0) && choice.getValue() == Choice.THIRD && openedChoices.get()==1, "opening enum chooser preserves current value");
+        check(selector.mouseClicked(20, 20, 0) && choice.getValue() == Choice.FIRST && openedChoices.get()==0, "original enum forward cycle wraps without opening a chooser");
         ColorSetting color = new ColorSetting("Color", "", 0x803B82F6);
         ColorSwatch swatch = new ColorSwatch(color, saves::incrementAndGet);
         swatch.setBounds(0, 0, 100, 28);

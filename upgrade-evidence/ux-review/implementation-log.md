@@ -354,3 +354,43 @@ Framebuffer/presentation clarification: the successful game-test metadata report
 ### Loop 16 final regression
 
 The authoritative full check/build/native run passed **774 assertions** across14 UX suites, including62 focused followups, and preserved138 native framebuffer PNGs. /tmp/ux-loop16-full1.log ends BUILD SUCCESSFUL. Command: `JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=$PWD/.tooling/ux-evidence/round16/runtime-tmp" GRADLE_USER_HOME="$PWD/.tooling/gradle-home" ./gradlew check build runClientGameTest -PuxJourneyOnly -PresourcesOffline -PbundledFontsOnly --offline --no-daemon`. The source stayed frozen during the successful benchmark and regression. Final evidence under /tmp/riserecode-ux-round16/final/ preserves the native log/screenshots, current interaction observations, contrast method/code/results and complete successful performance/capture archive. Its manifest has828 source/tooling and165 evidence hashes; the benchmark source map is identical. Representative contrast remains4.602–11.753 under the same bounded full-ink/local-median method, not universal readability certification. Hashes are verified against checkout/Git at checkpoint. Build before commit establishes source/runtime correspondence, not release-JAR provenance. No installation/publication; independent reassessment remains pending.
+
+
+## Button-surface rollback — 2026-11-16
+
+At the user's request, restore the live button set from before this UX review loop
+(baseline6d1afc0), rather than continuing to add controls in pursuit of review scores.
+The full UX checkpoint remains preserved at8d00ef6; this change uses the separate
+fix/restore-original-ui-buttons branch.
+
+- Restore whole-card module toggling/right-click settings, in-place enum/color mode
+  cycling, the original sidebar/settings popup and cosmetic selection/preview controls.
+- Remove added Pages/Clear/messages/module On-Off/help/disclosure targets, cosmetic
+  modal/empty-state actions, resource status/provider actions, profile recovery and
+  replacement flows, separate friend removal, HUD/map Help/Done additions, Glass
+  preview/reset-axis additions, waypoint chooser/full-editor actions and block-picker
+  filter/pagination actions. Restore original buttons hidden/replaced by those flows.
+- Restore direct page reset and the original friend/waypoint deletion behavior; keep
+  pre-existing profile-deletion confirmation. Restore appearance gears suppressed by
+  the review loop. The added readability setting has no visible toggle; its default
+  backing and previously stored value are retained.
+- Retain independent text/backing, animation, field validation, import-completion,
+  keyboard/scroll and lifecycle fixes. Screen arrangements coupled to the replaced
+  control flows return to their original forms. Historical prototype screens and test
+  fixtures remain in source, but normal controls no longer open the retired workflows.
+
+Validation: production and gametest compilation passed. The old UiChecks expectation
+for opening a new enum chooser was replaced by a forward-cycle/no-dialog assertion.
+Main check/build tasks passed; an initial native test needed its TitleScreen fixture
+constructed on the client thread. A later extended test was stopped while waiting in
+GLFW present; the final isolated fixture explicitly disables VSync and caps frames.
+The final native run passed22 assertions (BUILD SUCCESSFUL), with four original PNGs
+and its log preserved under .tooling/ux-button-rollback/2026-11-16/. It verifies original
+module clicks, cosmetics actions, enum cycling, waypoint fields/Save/Cancel, block
+picker return, HUD/resource/profile/friend/page-reset/Glass control surfaces. This
+replaces the superseded prototype-button contracts as rollback acceptance; no new UX
+rating, physical input/latency, renderer matrix or human-study claim is made.
+
+Release packaging:0.30.1-beta.1, Minecraft26.2/Java25, feature-branch PR and prerelease.
+Installation/publication receipts are kept outside Git; existing configurations,
+assets and unrelated mods are preserved.

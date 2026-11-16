@@ -16,7 +16,6 @@ public abstract class KeyboardHandlerMixin {
     private void riserecode$keyPress(long window, int action, KeyEvent input, CallbackInfo callback) {
         if (!Client.INSTANCE.isInitialized() || window != Minecraft.getInstance().getWindow().handle()) { return; }
         var mc = Minecraft.getInstance();
-        if(action==1&&input.key()==290&&dev.riserecode.ui.menu.TooltipPresentation.openDetails()){callback.cancel();return;}
         // The GUI toggle and explicit key capture must precede the text-input owner.
         if (action != 0 && mc.gui.screen() instanceof dev.riserecode.ui.clickgui.ClickGui
                 && (Client.INSTANCE.getKeybindManager().isCapturing()

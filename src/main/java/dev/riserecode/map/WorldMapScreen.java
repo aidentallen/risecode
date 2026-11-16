@@ -36,7 +36,7 @@ public final class WorldMapScreen extends Screen {
                 new ActionButton(()->manualAltitude==Integer.MIN_VALUE?"Y: Auto "+maps.altitude():"Y: "+manualAltitude,()->manualAltitude=manualAltitude==Integer.MIN_VALUE?maps.altitude():manualAltitude>=320?Integer.MIN_VALUE:manualAltitude+8),
                 new ActionButton("Waypoints",()->minecraft.gui.setScreen(new WaypointScreen(this,maps))),
                 new ActionButton("Add",()->add(centerX,centerZ)).enabled(maps::ready),
-                new ActionButton(()->panel?"Fullscreen":"Panel",()->{panel=!panel;anchored=false;save();}),new ActionButton("Help",this::help),new ActionButton("Done",this::onClose));
+                new ActionButton(()->panel?"Fullscreen":"Panel",()->{panel=!panel;anchored=false;save();}),new ActionButton("Done",this::onClose));
     }
     public String helpText(){return "Arrows: pan the map. + / -: zoom around the center. Drag terrain: pan. Wheel: zoom around the pointer. Shift+wheel: change altitude by eight blocks; either Shift key works. The Y action cycles manual altitude and Auto. Recenter returns to your player and current dimension. Layer selects surface/cave behavior. Dimension changes the viewed dimension. Panel/Fullscreen changes the map layout; drag the panel title to move it and its lower-right corner to resize. H or Help opens this guide. Escape or Done returns to the caller. "+(maps.ready()?"Connected: Add creates a waypoint at the map center; right-click terrain creates one at that location. Enter a name, whole-number coordinates, resource-ID dimension and six-digit color, then Save. Cancel leaves the waypoint list unchanged. Waypoints opens saved destinations to edit, track, hide or confirm deletion.":maps.connected()?"Connected: waypoint data is still loading, so Add is unavailable until loading finishes.":"Offline: connect to a world to see explored terrain, recenter on a player and add waypoints. Add is unavailable while disconnected.");}
     private void help(){minecraft.gui.setScreen(new dev.riserecode.ui.menu.InfoScreen(this,"World map controls",helpText()));}
@@ -70,7 +70,7 @@ public final class WorldMapScreen extends Screen {
         String status=maps.connected()?String.format(java.util.Locale.ROOT,"X %.0f  Z %.0f · %s Y %d · %.1f× · Shift+wheel: altitude",wx,wz,maps.layer(maps.mode()).name(),manualAltitude==Integer.MIN_VALUE?maps.altitude():manualAltitude,zoom):"Connect to a world to view explored terrain";
         double line=dev.riserecode.ui.menu.ScreenText.lineHeight(.65),footer=footerHeight();
         RenderUtil.drawRoundedRect(g,x+5,y+h-footer,w-10,footer-4,4,Theme.opacity(Theme.SURFACE,.9));RenderUtil.text(g,font,RenderUtil.ellipsize(font,status,(w-20)/.65),x+10,y+h-footer+3,.65,Theme.TEXT);
-        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Arrows: pan · +/-: zoom · H: Help",(w-20)/.65),x+10,y+h-footer+3+line,.65,Theme.TEXT);
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,"Arrows: pan · +/-: zoom",(w-20)/.65),x+10,y+h-footer+3+line,.65,Theme.TEXT);
         if(panel){RenderUtil.line(g,x+w-10,y+h-4,x+w-4,y+h-10,1.4,Theme.TEXT);}
     }
     private boolean inside(double mx,double my){return mx>=x&&mx<x+w&&my>=y&&my<y+h;}
@@ -94,7 +94,7 @@ public final class WorldMapScreen extends Screen {
         double next=Math.clamp(targetZoom*Math.pow(1.2,vertical),.03125,24);double px=mx-x-w/2,pz=my-y-h/2;
         anchorX=centerX+px/zoom;anchorZ=centerZ+pz/zoom;anchored=true;anchorPixelX=px;anchorPixelZ=pz;targetZoom=next;return true;
     }
-    @Override public boolean keyPressed(KeyEvent e){if(navigation.key(e)){return true;} if(e.isEscape()){onClose();return true;}if(e.key()==72){help();return true;} if(e.key()==262||e.key()==263||e.key()==264||e.key()==265){anchored=false;targetX+=(e.key()==262?1:e.key()==263?-1:0)*32/targetZoom;targetZ+=(e.key()==264?1:e.key()==265?-1:0)*32/targetZoom;return true;} if(e.key()==61||e.key()==45){anchored=false;targetZoom*=e.key()==61?1.2:1/1.2;return true;}return super.keyPressed(e);}
+    @Override public boolean keyPressed(KeyEvent e){if(navigation.key(e)){return true;} if(e.isEscape()){onClose();return true;} if(e.key()==262||e.key()==263||e.key()==264||e.key()==265){anchored=false;targetX+=(e.key()==262?1:e.key()==263?-1:0)*32/targetZoom;targetZ+=(e.key()==264?1:e.key()==265?-1:0)*32/targetZoom;return true;} if(e.key()==61||e.key()==45){anchored=false;targetZoom*=e.key()==61?1.2:1/1.2;return true;}return super.keyPressed(e);}
     @Override public void onClose(){save();minecraft.gui.setScreen(parent);}
     @Override public void removed(){save();}
     @Override public boolean isPauseScreen(){return false;}

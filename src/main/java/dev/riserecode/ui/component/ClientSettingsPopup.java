@@ -56,11 +56,10 @@ public final class ClientSettingsPopup extends UIComponent {
         if(mx!=lastX||my!=lastY){keyboard=false;lastX=mx;lastY=my;}
         double amount=opening.update(dt);hover.animateTo(contains(mx,my)?1:0);double over=hover.update(dt);
         double triggerScale=triggerPress.scale();g.pose().pushMatrix();g.pose().translate((float)(x+width/2),(float)(y+height/2));g.pose().scale((float)triggerScale,(float)triggerScale);g.pose().translate((float)(-x-width/2),(float)(-y-height/2));
-        if (!open) { keyboard(g,alpha,() -> "Client settings, menu",this::toggle,null); }
-        RenderUtil.drawButton(g,x,y,width,height,over,alpha);Icon.GEAR.draw(g,x+(width<60?(width-10)/2:4),y+3,Theme.opacity(Theme.accent(),alpha));
-        String name=Theme.isGerman()?"Einstellungen":"Settings";
-        if(width>=60){RenderUtil.text(g,font,RenderUtil.ellipsize(font,name,(width-30)/.72),x+18,y+5,.72,Theme.opacity(Theme.TEXT,alpha));
-        RenderUtil.text(g,font,"›",x+width-10,y+4,.8,Theme.opacity(Theme.SECONDARY,alpha));}else if(contains(mx,my)){g.setTooltipForNextFrame(font,java.util.List.of(net.minecraft.network.chat.Component.literal(name)),java.util.Optional.empty(),(int)mx,(int)my);}g.pose().popMatrix();
+        RenderUtil.drawButton(g,x,y,width,height,over,alpha);Icon.PLAYER.draw(g,x+4,y+3,Theme.opacity(Theme.accent(),alpha));
+        String name=Minecraft.getInstance().getUser().getName();
+        RenderUtil.text(g,font,RenderUtil.ellipsize(font,name,(width-30)/.72),x+18,y+5,.72,Theme.opacity(Theme.TEXT,alpha));
+        RenderUtil.text(g,font,"›",x+width-10,y+4,.8,Theme.opacity(Theme.SECONDARY,alpha));g.pose().popMatrix();
         double w=Math.min(206,Math.max(1,maxWidth-16)),h=ROWS*22+12;
         popup=new Bounds(Math.clamp(x+width+5,8,Math.max(8,maxWidth-w-8)),Math.clamp(y+height-h,8,Math.max(8,maxHeight-h-8)),w,h);
         if(amount<.001){return;}double opacity=alpha*amount;
@@ -109,7 +108,7 @@ public final class ClientSettingsPopup extends UIComponent {
         if(!open){return false;}
         keyboard=true;
         if(e.isEscape()){close();return true;}
-        if(e.key()==264||e.key()==265||e.key()==258){selected=Math.floorMod(selected+(e.key()==265||e.key()==258&&e.hasShiftDown()?-1:1),ROWS);announce();return true;}
-        if(e.isConfirmation()||e.key()==262){activate(selected,e.key()==262);if(open){announce();}UiSounds.play();return true;}return true;
+        if(e.key()==264||e.key()==265||e.key()==258){selected=Math.floorMod(selected+(e.key()==265||e.key()==258&&e.hasShiftDown()?-1:1),ROWS);return true;}
+        if(e.isConfirmation()||e.key()==262){activate(selected,e.key()==262);UiSounds.play();return true;}return true;
     }
 }
